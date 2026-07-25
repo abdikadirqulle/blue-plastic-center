@@ -5,6 +5,9 @@ const valuesByColumn: Record<string, string[]> = {
   Customer: ["Banaadir Trading Co.", "Sahal Distributors", "Dayax Retail", "Amaan Services", "Hodan Supermarket"],
   Company: ["Banaadir Group", "Sahal Holdings", "Dayax Group", "Amaan Group", "Hodan Retail Ltd."],
   Amount: ["$18,420.00", "$12,250.00", "$7,180.00", "$22,760.00", "$4,940.00"],
+  "Original amount": ["$18,420.00", "$12,250.00", "$7,180.00", "$22,760.00", "$4,940.00"],
+  Outstanding: ["$8,420.00", "$6,250.00", "$2,180.00", "$12,760.00", "$940.00"],
+  Party: ["Banaadir Trading Co.", "Horn Logistics", "Sahal Distributors", "Som Petroleum", "Dayax Retail"],
   "Open balance": ["$8,420.00", "$6,250.00", "$0.00", "$12,760.00", "$2,940.00"],
   Balance: ["$84,250.00", "$31,780.00", "$18,600.00", "$9,420.00", "$146,380.00"],
   Phone: ["+252 61 555 0142", "+252 61 555 0288", "+252 65 555 1190", "+252 62 555 0441", "+252 61 555 0715"],
@@ -89,10 +92,14 @@ const statusesByResource: Record<string, string[]> = {
   tasks: ["In progress", "Open", "Blocked", "Completed", "Open"],
   leave: ["Approved", "Pending", "Approved", "Rejected", "Pending"],
   "fiscal-periods": ["Open", "Open", "Soft closed", "Closed", "Closed"],
+  receivables: ["Current", "Overdue", "Due soon", "Payment plan", "Disputed"],
+  payables: ["Due soon", "Current", "Overdue", "Scheduled", "Disputed"],
+  "debts/payments": ["Received", "Sent", "Received", "Sent", "Pending"],
 };
 
 const prefixes: Record<string, string> = {
   invoices: "INV", customers: "CUS", estimates: "EST", "sales-orders": "SO", payments: "PMT",
+  receivables: "AR", payables: "AP",
   "credit-notes": "CM", bills: "BIL", vendors: "VEN", "purchase-orders": "PO", receipts: "RCV",
   expenses: "EXP", approvals: "APR", accounts: "ACC", transactions: "TXN", reconciliation: "REC",
   transfers: "TRF", "cash-flow": "FCST", items: "ITE", "stock-levels": "STK", warehouses: "WH",
@@ -104,7 +111,8 @@ const prefixes: Record<string, string> = {
 
 function contextualValue(config: ResourceConfig, column: string, index: number) {
   if (/date$/i.test(column) || ["Due date", "Next date"].includes(column)) return dates[index];
-  if (column === "Status") return statusesByResource[config.slug]?.[index] ?? "Active";
+  if (config.module === "debts" && column === "Type") return ["Customer receipt", "Vendor payment", "Customer receipt", "Vendor payment", "Customer receipt"][index];
+  if (column === "Status") return statusesByResource[`${config.module}/${config.slug}`]?.[index] ?? statusesByResource[config.slug]?.[index] ?? "Active";
   if (column === "PO") return `PO-${String(780 + index)}`;
   if (column === "Invoice") return `INV-${String(1048 - index)}`;
   if (column === "SKU") return ["CEM-50", "RICE-25", "OIL-20", "STL-12", "CHR-PRO"][index];
@@ -113,7 +121,7 @@ function contextualValue(config: ResourceConfig, column: string, index: number) 
 
 export function createResourceRows(config: ResourceConfig): ResourceRow[] {
   const prefix = prefixes[config.slug] ?? config.slug.slice(0, 3).toUpperCase();
-  const statuses = statusesByResource[config.slug] ?? ["Active", "Pending", "Completed", "Draft", "Active"];
+  const statuses = statusesByResource[`${config.module}/${config.slug}`] ?? statusesByResource[config.slug] ?? ["Active", "Pending", "Completed", "Draft", "Active"];
   return Array.from({ length: 5 }, (_, index) => ({
     id: `${prefix}-${String(1048 - index).padStart(4, "0")}`,
     cells: config.columns.slice(1).map((column) => contextualValue(config, column, index)),
@@ -164,6 +172,12 @@ export function getResourceStats(config: ResourceConfig): ResourceConfig["stats"
       { label: "Next net payroll", value: "$45,120", helper: "31 Jul 2026" },
       { label: "Leave pending", value: "6", helper: "Manager review" },
       { label: "Loan balance", value: "$18,460", helper: "11 employees" },
+    ],
+    debts: [
+      { label: "Customer debt", value: "$92,750", helper: "46 open balances" },
+      { label: "Vendor debt", value: "$68,420", helper: "24 unpaid bills" },
+      { label: "Overdue", value: "$29,490", helper: "16 debt records" },
+      { label: "Paid this month", value: "$126,840", helper: "38 payments" },
     ],
   };
   return statsByKey[config.module] ?? config.stats;

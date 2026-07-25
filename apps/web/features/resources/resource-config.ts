@@ -123,6 +123,15 @@ export const moduleDefinitions: Record<string, ModuleDefinition> = {
       { slug: "credit-notes", label: "Credit notes" },
     ],
   },
+  debts: {
+    title: "Debts",
+    description: "Track money owed by customers, money owed to vendors, and debt payments.",
+    resources: [
+      { slug: "receivables", label: "Receivables" },
+      { slug: "payables", label: "Payables" },
+      { slug: "payments", label: "Payments" },
+    ],
+  },
   purchasing: {
     title: "Purchasing & expenses",
     description: "Vendors, purchase orders, receiving, bills, expenses, and approvals.",
@@ -365,6 +374,36 @@ const commonResourceSpecs: Array<{
   columns: string[];
   fields: FormField[];
 }> = [
+  ["debts","receivables","Receivables","New receivable",["Debt","Customer","Original amount","Outstanding","Due date"],[
+    {name:"customer",label:"Customer",type:"select",options:["Banaadir Trading Co.","Sahal Distributors","Dayax Retail","Amaan Services"],required:true},
+    {name:"reference",label:"Invoice or reference",type:"text",required:true},{name:"debtDate",label:"Debt date",type:"date",required:true},
+    {name:"dueDate",label:"Due date",type:"date",required:true},{name:"originalAmount",label:"Original amount",type:"number",required:true},
+    {name:"amountPaid",label:"Amount paid",type:"number"},{name:"outstanding",label:"Outstanding balance",type:"number",required:true},
+    {name:"currency",label:"Currency",type:"select",options:["USD","SOS","EUR"],required:true},
+    {name:"terms",label:"Payment terms",type:"select",options:["Due on receipt","Net 15","Net 30","Net 60"]},
+    {name:"salesRep",label:"Account owner",type:"text"},{name:"collectionStatus",label:"Collection status",type:"select",options:["Current","Due soon","Overdue","Disputed","Payment plan"]},
+    {name:"notes",label:"Collection notes",type:"textarea"}
+  ]],
+  ["debts","payables","Payables","New payable",["Debt","Vendor","Original amount","Outstanding","Due date"],[
+    {name:"vendor",label:"Vendor",type:"select",options:["Horn Logistics","Som Petroleum","Mogadishu Imports","Juba Office Supply"],required:true},
+    {name:"reference",label:"Bill or reference",type:"text",required:true},{name:"debtDate",label:"Debt date",type:"date",required:true},
+    {name:"dueDate",label:"Due date",type:"date",required:true},{name:"originalAmount",label:"Original amount",type:"number",required:true},
+    {name:"amountPaid",label:"Amount paid",type:"number"},{name:"outstanding",label:"Outstanding balance",type:"number",required:true},
+    {name:"currency",label:"Currency",type:"select",options:["USD","SOS","EUR"],required:true},
+    {name:"terms",label:"Payment terms",type:"select",options:["Due on receipt","Net 15","Net 30","Net 60"]},
+    {name:"expenseAccount",label:"Expense or asset account",type:"text"},{name:"paymentPriority",label:"Payment priority",type:"select",options:["Normal","High","Critical"]},
+    {name:"notes",label:"Payment notes",type:"textarea"}
+  ]],
+  ["debts","payments","Debt payments","Record payment",["Payment","Party","Type","Amount","Payment date"],[
+    {name:"partyType",label:"Payment direction",type:"select",options:["Customer receipt","Vendor payment"],required:true},
+    {name:"party",label:"Customer or vendor",type:"text",required:true},{name:"debtReference",label:"Debt reference",type:"text",required:true},
+    {name:"paymentDate",label:"Payment date",type:"date",required:true},{name:"amount",label:"Payment amount",type:"number",required:true},
+    {name:"currency",label:"Currency",type:"select",options:["USD","SOS","EUR"],required:true},
+    {name:"paymentMethod",label:"Payment method",type:"select",options:["Cash","Bank transfer","Cheque","Card","Mobile money"],required:true},
+    {name:"account",label:"Deposit or payment account",type:"select",options:["Salaam Bank","Premier Bank","EVC Plus","Cash on hand"],required:true},
+    {name:"reference",label:"Payment reference",type:"text"},{name:"applyTo",label:"Apply to invoice or bill",type:"text"},
+    {name:"discount",label:"Discount or write-off",type:"number"},{name:"memo",label:"Payment memo",type:"textarea"}
+  ]],
   ["purchasing","bills","Vendor bills","New bill",["Bill","Vendor","Amount","Due date"],[
     {name:"vendor",label:"Vendor",type:"select",options:["Horn Logistics","Som Petroleum","Mogadishu Imports"],required:true},{name:"billNumber",label:"Vendor bill no.",type:"text",required:true},{name:"billDate",label:"Bill date",type:"date",required:true},{name:"dueDate",label:"Due date",type:"date",required:true},{name:"terms",label:"Terms",type:"select",options:["Due on receipt","Net 15","Net 30","Net 60"]},{name:"apAccount",label:"A/P account",type:"select",options:["Accounts payable","Trade payables"]},{name:"expenseAccount",label:"Expense or inventory account",type:"select",options:["Inventory asset","Cost of goods sold","Office expense","Freight"]},{name:"amount",label:"Amount",type:"number",required:true},{name:"tax",label:"Tax item",type:"select",options:["Standard tax","Non-taxable","Zero rated"]},{name:"memo",label:"Memo",type:"textarea"}
   ]],

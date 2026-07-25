@@ -11,6 +11,7 @@ import {
   ClipboardList,
   Database,
   FileBarChart,
+  HandCoins,
   Landmark,
   LayoutDashboard,
   ReceiptText,
@@ -25,6 +26,7 @@ import { cn } from "../../lib/utils";
 export const navigation = [
   { label: "Overview", icon: LayoutDashboard, href: "/", sections: [] },
   { label: "Sales", icon: ShoppingCart, href: "/sales/invoices", sections: ["sales"] },
+  { label: "Debts", icon: HandCoins, href: "/debts/receivables", sections: ["debts"] },
   { label: "Purchasing", icon: ReceiptText, href: "/purchasing/bills", sections: ["purchasing"] },
   { label: "Banking", icon: Landmark, href: "/banking/accounts", sections: ["banking"] },
   { label: "Items & inventory", icon: Boxes, href: "/inventory/items", sections: ["inventory"] },

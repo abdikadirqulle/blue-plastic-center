@@ -79,6 +79,9 @@ test("server-renders every primary workspace and dedicated sales page", async ()
     "/sales/sales-orders": "Sales orders",
     "/sales/payments": "Payments",
     "/sales/credit-notes": "Credit notes",
+    "/debts/receivables": "Receivables",
+    "/debts/payables": "Payables",
+    "/debts/payments": "Debt payments",
     "/purchasing/bills": "Vendor bills",
     "/banking/accounts": "Bank &amp; cash accounts",
     "/inventory/items": "Items &amp; services",
@@ -96,6 +99,26 @@ test("server-renders every primary workspace and dedicated sales page", async ()
     assert.equal(response.status, 200, pathname);
     assert.match(await response.text(), new RegExp(title), pathname);
   }
+});
+
+test("renders the debts workspace with its three dedicated tabs", async () => {
+  const receivables = await render("/debts/receivables");
+  const html = await receivables.text();
+  assert.match(html, /Receivables/);
+  assert.match(html, /Payables/);
+  assert.match(html, /Payments/);
+  assert.match(html, /Customer debt/);
+  assert.match(html, /Original amount/);
+  assert.match(html, /Outstanding/);
+  assert.match(html, /Banaadir Trading Co/);
+
+  const payables = await render("/debts/payables");
+  assert.match(await payables.text(), /Horn Logistics/);
+
+  const payments = await render("/debts/payments");
+  const paymentsHtml = await payments.text();
+  assert.match(paymentsHtml, /Customer receipt/);
+  assert.match(paymentsHtml, /Vendor payment/);
 });
 
 test("reports and settings use purpose-built non-table layouts", async () => {
