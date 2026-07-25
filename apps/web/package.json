@@ -55,6 +55,8 @@
   "type": "module",
   "optionalDependencies": {
     "@next/swc-linux-x64-gnu": "^16.2.6",
-    "@rolldown/binding-linux-x64-gnu": "^1.0.1"
+    "@rolldown/binding-linux-x64-gnu": "^1.0.1",
+    "@tailwindcss/oxide-linux-x64-gnu": "^4.2.1",
+    "lightningcss-linux-x64-gnu": "^1.31.1"
   }
 }
