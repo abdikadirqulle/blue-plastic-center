@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { createDatabase } from "./client.js";
 import { branches, companies, users } from "./schema.js";
 
