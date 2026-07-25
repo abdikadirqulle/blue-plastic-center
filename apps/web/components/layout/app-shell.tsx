@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   Bell,
-  CalendarDays,
   Check,
   ChevronDown,
   LogOut,
   Menu,
   Plus,
   Search,
+  Settings,
+  UserRound,
   X,
 } from "lucide-react";
 import { Sidebar } from "./sidebar";
@@ -22,6 +23,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState(false);
   const [companyMenu, setCompanyMenu] = useState(false);
   const [createMenu, setCreateMenu] = useState(false);
+  const [profileMenu, setProfileMenu] = useState(false);
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -35,6 +37,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         setNotifications(false);
         setCompanyMenu(false);
         setCreateMenu(false);
+        setProfileMenu(false);
       }
     };
     window.addEventListener("keydown", listener);
@@ -103,17 +106,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
-              onClick={() => router.push("/reports/financial")}
-              className="hidden h-10 items-center gap-2 rounded-xl border border-[#dfe7ed] bg-white px-3 text-xs font-semibold text-[#435866] hover:bg-[#f6f9fb] md:flex"
-            >
-              <CalendarDays size={16} />
-              Jul 1 – Jul 25
-              <ChevronDown size={14} />
-            </button>
-            <button
-              type="button"
               aria-label="Notifications"
-              onClick={() => setNotifications((value) => !value)}
+              onClick={() => {
+                setNotifications((value) => !value);
+                setCreateMenu(false);
+                setProfileMenu(false);
+              }}
               className="relative grid size-10 place-items-center rounded-xl border border-[#dfe7ed] bg-white text-[#536a78] hover:bg-[#f6f9fb]"
             >
               <Bell size={18} />
@@ -122,11 +120,29 @@ export function AppShell({ children }: { children: ReactNode }) {
             <button
               type="button"
               aria-label="Create new"
-              onClick={() => setCreateMenu((value) => !value)}
+              onClick={() => {
+                setCreateMenu((value) => !value);
+                setNotifications(false);
+                setProfileMenu(false);
+              }}
               className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-3.5 text-xs font-bold text-white shadow-sm hover:bg-[#0069ad]"
             >
               <Plus size={17} />
               <span className="hidden sm:inline">Create new</span>
+            </button>
+            <button
+              type="button"
+              aria-label="Open profile menu"
+              onClick={() => {
+                setProfileMenu((value) => !value);
+                setNotifications(false);
+                setCreateMenu(false);
+              }}
+              className="flex h-10 items-center gap-2 rounded-xl border border-[#dfe7ed] bg-white p-1.5 pr-2.5 text-left hover:bg-[#f6f9fb]"
+            >
+              <span className="grid size-7 place-items-center rounded-lg bg-[#dcefff] text-[10px] font-bold text-[#0063a3]">AK</span>
+              <span className="hidden leading-tight xl:block"><span className="block text-[11px] font-bold text-[#314955]">Abdikadir</span><span className="block text-[9px] text-[#82949e]">Administrator</span></span>
+              <ChevronDown size={13} className="hidden text-[#82949e] xl:block"/>
             </button>
           </div>
         </header>
@@ -150,26 +166,52 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {text}
               </Link>
             ))}
+            <Link href="/notifications" onClick={() => setNotifications(false)} className="mt-2 flex items-center justify-center rounded-xl border border-[#dfe7ed] py-2.5 text-xs font-bold text-[#007DCC] hover:bg-[#eef7fd]">
+              View all notifications
+            </Link>
           </div>
         ) : null}
 
         {createMenu ? (
-          <div className="fixed right-4 top-[68px] z-50 w-56 rounded-2xl border border-[#dfe7ed] bg-white p-2 shadow-2xl md:right-7">
+          <div className="fixed right-4 top-[68px] z-50 w-[min(430px,calc(100vw-2rem))] rounded-2xl border border-[#dfe7ed] bg-white p-3 shadow-2xl md:right-7">
+            <div className="mb-2 px-2"><h3 className="text-sm font-bold text-[#263f4b]">Create new</h3><p className="mt-0.5 text-[10px] text-[#82949e]">Start a transaction in any workspace</p></div>
+            <div className="grid gap-1 sm:grid-cols-2">
             {[
-              ["New invoice", "/sales/invoices/new"],
-              ["Record expense", "/purchasing/expenses/new"],
-              ["Add item", "/inventory/items/new"],
-              ["Journal entry", "/accounting/journal-entries/new"],
-            ].map(([label, href]) => (
+              ["Sales", "New invoice", "/sales/invoices/new"],
+              ["Debts", "New receivable", "/debts/receivables/new"],
+              ["Purchasing", "New vendor bill", "/purchasing/bills/new"],
+              ["Banking", "Record transaction", "/banking/transactions/new"],
+              ["Inventory", "Add item", "/inventory/items/new"],
+              ["Accounting", "Journal entry", "/accounting/journal-entries/new"],
+              ["Projects", "New project", "/projects/projects/new"],
+              ["Payroll", "Start pay run", "/payroll/pay-runs/new"],
+              ["Reports", "Create custom report", "/reports/custom"],
+              ["Import", "Import business data", "/import"],
+              ["Settings", "Invite user", "/settings/users-roles"],
+            ].map(([module, label, href]) => (
               <Link
                 key={label}
                 href={href}
                 onClick={() => setCreateMenu(false)}
-                className="flex rounded-xl px-3 py-2.5 text-xs font-semibold text-[#3e5461] hover:bg-[#eef7fd] hover:text-[#0069ad]"
+                className="rounded-xl px-3 py-2.5 hover:bg-[#eef7fd]"
               >
-                {label}
+                <span className="block text-[9px] font-bold uppercase tracking-wide text-[#8a9aa3]">{module}</span>
+                <span className="mt-0.5 block text-xs font-bold text-[#3e5461]">{label}</span>
               </Link>
             ))}
+            </div>
+          </div>
+        ) : null}
+
+        {profileMenu ? (
+          <div className="fixed right-4 top-[68px] z-50 w-64 rounded-2xl border border-[#dfe7ed] bg-white p-2.5 shadow-2xl md:right-7">
+            <div className="flex items-center gap-3 rounded-xl bg-[#f5f9fc] p-3">
+              <span className="grid size-10 place-items-center rounded-xl bg-[#dcefff] text-xs font-bold text-[#0063a3]">AK</span>
+              <div className="min-w-0"><p className="truncate text-xs font-bold text-[#2f4753]">Abdikadir Qulle</p><p className="mt-0.5 truncate text-[10px] text-[#82949e]">Administrator · Main company</p></div>
+            </div>
+            <Link href="/profile" onClick={() => setProfileMenu(false)} className="mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold text-[#405762] hover:bg-[#eef7fd]"><UserRound size={15}/> My profile</Link>
+            <Link href="/settings/company" onClick={() => setProfileMenu(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold text-[#405762] hover:bg-[#eef7fd]"><Settings size={15}/> Account settings</Link>
+            <Link href="/login" className="mt-1 flex items-center gap-3 border-t border-[#edf1f4] px-3 py-3 text-xs font-semibold text-red-600"><LogOut size={15}/> Sign out</Link>
           </div>
         ) : null}
 

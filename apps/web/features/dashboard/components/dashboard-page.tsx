@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import {
   ArrowDownRight,
   ArrowRight,
@@ -27,6 +28,8 @@ import {
 import { AppShell } from "../../../components/layout/app-shell";
 import { Badge } from "../../../components/ui/badge";
 import { Card } from "../../../components/ui/card";
+import { DatePicker } from "../../../components/ui/date-picker";
+import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import { cn, formatCurrency } from "../../../lib/utils";
 import { activities, cashFlow, metrics } from "../data";
 
@@ -72,10 +75,26 @@ const budgetLines = [
 ];
 
 export function DashboardPage() {
+  const [fromDate, setFromDate] = useState("2026-07-01");
+  const [toDate, setToDate] = useState("2026-07-25");
+  const [appliedRange, setAppliedRange] = useState("01 Jul – 25 Jul 2026");
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  const applyDateRange = () => {
+    if (!fromDate || !toDate || fromDate > toDate) {
+      setToast({title:"Invalid date range",description:"Choose a start date that is before the end date.",variant:"error"});
+      return;
+    }
+    const display = (value: string) => new Intl.DateTimeFormat("en-GB", {day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"}).format(new Date(`${value}T00:00:00Z`));
+    setAppliedRange(`${display(fromDate)} – ${display(toDate)}`);
+    setToast({title:"Dashboard updated",description:"All dashboard insights now use the selected reporting period.",variant:"success"});
+    window.setTimeout(() => setToast(null), 3200);
+  };
+
   return (
     <AppShell>
       <div className="mx-auto max-w-[1500px]">
-        <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <p className="mb-1 text-xs font-semibold text-[#007DCC]">Saturday, 25 July</p>
             <h1 className="text-2xl font-bold tracking-[-0.035em] text-[#142735] md:text-[29px]">
@@ -87,6 +106,16 @@ export function DashboardPage() {
             <span className="size-2 rounded-full bg-[#007DCC]" /> Books are balanced <ArrowRight size={14} />
           </Link>
         </div>
+
+        <Card className="mb-4 flex flex-col gap-3 p-3.5 lg:flex-row lg:items-center">
+          <div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#304853]">Dashboard period</p><p className="mt-1 text-[10px] text-[#82949e]">Showing performance for {appliedRange}</p></div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <DatePicker value={fromDate} onChange={setFromDate} placeholder="Start date" className="h-10 sm:w-[160px]"/>
+            <span className="hidden text-xs text-[#91a0a8] sm:block">to</span>
+            <DatePicker value={toDate} onChange={setToDate} placeholder="End date" className="h-10 sm:w-[160px]"/>
+            <button onClick={applyDateRange} className="h-10 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white hover:bg-[#0069ad]">Apply period</button>
+          </div>
+        </Card>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric, index) => {
@@ -298,6 +327,7 @@ export function DashboardPage() {
           </div>
         </section>
       </div>
+      <Toast message={toast} onClose={() => setToast(null)}/>
     </AppShell>
   );
 }

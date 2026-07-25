@@ -90,6 +90,8 @@ test("server-renders every primary workspace and dedicated sales page", async ()
     "/payroll/pay-runs": "Pay runs",
     "/reports/financial": "Reports",
     "/settings/company": "Company settings",
+    "/notifications": "Notifications",
+    "/profile": "My profile",
     "/import": "Import data",
     "/login": "Sign in to your workspace",
   };
@@ -214,4 +216,18 @@ test("keeps the frontend foundation documented and modular", async () => {
   assert.match(agents, /frontend-first/i);
   assert.match(frontend, /Directory structure/);
   assert.match(accountingRules, /total debit equals total credit/i);
+});
+
+test("renders the dashboard period control and complete header menus", async () => {
+  const dashboard = await render("/");
+  const dashboardHtml = await dashboard.text();
+  assert.match(dashboardHtml, /Dashboard period/);
+  assert.match(dashboardHtml, /Apply period/);
+
+  const shell = await readFile(new URL("../components/layout/app-shell.tsx", import.meta.url), "utf8");
+  for (const workspaceName of ["Sales","Debts","Purchasing","Banking","Inventory","Accounting","Projects","Payroll","Reports","Import","Settings"]) {
+    assert.match(shell, new RegExp(`\\[\"${workspaceName}\"`), workspaceName);
+  }
+  assert.match(shell, /View all notifications/);
+  assert.match(shell, /My profile/);
 });
