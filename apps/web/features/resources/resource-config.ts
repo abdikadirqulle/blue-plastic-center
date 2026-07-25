@@ -1,3 +1,9 @@
+import {
+  createResourceRows,
+  getResourcePresentation,
+  getResourceStats,
+} from "./resource-mock-data";
+
 export type FieldType =
   | "text"
   | "email"
@@ -43,6 +49,7 @@ export interface ResourceConfig {
   formSections: FormSection[];
   hasLineItems?: boolean;
   rows: ResourceRow[];
+  presentation?: "table" | "cards" | "sections";
 }
 
 export interface ModuleDefinition {
@@ -532,3 +539,8 @@ for (const spec of commonResourceSpecs) {
   };
 }
 
+for (const config of Object.values(resourceConfigs)) {
+  config.rows = createResourceRows(config);
+  config.presentation = getResourcePresentation(config.module, config.slug);
+  config.stats = getResourceStats(config);
+}

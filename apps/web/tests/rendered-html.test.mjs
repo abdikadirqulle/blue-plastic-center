@@ -35,7 +35,36 @@ test("server-renders the Al-Furat dashboard", async () => {
   assert.match(html, /Receivables health/);
   assert.match(html, /Recent activity/);
   assert.match(html, /Items &amp; inventory/);
+  assert.match(html, /Business modules/);
+  assert.match(html, /Purchasing &amp; expenses/);
+  assert.match(html, /Projects &amp; job costing/);
+  assert.match(html, /Company settings/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
+});
+
+test("renders module-specific records, columns, filters, and layouts", async () => {
+  const bills = await render("/purchasing/bills");
+  const billsHtml = await bills.text();
+  assert.match(billsHtml, /Horn Logistics/);
+  assert.match(billsHtml, /Due date/);
+  assert.doesNotMatch(billsHtml, /record A|Main company · Main branch/i);
+
+  const inventory = await render("/inventory/items");
+  const inventoryHtml = await inventory.text();
+  assert.match(inventoryHtml, /Cement 50kg/);
+  assert.match(inventoryHtml, /On hand/);
+  assert.match(inventoryHtml, /Sales price/);
+
+  const payroll = await render("/payroll/timesheets");
+  const payrollHtml = await payroll.text();
+  assert.match(payrollHtml, /Ahmed Hassan/);
+  assert.match(payrollHtml, /40.0 hrs/);
+
+  const cashFlow = await render("/banking/cash-flow");
+  const cashFlowHtml = await cashFlow.text();
+  assert.match(cashFlowHtml, /Opening cash/);
+  assert.match(cashFlowHtml, /Closing cash/);
+  assert.doesNotMatch(cashFlowHtml, /<table/i);
 });
 
 test("server-renders every primary workspace and dedicated sales page", async () => {

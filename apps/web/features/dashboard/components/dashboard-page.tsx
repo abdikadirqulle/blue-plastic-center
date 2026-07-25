@@ -6,11 +6,16 @@ import {
   ArrowRight,
   ArrowUpRight,
   Banknote,
+  BarChart3,
   Box,
+  BriefcaseBusiness,
+  Calculator,
   CircleAlert,
   FileText,
+  Landmark,
   Receipt,
   Repeat2,
+  Settings,
   ShoppingBag,
   Sparkles,
   Users,
@@ -30,6 +35,18 @@ const quickActions = [
 
 const activityIcons = { invoice: FileText, bill: Receipt, payment: Banknote, transfer: Repeat2 };
 const statusVariant = { paid: "success", pending: "warning", overdue: "danger", completed: "neutral" } as const;
+
+const moduleHighlights = [
+  { title: "Sales & receivables", value: "$92,750", helper: "46 open invoices", href: "/sales/invoices", icon: FileText, tone: "bg-sky-50 text-[#007DCC]" },
+  { title: "Purchasing & expenses", value: "$68,420", helper: "24 unpaid bills", href: "/purchasing/bills", icon: Receipt, tone: "bg-violet-50 text-violet-700" },
+  { title: "Banking & treasury", value: "$146,380", helper: "6 cash accounts", href: "/banking/accounts", icon: Landmark, tone: "bg-emerald-50 text-emerald-700" },
+  { title: "Items & inventory", value: "$428,650", helper: "18 low-stock items", href: "/inventory/items", icon: Box, tone: "bg-amber-50 text-amber-700" },
+  { title: "Accounting", value: "Jul 2026", helper: "7 unposted journals", href: "/accounting/chart-of-accounts", icon: Calculator, tone: "bg-blue-50 text-blue-700" },
+  { title: "Projects & job costing", value: "12 active", helper: "$48,620 unbilled", href: "/projects/projects", icon: BriefcaseBusiness, tone: "bg-indigo-50 text-indigo-700" },
+  { title: "Payroll & people", value: "52 employees", helper: "$45,120 next payroll", href: "/payroll/pay-runs", icon: Users, tone: "bg-rose-50 text-rose-700" },
+  { title: "Reports & insights", value: "42 reports", helper: "8 recently generated", href: "/reports/financial", icon: BarChart3, tone: "bg-cyan-50 text-cyan-700" },
+  { title: "Company settings", value: "4 branches", helper: "18 active users", href: "/settings/company", icon: Settings, tone: "bg-slate-100 text-slate-700" },
+];
 
 export function DashboardPage() {
   return (
@@ -157,6 +174,33 @@ export function DashboardPage() {
             </Card>
           </div>
         </div>
+
+        <section className="mt-4">
+          <div className="mb-3 flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-bold text-[#203540]">Business modules</h2>
+              <p className="mt-1 text-xs text-[#7c8f9a]">A live snapshot from every area of your company</p>
+            </div>
+            <Link href="/sales/invoices" className="flex shrink-0 items-center gap-1 text-xs font-bold text-[#007DCC]">Open workspace <ArrowRight size={14}/></Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {moduleHighlights.map(({ title, value, helper, href, icon: Icon, tone }) => (
+              <Card key={title} className="group p-4 transition hover:border-sky-200 hover:shadow-sm">
+                <div className="flex items-start gap-3">
+                  <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", tone)}><Icon size={18}/></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-bold text-[#304853]">{title}</p>
+                    <p className="mt-2 text-lg font-bold tracking-[-0.03em] text-[#17303d]">{value}</p>
+                    <p className="mt-0.5 text-[10px] text-[#82939d]">{helper}</p>
+                  </div>
+                </div>
+                <Link href={href} className="mt-4 flex items-center justify-between border-t border-[#edf1f4] pt-3 text-[11px] font-bold text-[#007DCC]">
+                  View all <ArrowRight size={13} className="transition group-hover:translate-x-0.5"/>
+                </Link>
+              </Card>
+            ))}
+          </div>
+        </section>
       </div>
     </AppShell>
   );

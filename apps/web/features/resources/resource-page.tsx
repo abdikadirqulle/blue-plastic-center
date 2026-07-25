@@ -39,29 +39,39 @@ const badgeVariant = (status: string) => {
 export function ResourcePage({ config }: { config: ResourceConfig }) {
   const router = useRouter();
   const moduleDefinition = moduleDefinitions[config.module];
+  const keyFilterLabel = config.columns[1] ?? "Record";
+  const allKeyOption = `All ${keyFilterLabel.toLowerCase()}${keyFilterLabel.endsWith("s") ? "" : "s"}`;
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All statuses");
-  const [keyValue, setKeyValue] = useState("All");
+  const [keyValue, setKeyValue] = useState(allKeyOption);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [rows, setRows] = useState(config.rows);
   const [menuRow, setMenuRow] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const statusOptions = useMemo(
+    () => ["All statuses", ...Array.from(new Set(rows.map((row) => row.status)))],
+    [rows],
+  );
+  const dateColumnIndex = useMemo(() => {
+    const columnIndex = config.columns.findIndex((column) => /date$|due date|expected|submitted|updated|generated|week$/i.test(column));
+    return columnIndex > 0 ? columnIndex - 1 : -1;
+  }, [config.columns]);
 
   const filteredRows = useMemo(
     () =>
       rows.filter((row) => {
         const text = `${row.id} ${row.cells.join(" ")}`.toLowerCase();
-        const rowDate = Date.parse(row.cells[2] ?? "");
-        const afterFrom = !dateFrom || (!Number.isNaN(rowDate) && rowDate >= Date.parse(dateFrom));
-        const beforeTo = !dateTo || (!Number.isNaN(rowDate) && rowDate <= Date.parse(dateTo));
+        const rowDate = dateColumnIndex >= 0 ? Date.parse(row.cells[dateColumnIndex] ?? "") : Number.NaN;
+        const afterFrom = !dateFrom || (dateColumnIndex >= 0 && !Number.isNaN(rowDate) && rowDate >= Date.parse(dateFrom));
+        const beforeTo = !dateTo || (dateColumnIndex >= 0 && !Number.isNaN(rowDate) && rowDate <= Date.parse(dateTo));
         return text.includes(search.toLowerCase())
           && (status === "All statuses" || row.status === status)
-          && (keyValue === "All" || row.cells[0] === keyValue)
+          && (keyValue === allKeyOption || row.cells[0] === keyValue)
           && afterFrom
           && beforeTo;
       }),
-    [rows, search, status, keyValue, dateFrom, dateTo],
+    [rows, search, status, keyValue, dateFrom, dateTo, dateColumnIndex, allKeyOption],
   );
 
   const notify = (title: string, variant: ToastVariant = "info", description?: string) => {
@@ -137,18 +147,48 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
             </div>
             <div className="relative">
               <Filter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71848f]" size={15} />
-              <Select value={status} onValueChange={setStatus} options={["All statuses","Active","Paid","Posted","Pending","Draft","Overdue"]} className="h-10 min-w-40 pl-9 text-xs font-semibold"/>
+              <Select value={status} onValueChange={setStatus} options={statusOptions} className="h-10 min-w-40 pl-9 text-xs font-semibold"/>
             </div>
-            <Select value={keyValue} onValueChange={setKeyValue} options={["All", ...Array.from(new Set(rows.map((row) => row.cells[0])))]} placeholder={`All ${config.columns[1]?.toLowerCase() ?? "records"}`} className="h-10 text-xs font-semibold"/>
-            <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="From date" className="h-10 text-xs"/>
-            <DatePicker value={dateTo} onChange={setDateTo} placeholder="To date" className="h-10 text-xs"/>
-            <button onClick={() => { setSearch(""); setStatus("All statuses"); setKeyValue("All"); setDateFrom(""); setDateTo(""); notify("Filters reset", "info", "All records are visible again."); }} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] px-3 text-xs font-semibold text-[#526874]">
+            <Select value={keyValue} onValueChange={setKeyValue} options={[allKeyOption, ...Array.from(new Set(rows.map((row) => row.cells[0])))]} placeholder={allKeyOption} className="h-10 text-xs font-semibold"/>
+            {dateColumnIndex >= 0 ? <DatePicker value={dateFrom} onChange={setDateFrom} placeholder={`${config.columns[dateColumnIndex + 1]} from`} className="h-10 text-xs"/> : null}
+            {dateColumnIndex >= 0 ? <DatePicker value={dateTo} onChange={setDateTo} placeholder={`${config.columns[dateColumnIndex + 1]} to`} className="h-10 text-xs"/> : null}
+            <button onClick={() => { setSearch(""); setStatus("All statuses"); setKeyValue(allKeyOption); setDateFrom(""); setDateTo(""); notify("Filters reset", "info", "All records are visible again."); }} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] px-3 text-xs font-semibold text-[#526874]">
               <SlidersHorizontal size={15} /> Reset
             </button>
             <button onClick={exportRows} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-bold text-[#526874] hover:border-[#007DCC] hover:text-[#007DCC]"><Download size={15}/> Export</button>
             <button onClick={() => { window.print(); notify("Print dialog opened", "info", `Printing ${filteredRows.length} filtered records.`); }} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-bold text-[#526874] hover:border-[#007DCC] hover:text-[#007DCC]"><Printer size={15}/> Print</button>
           </div>
 
+          {config.presentation === "cards" ? (
+            <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+              {filteredRows.map((row) => (
+                <article key={row.id} className="group rounded-2xl border border-[#e1e9ee] bg-white p-4 transition hover:border-sky-200 hover:shadow-sm">
+                  <button onClick={() => router.push(`/${config.module}/${config.slug}/${encodeURIComponent(row.id)}`)} className="w-full text-left">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#7b8e98]">{config.columns[0]}</p>
+                        <h3 className="mt-1 text-sm font-bold text-[#007DCC]">{row.id}</h3>
+                      </div>
+                      <Badge variant={badgeVariant(row.status)}>{row.status}</Badge>
+                    </div>
+                    <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                      {config.columns.slice(1).map((column, index) => (
+                        <div key={column} className={index === 0 ? "col-span-2 border-b border-[#edf1f4] pb-3" : ""}>
+                          <dt className="text-[9px] font-bold uppercase tracking-wide text-[#8a9aa3]">{column}</dt>
+                          <dd className="mt-1 truncate text-xs font-semibold text-[#334b57]">{row.cells[index] ?? "—"}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </button>
+                  <div className="mt-4 flex gap-2 border-t border-[#edf1f4] pt-3">
+                    <Link href={`/${config.module}/${config.slug}/${encodeURIComponent(row.id)}`} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#eef7fd] py-2 text-[11px] font-bold text-[#007DCC]"><Eye size={13}/> View</Link>
+                    <Link href={`/${config.module}/${config.slug}/new?edit=${encodeURIComponent(row.id)}`} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#e1e9ee] py-2 text-[11px] font-bold text-[#526874]"><Pencil size={13}/> Edit</Link>
+                    <button onClick={() => { if (window.confirm(`Delete ${row.id}?`)) { setRows((current) => current.filter((item) => item.id !== row.id)); notify("Record deleted", "success", `${row.id} was removed successfully.`); } }} aria-label={`Delete ${row.id}`} className="grid size-8 place-items-center rounded-lg border border-red-100 text-red-600 hover:bg-red-50"><Trash2 size={13}/></button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] border-collapse text-left">
               <thead>
@@ -170,7 +210,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                     <td className="px-5 py-4 text-xs font-bold text-[#007DCC]">{row.id}</td>
                     {row.cells.slice(0, config.columns.length - 1).map((cell, index) => (
                       <td key={`${row.id}-${index}`} className="px-5 py-4 text-xs font-semibold text-[#334b57]">
-                        {index === 0 ? <><p>{cell}</p><p className="mt-1 text-[10px] font-normal text-[#83949e]">Main company · Main branch</p></> : cell}
+                        {index === 0 ? <><p>{cell}</p><p className="mt-1 text-[10px] font-normal text-[#83949e]">{keyFilterLabel} · {row.status}</p></> : cell}
                       </td>
                     ))}
                     <td className="px-5 py-4"><Badge variant={badgeVariant(row.status)}>{row.status}</Badge></td>
@@ -190,6 +230,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
             </table>
             {!filteredRows.length ? <div className="py-16 text-center text-sm font-semibold text-[#71848f]">No matching records found.</div> : null}
           </div>
+          )}
           <div className="flex items-center justify-between px-5 py-4">
             <p className="text-[11px] text-[#7b8d97]">Showing {filteredRows.length} of {rows.length} records</p>
             <div className="flex gap-1">
