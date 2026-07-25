@@ -1,6 +1,5 @@
-import { notFound } from "next/navigation";
-import { WorkspacePage } from "../../features/workspace/workspace-page";
-import { workspaceConfigs } from "../../features/workspace/config";
+import { notFound, redirect } from "next/navigation";
+import { moduleDefinitions } from "../../features/resources/resource-config";
 
 export default async function SectionPage({
   params,
@@ -8,11 +7,11 @@ export default async function SectionPage({
   params: Promise<{ section: string }>;
 }) {
   const { section } = await params;
-  const config = workspaceConfigs[section];
+  const moduleDefinition = moduleDefinitions[section];
 
-  if (!config) {
+  if (!moduleDefinition) {
     notFound();
   }
 
-  return <WorkspacePage section={config.slug} />;
+  redirect(`/${section}/${moduleDefinition.resources[0].slug}`);
 }

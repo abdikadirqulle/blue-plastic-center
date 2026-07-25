@@ -38,17 +38,22 @@ test("server-renders the Al-Furat dashboard", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
-test("server-renders every primary workspace", async () => {
+test("server-renders every primary workspace and dedicated sales page", async () => {
   const expected = {
-    "/sales": "Sales &amp; receivables",
-    "/purchasing": "Purchasing &amp; expenses",
-    "/banking": "Banking &amp; treasury",
-    "/inventory": "Items &amp; inventory",
-    "/accounting": "Accounting",
-    "/projects": "Projects &amp; job costing",
-    "/payroll": "Payroll &amp; people",
-    "/reports": "Reports &amp; insights",
-    "/settings": "Company settings",
+    "/sales/invoices": "Invoices",
+    "/sales/customers": "Customers",
+    "/sales/estimates": "Estimates",
+    "/sales/sales-orders": "Sales orders",
+    "/sales/payments": "Payments",
+    "/sales/credit-notes": "Credit notes",
+    "/purchasing/bills": "Vendor bills",
+    "/banking/accounts": "Bank &amp; cash accounts",
+    "/inventory/items": "Items &amp; services",
+    "/accounting/chart-of-accounts": "Chart of accounts",
+    "/projects/projects": "Projects",
+    "/payroll/pay-runs": "Pay runs",
+    "/reports/financial": "Financial reports",
+    "/settings/company": "Company profile",
     "/login": "Sign in to your workspace",
   };
 

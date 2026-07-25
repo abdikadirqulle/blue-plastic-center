@@ -23,14 +23,14 @@ import { cn } from "../../lib/utils";
 
 export const navigation = [
   { label: "Overview", icon: LayoutDashboard, href: "/" },
-  { label: "Sales", icon: ShoppingCart, href: "/sales" },
-  { label: "Purchasing", icon: ReceiptText, href: "/purchasing" },
-  { label: "Banking", icon: Landmark, href: "/banking" },
-  { label: "Items & inventory", icon: Boxes, href: "/inventory" },
-  { label: "Accounting", icon: ClipboardList, href: "/accounting" },
-  { label: "Projects", icon: BarChart3, href: "/projects" },
-  { label: "Payroll", icon: WalletCards, href: "/payroll" },
-  { label: "Reports", icon: FileBarChart, href: "/reports" },
+  { label: "Sales", icon: ShoppingCart, href: "/sales/invoices" },
+  { label: "Purchasing", icon: ReceiptText, href: "/purchasing/bills" },
+  { label: "Banking", icon: Landmark, href: "/banking/accounts" },
+  { label: "Items & inventory", icon: Boxes, href: "/inventory/items" },
+  { label: "Accounting", icon: ClipboardList, href: "/accounting/chart-of-accounts" },
+  { label: "Projects", icon: BarChart3, href: "/projects/projects" },
+  { label: "Payroll", icon: WalletCards, href: "/payroll/pay-runs" },
+  { label: "Reports", icon: FileBarChart, href: "/reports/financial" },
 ];
 
 export function Sidebar({
@@ -129,7 +129,7 @@ export function Sidebar({
 
         <div className="border-t border-white/10 p-3">
           <Link
-            href="/settings"
+            href="/settings/company"
             className={cn(
               "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium",
               pathname.startsWith("/settings")

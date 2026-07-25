@@ -22,10 +22,10 @@ import { cn, formatCurrency } from "../../../lib/utils";
 import { activities, cashFlow, metrics } from "../data";
 
 const quickActions = [
-  { label: "New invoice", icon: FileText, href: "/sales?create=invoice", color: "bg-sky-50 text-[#007DCC]" },
-  { label: "Record expense", icon: Receipt, href: "/purchasing?create=bill", color: "bg-violet-50 text-violet-700" },
-  { label: "Add customer", icon: Users, href: "/sales?create=customer", color: "bg-blue-50 text-blue-700" },
-  { label: "Stock transfer", icon: Repeat2, href: "/inventory?create=transfer", color: "bg-amber-50 text-amber-700" },
+  { label: "New invoice", icon: FileText, href: "/sales/invoices?create=invoice", color: "bg-sky-50 text-[#007DCC]" },
+  { label: "Record expense", icon: Receipt, href: "/purchasing/expenses?create=expense", color: "bg-violet-50 text-violet-700" },
+  { label: "Add customer", icon: Users, href: "/sales/customers?create=customer", color: "bg-blue-50 text-blue-700" },
+  { label: "Stock transfer", icon: Repeat2, href: "/inventory/transfers?create=transfer", color: "bg-amber-50 text-amber-700" },
 ];
 
 const activityIcons = { invoice: FileText, bill: Receipt, payment: Banknote, transfer: Repeat2 };
@@ -43,7 +43,7 @@ export function DashboardPage() {
             </h1>
             <p className="mt-1.5 text-sm text-[#6b7e8a]">Here&apos;s how Al-Furat Group is performing this month.</p>
           </div>
-          <Link href="/accounting" className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs font-semibold text-[#0069ad]">
+          <Link href="/accounting/chart-of-accounts" className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs font-semibold text-[#0069ad]">
             <span className="size-2 rounded-full bg-[#007DCC]" /> Books are balanced <ArrowRight size={14} />
           </Link>
         </div>
@@ -106,7 +106,7 @@ export function DashboardPage() {
                 <div key={label} className="flex items-center gap-3"><span className={cn("size-2.5 rounded-full", color)} /><span className="flex-1 text-xs font-medium text-[#526873]">{label}</span><span className="text-xs font-bold text-[#253a45]">{value}</span><span className="w-8 text-right text-[10px] text-[#8999a2]">{percent}</span></div>
               ))}
             </div>
-            <Link href="/sales" className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-[#dfe7ed] py-2.5 text-xs font-bold text-[#36525f] hover:bg-[#f5f9fc]">
+            <Link href="/sales/invoices" className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-[#dfe7ed] py-2.5 text-xs font-bold text-[#36525f] hover:bg-[#f5f9fc]">
               Review receivables <ArrowRight size={14} />
             </Link>
           </Card>
@@ -116,13 +116,13 @@ export function DashboardPage() {
           <Card className="overflow-hidden">
             <div className="flex items-center justify-between border-b border-[#edf1f4] px-4 py-4 md:px-5">
               <div><h2 className="text-sm font-bold text-[#203540]">Recent activity</h2><p className="mt-1 text-xs text-[#7c8f9a]">Latest transactions across your company</p></div>
-              <Link href="/accounting" className="flex items-center gap-1 text-xs font-bold text-[#007DCC]">View all <ArrowRight size={14} /></Link>
+              <Link href="/accounting/audit-log" className="flex items-center gap-1 text-xs font-bold text-[#007DCC]">View all <ArrowRight size={14} /></Link>
             </div>
             <div className="divide-y divide-[#edf1f4]">
               {activities.map((activity) => {
                 const Icon = activityIcons[activity.kind];
                 return (
-                  <Link href={activity.kind === "invoice" ? "/sales" : activity.kind === "bill" ? "/purchasing" : activity.kind === "transfer" ? "/inventory" : "/banking"} key={activity.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3.5 hover:bg-[#f8fbfd] md:grid-cols-[auto_minmax(180px,1.4fr)_minmax(130px,1fr)_auto_auto] md:px-5">
+                  <Link href={activity.kind === "invoice" ? "/sales/invoices" : activity.kind === "bill" ? "/purchasing/bills" : activity.kind === "transfer" ? "/inventory/transfers" : "/banking/transactions"} key={activity.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3.5 hover:bg-[#f8fbfd] md:grid-cols-[auto_minmax(180px,1.4fr)_minmax(130px,1fr)_auto_auto] md:px-5">
                     <div className="grid size-9 place-items-center rounded-xl bg-[#eaf5fc] text-[#007DCC]"><Icon size={17} /></div>
                     <div className="min-w-0"><p className="truncate text-xs font-bold text-[#2b414c]">{activity.title}</p><p className="mt-0.5 text-[11px] text-[#82939d]">{activity.id}</p></div>
                     <p className="hidden truncate text-xs text-[#637984] md:block">{activity.detail}</p>
@@ -148,7 +148,7 @@ export function DashboardPage() {
               <div className="flex items-center justify-between"><h2 className="text-sm font-bold text-[#203540]">Inventory alerts</h2><Box size={17} className="text-[#6d808b]"/></div>
               <div className="mt-4 space-y-3">
                 {[["Cement 50kg","12 left","Bakaaro"],["Premium Rice 25kg","8 left","Hodan"],["Cooking Oil 20L","5 left","Wadajir"]].map(([item,count,location],index) => (
-                  <Link href="/inventory" key={item} className="flex items-center gap-3 rounded-xl bg-[#f6f9fb] p-2.5 hover:bg-[#eef6fb]">
+                  <Link href="/inventory/stock-levels" key={item} className="flex items-center gap-3 rounded-xl bg-[#f6f9fb] p-2.5 hover:bg-[#eef6fb]">
                     <div className={cn("grid size-8 place-items-center rounded-lg",index===2?"bg-red-50 text-red-600":"bg-amber-50 text-amber-600")}><ShoppingBag size={15}/></div>
                     <div className="min-w-0 flex-1"><p className="truncate text-[11px] font-bold text-[#3b535f]">{item}</p><p className="mt-0.5 text-[10px] text-[#87969e]">{location}</p></div><span className="text-[10px] font-bold text-red-600">{count}</span>
                   </Link>

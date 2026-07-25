@@ -5,7 +5,6 @@
 - Next.js, React, and TypeScript
 - Tailwind CSS
 - Lucide icons
-- Recharts for dashboard visualization
 - React Hook Form and Zod for forms and validation
 - `date-fns` for date presentation
 - `clsx`, `tailwind-merge`, and class variance utilities
@@ -17,7 +16,9 @@ app/                 Routes, layouts, and route metadata
 components/
   layout/            Application shell and navigation
   ui/                Reusable low-level components
-features/            Product modules and module-specific components
+features/
+  dashboard/         Overview widgets and activity feeds
+  resources/         Typed module registry, tables, forms, and CRUD interactions
 lib/                 Utilities, formatters, constants, and data adapters
 types/               Shared domain and API types
 docs/                Product and engineering decisions
@@ -36,6 +37,24 @@ tests/               Automated validation
 - Payroll
 - Reports
 - Settings
+
+Every operational area has a dedicated nested route. For example, Sales uses
+`/sales/invoices`, `/sales/customers`, `/sales/estimates`,
+`/sales/sales-orders`, `/sales/payments`, and `/sales/credit-notes`.
+Purchasing, banking, inventory, accounting, projects, payroll, reports, and
+settings follow the same `/:section/:resource` convention.
+
+## Resource screens
+
+- Each resource owns its title, statistics, table columns, sample records,
+  statuses, and complete field groups through a typed configuration.
+- Transaction forms include document headers, customer or vendor details,
+  billing and shipping information, accounting classifications, tax and
+  payment settings, notes, and editable line items where applicable.
+- Search, status filtering, reset, CSV export, pagination controls, view,
+  edit, create, delete, and save actions are interactive in the frontend.
+- Frontend changes are session-local until the API and database layer is
+  connected.
 
 ## Frontend principles
 

@@ -44,22 +44,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   const runSearch = () => {
     const value = search.trim().toLowerCase();
     const routes: Record<string, string> = {
-      invoice: "/sales",
-      customer: "/sales",
-      vendor: "/purchasing",
-      bill: "/purchasing",
-      bank: "/banking",
-      item: "/inventory",
-      stock: "/inventory",
-      account: "/accounting",
-      journal: "/accounting",
-      project: "/projects",
-      employee: "/payroll",
-      payroll: "/payroll",
-      report: "/reports",
+      invoice: "/sales/invoices",
+      customer: "/sales/customers",
+      vendor: "/purchasing/vendors",
+      bill: "/purchasing/bills",
+      bank: "/banking/accounts",
+      item: "/inventory/items",
+      stock: "/inventory/stock-levels",
+      account: "/accounting/chart-of-accounts",
+      journal: "/accounting/journal-entries",
+      project: "/projects/projects",
+      employee: "/payroll/employees",
+      payroll: "/payroll/pay-runs",
+      report: "/reports/financial",
     };
     const match = Object.entries(routes).find(([term]) => value.includes(term));
-    router.push(match?.[1] ?? `/sales?search=${encodeURIComponent(search)}`);
+    router.push(match?.[1] ?? `/sales/invoices?search=${encodeURIComponent(search)}`);
     setSearch("");
   };
 
@@ -103,7 +103,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
-              onClick={() => router.push("/reports")}
+              onClick={() => router.push("/reports/financial")}
               className="hidden h-10 items-center gap-2 rounded-xl border border-[#dfe7ed] bg-white px-3 text-xs font-semibold text-[#435866] hover:bg-[#f6f9fb] md:flex"
             >
               <CalendarDays size={16} />
@@ -141,7 +141,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
             {["3 invoices are overdue", "5 items are below reorder level", "Payroll approval is pending"].map((text) => (
               <Link
-                href={text.includes("invoice") ? "/sales" : text.includes("items") ? "/inventory" : "/payroll"}
+                href={text.includes("invoice") ? "/sales/invoices" : text.includes("items") ? "/inventory/stock-levels" : "/payroll/pay-runs"}
                 key={text}
                 onClick={() => setNotifications(false)}
                 className="mt-2 flex items-start gap-3 rounded-xl bg-[#f5f9fc] p-3 text-xs font-medium text-[#405561] hover:bg-[#eaf4fb]"
@@ -156,10 +156,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         {createMenu ? (
           <div className="fixed right-4 top-[68px] z-50 w-56 rounded-2xl border border-[#dfe7ed] bg-white p-2 shadow-2xl md:right-7">
             {[
-              ["New invoice", "/sales?create=invoice"],
-              ["Record expense", "/purchasing?create=bill"],
-              ["Add item", "/inventory?create=item"],
-              ["Journal entry", "/accounting?create=journal"],
+              ["New invoice", "/sales/invoices?create=invoice"],
+              ["Record expense", "/purchasing/expenses?create=expense"],
+              ["Add item", "/inventory/items?create=item"],
+              ["Journal entry", "/accounting/journal-entries?create=journal"],
             ].map(([label, href]) => (
               <Link
                 key={label}
