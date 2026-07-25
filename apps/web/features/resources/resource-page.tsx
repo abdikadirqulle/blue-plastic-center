@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   ChevronLeft,
@@ -14,17 +15,16 @@ import {
   Search,
   SlidersHorizontal,
   Trash2,
-  X,
 } from "lucide-react";
 import { AppShell } from "../../components/layout/app-shell";
 import { Badge } from "../../components/ui/badge";
 import { Card } from "../../components/ui/card";
+import { DatePicker } from "../../components/ui/date-picker";
 import { Select } from "../../components/ui/select";
 import { cn } from "../../lib/utils";
 import {
   moduleDefinitions,
   type ResourceConfig,
-  type ResourceRow,
 } from "./resource-config";
 
 const badgeVariant = (status: string) => {
@@ -35,11 +35,14 @@ const badgeVariant = (status: string) => {
 };
 
 export function ResourcePage({ config }: { config: ResourceConfig }) {
+  const router = useRouter();
   const moduleDefinition = moduleDefinitions[config.module];
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All statuses");
+  const [keyValue, setKeyValue] = useState("All");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [rows, setRows] = useState(config.rows);
-  const [detailRow, setDetailRow] = useState<ResourceRow | null>(null);
   const [menuRow, setMenuRow] = useState<string | null>(null);
   const [toast, setToast] = useState("");
 
@@ -47,9 +50,16 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
     () =>
       rows.filter((row) => {
         const text = `${row.id} ${row.cells.join(" ")}`.toLowerCase();
-        return text.includes(search.toLowerCase()) && (status === "All statuses" || row.status === status);
+        const rowDate = Date.parse(row.cells[2] ?? "");
+        const afterFrom = !dateFrom || (!Number.isNaN(rowDate) && rowDate >= Date.parse(dateFrom));
+        const beforeTo = !dateTo || (!Number.isNaN(rowDate) && rowDate <= Date.parse(dateTo));
+        return text.includes(search.toLowerCase())
+          && (status === "All statuses" || row.status === status)
+          && (keyValue === "All" || row.cells[0] === keyValue)
+          && afterFrom
+          && beforeTo;
       }),
-    [rows, search, status],
+    [rows, search, status, keyValue, dateFrom, dateTo],
   );
 
   const notify = (message: string) => {
@@ -121,8 +131,8 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
             </div>
           </nav>
 
-          <div className="flex flex-col gap-3 border-b border-[#e5ecf1] p-4 md:flex-row">
-            <div className="relative flex-1">
+          <div className="grid gap-3 border-b border-[#e5ecf1] p-4 lg:grid-cols-[minmax(220px,1fr)_180px_180px_170px_170px_auto]">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8496a1]" size={16} />
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={config.searchPlaceholder} className="h-10 w-full rounded-xl border border-[#dce6ed] bg-[#f8fafc] pl-9 pr-3 text-xs outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10" />
             </div>
@@ -130,7 +140,10 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
               <Filter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71848f]" size={15} />
               <Select value={status} onValueChange={setStatus} options={["All statuses","Active","Paid","Posted","Pending","Draft","Overdue"]} className="h-10 min-w-40 pl-9 text-xs font-semibold"/>
             </div>
-            <button onClick={() => { setSearch(""); setStatus("All statuses"); notify("Filters reset"); }} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] px-3 text-xs font-semibold text-[#526874]">
+            <Select value={keyValue} onValueChange={setKeyValue} options={["All", ...Array.from(new Set(rows.map((row) => row.cells[0])))]} placeholder={`All ${config.columns[1]?.toLowerCase() ?? "records"}`} className="h-10 text-xs font-semibold"/>
+            <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="From date" className="h-10 text-xs"/>
+            <DatePicker value={dateTo} onChange={setDateTo} placeholder="To date" className="h-10 text-xs"/>
+            <button onClick={() => { setSearch(""); setStatus("All statuses"); setKeyValue("All"); setDateFrom(""); setDateTo(""); notify("Filters reset"); }} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] px-3 text-xs font-semibold text-[#526874]">
               <SlidersHorizontal size={15} /> Reset
             </button>
           </div>
@@ -146,7 +159,13 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
               </thead>
               <tbody>
                 {filteredRows.map((row) => (
-                  <tr key={row.id} className="border-b border-[#edf1f4] hover:bg-[#f8fbfd]">
+                  <tr
+                    key={row.id}
+                    tabIndex={0}
+                    onClick={() => router.push(`/${config.module}/${config.slug}/${encodeURIComponent(row.id)}`)}
+                    onKeyDown={(event) => { if (event.key === "Enter") router.push(`/${config.module}/${config.slug}/${encodeURIComponent(row.id)}`); }}
+                    className="cursor-pointer border-b border-[#edf1f4] outline-none hover:bg-[#f0f8fd] focus:bg-[#f0f8fd]"
+                  >
                     <td className="px-5 py-4 text-xs font-bold text-[#007DCC]">{row.id}</td>
                     {row.cells.slice(0, config.columns.length - 1).map((cell, index) => (
                       <td key={`${row.id}-${index}`} className="px-5 py-4 text-xs font-semibold text-[#334b57]">
@@ -154,11 +173,11 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                       </td>
                     ))}
                     <td className="px-5 py-4"><Badge variant={badgeVariant(row.status)}>{row.status}</Badge></td>
-                    <td className="relative px-5 py-4 text-right">
+                    <td className="relative px-5 py-4 text-right" onClick={(event) => event.stopPropagation()}>
                       <button aria-label={`Actions for ${row.id}`} onClick={() => setMenuRow(menuRow === row.id ? null : row.id)} className="rounded-lg p-2 text-[#78909d] hover:bg-[#e9f4fb] hover:text-[#007DCC]"><MoreHorizontal size={17} /></button>
                       {menuRow === row.id ? (
                         <div className="absolute right-8 top-12 z-20 w-36 rounded-xl border border-[#dce6ed] bg-white p-1.5 text-left shadow-xl">
-                          <button onClick={() => { setDetailRow(row); setMenuRow(null); }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold hover:bg-[#eef7fd]"><Eye size={14}/> View</button>
+                          <Link href={`/${config.module}/${config.slug}/${encodeURIComponent(row.id)}`} onClick={() => setMenuRow(null)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold hover:bg-[#eef7fd]"><Eye size={14}/> View details</Link>
                           <Link href={`/${config.module}/${config.slug}/new?edit=${encodeURIComponent(row.id)}`} onClick={() => setMenuRow(null)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold hover:bg-[#eef7fd]"><Pencil size={14}/> Edit</Link>
                           <button onClick={() => { if (window.confirm(`Delete ${row.id}?`)) { setRows((current) => current.filter((item) => item.id !== row.id)); notify(`${row.id} deleted`); } setMenuRow(null); }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"><Trash2 size={14}/> Delete</button>
                         </div>
@@ -180,16 +199,6 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
           </div>
         </Card>
       </div>
-
-      {detailRow ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-[#061625]/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="flex justify-between"><div><p className="text-xs font-bold text-[#007DCC]">{detailRow.id}</p><h2 className="mt-1 text-xl font-bold">{detailRow.cells[0]}</h2></div><button aria-label="Close details" onClick={() => setDetailRow(null)}><X size={19}/></button></div>
-            <div className="mt-5 grid grid-cols-2 gap-3">{detailRow.cells.map((cell,index)=><div key={`${cell}-${index}`} className="rounded-xl bg-[#f6f9fb] p-3"><p className="text-[10px] font-bold uppercase text-[#8496a0]">{config.columns[index+1] ?? "Detail"}</p><p className="mt-1 text-sm font-bold">{cell}</p></div>)}</div>
-            <button onClick={() => setDetailRow(null)} className="mt-5 w-full rounded-xl bg-[#007DCC] py-2.5 text-xs font-bold text-white">Done</button>
-          </div>
-        </div>
-      ) : null}
 
       {toast ? <div className="fixed bottom-5 right-5 z-[60] rounded-xl bg-[#0d2c40] px-4 py-3 text-xs font-semibold text-white shadow-xl">{toast}</div> : null}
     </AppShell>

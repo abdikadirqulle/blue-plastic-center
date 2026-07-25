@@ -94,6 +94,33 @@ test("server-renders full-page forms with both save workflows", async () => {
   }
 });
 
+test("server-renders complete record detail pages", async () => {
+  const routes = [
+    "/sales/invoices/INV-1048",
+    "/purchasing/bills/BIL-1048",
+    "/banking/accounts/ACC-1048",
+    "/inventory/items/ITE-1048",
+    "/accounting/chart-of-accounts/CHA-1048",
+    "/projects/projects/PRO-1048",
+    "/payroll/pay-runs/PAY-1048",
+  ];
+
+  for (const pathname of routes) {
+    const response = await render(pathname);
+    assert.equal(response.status, 200, pathname);
+    const html = await response.text();
+    assert.match(html, /Edit this record/, pathname);
+    assert.match(html, /Delete record/, pathname);
+    assert.match(html, /Activity/, pathname);
+  }
+
+  const invoice = await render(routes[0]);
+  const invoiceHtml = await invoice.text();
+  assert.match(invoiceHtml, /Invoice header/);
+  assert.match(invoiceHtml, /Billing &amp; shipping/);
+  assert.match(invoiceHtml, /Transaction lines/);
+});
+
 test("keeps the frontend foundation documented and modular", async () => {
   const [page, layout, resourcePage, resourceForm, datePicker, select, packageJson, agents, frontend, accountingRules] =
     await Promise.all([

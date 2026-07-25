@@ -35,27 +35,29 @@ export function DatePicker({
         <CalendarDays size={16} className="text-[#007DCC]"/>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content align="start" sideOffset={6} className="z-[100] rounded-2xl border border-[#dce6ed] bg-white p-3 shadow-2xl">
+        <Popover.Content align="start" sideOffset={8} className="z-[100] w-[316px] rounded-2xl border border-[#dce6ed] bg-white p-4 shadow-[0_20px_60px_rgba(20,45,60,0.18)]">
           <DayPicker
             mode="single"
             selected={selected}
             onSelect={(date) => date && onChange(format(date, "yyyy-MM-dd"))}
-            captionLayout="dropdown"
             startMonth={new Date(2000, 0)}
             endMonth={new Date(2035, 11)}
             classNames={{
-              months: "flex",
-              month: "space-y-3",
-              month_caption: "flex h-9 items-center justify-center font-bold text-sm",
-              dropdowns: "flex items-center justify-center gap-2",
-              dropdown: "rounded-lg border border-[#dce6ed] bg-white px-2 py-1 text-xs",
-              weekdays: "flex",
-              weekday: "w-9 text-center text-[10px] font-bold uppercase text-[#81939d]",
-              week: "mt-1 flex",
-              day: "size-9 text-center text-xs",
-              day_button: "size-9 rounded-lg hover:bg-[#eaf5fc]",
-              selected: "rounded-lg bg-[#007DCC] text-white hover:bg-[#0069ad]",
-              today: "font-bold text-[#007DCC]",
+              months: "w-full",
+              month: "w-full space-y-3",
+              month_caption: "flex h-10 items-center justify-center border-b border-[#edf1f4] pb-3",
+              caption_label: "text-sm font-bold tracking-[-0.01em] text-[#213946]",
+              nav: "absolute inset-x-4 top-4 flex items-center justify-between",
+              button_previous: "grid size-8 place-items-center rounded-lg border border-[#dce6ed] bg-white text-[#536b78] hover:border-[#007DCC] hover:bg-[#eaf5fc] hover:text-[#007DCC]",
+              button_next: "grid size-8 place-items-center rounded-lg border border-[#dce6ed] bg-white text-[#536b78] hover:border-[#007DCC] hover:bg-[#eaf5fc] hover:text-[#007DCC]",
+              month_grid: "w-full border-collapse",
+              weekdays: "grid grid-cols-7 pt-1",
+              weekday: "grid h-8 place-items-center text-[10px] font-bold uppercase tracking-wide text-[#81939d]",
+              week: "mt-1 grid grid-cols-7",
+              day: "grid size-10 place-items-center text-xs",
+              day_button: "grid size-9 place-items-center rounded-xl font-semibold text-[#314954] transition hover:bg-[#eaf5fc] hover:text-[#007DCC]",
+              selected: "rounded-xl bg-[#007DCC] text-white [&>button]:bg-[#007DCC] [&>button]:text-white [&>button]:hover:bg-[#0069ad]",
+              today: "rounded-xl bg-[#f0f7fb] font-bold text-[#007DCC]",
               outside: "text-[#b5c0c6]",
               disabled: "opacity-40",
             }}

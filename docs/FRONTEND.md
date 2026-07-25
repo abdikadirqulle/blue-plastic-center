@@ -59,10 +59,17 @@ settings follow the same `/:section/:resource` convention.
   payment settings, notes, and editable line items where applicable.
 - Search, status filtering, reset, CSV export, pagination controls, view,
   edit, create, delete, and save actions are interactive in the frontend.
+- Operational tables expose module-specific primary columns and filters for
+  status, the primary related entity, and From/To dates.
+- Every table row opens a complete record-details route with grouped form data,
+  transaction lines where relevant, audit activity, and print, export, edit,
+  copy, email, attachment, and delete actions.
 - Create and edit actions open full pages at `/:section/:resource/new`; forms
   provide both **Save & new** and **Save & close** workflows.
 - User-facing dates use the shared calendar popover; enumerated values use the
   shared dropdown component instead of native browser date/select controls.
+- The calendar uses a single compact month header, balanced navigation,
+  consistent seven-column spacing, and clear today/selected states.
 - Zod validates required values and formats before transaction, settings, and
   authentication forms can submit.
 - Frontend changes are session-local until the API and database layer is
