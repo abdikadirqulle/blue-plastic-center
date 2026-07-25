@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 import {
   BarChart3,
-  CalendarDays,
   ChevronRight,
   Download,
   FileBarChart,
@@ -15,6 +14,8 @@ import {
 } from "lucide-react";
 import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
+import { DatePicker } from "../../components/ui/date-picker";
+import { Select } from "../../components/ui/select";
 import { cn } from "../../lib/utils";
 
 const tabs = [
@@ -96,16 +97,13 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#80929d]"/>
               <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a report by name" className="h-11 w-full rounded-xl border border-[#dce6ed] bg-white pl-9 pr-3 text-xs outline-none focus:border-[#007DCC]"/>
             </div>
-            <select aria-label="Report period" value={period} onChange={(event) => setPeriod(event.target.value)} className="h-11 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-semibold">
-              {["Today","This week","This month-to-date","This month","This quarter","This fiscal year","Last month","Last fiscal year","Custom"].map((value) => <option key={value}>{value}</option>)}
-            </select>
-            <div className="flex items-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3">
-              <CalendarDays size={16} className="text-[#007DCC]"/>
-              <input aria-label="From date" type="date" value={from} onChange={(event) => { setFrom(event.target.value); setPeriod("Custom"); }} className="h-10 bg-transparent text-xs outline-none"/>
+            <Select value={period} onValueChange={setPeriod} options={["Today","This week","This month-to-date","This month","This quarter","This fiscal year","Last month","Last fiscal year","Custom"]} className="min-w-44 text-xs font-semibold"/>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+              <DatePicker value={from} onChange={(value) => { setFrom(value); setPeriod("Custom"); }} placeholder="From date"/>
               <span className="text-[#90a0a9]">—</span>
-              <input aria-label="To date" type="date" value={to} onChange={(event) => { setTo(event.target.value); setPeriod("Custom"); }} className="h-10 bg-transparent text-xs outline-none"/>
+              <DatePicker value={to} onChange={(value) => { setTo(value); setPeriod("Custom"); }} placeholder="To date"/>
             </div>
-            <select aria-label="Accounting basis" value={basis} onChange={(event) => setBasis(event.target.value)} className="h-11 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-semibold"><option>Accrual</option><option>Cash</option></select>
+            <Select value={basis} onValueChange={setBasis} options={["Accrual","Cash"]} className="text-xs font-semibold"/>
           </div>
         </Card>
 

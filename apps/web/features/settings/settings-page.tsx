@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { z } from "zod";
 import {
   Bell,
   Building2,
@@ -17,6 +18,8 @@ import {
 } from "lucide-react";
 import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
+import { DatePicker } from "../../components/ui/date-picker";
+import { Select } from "../../components/ui/select";
 import { cn } from "../../lib/utils";
 
 const sections = [
@@ -56,10 +59,21 @@ const details: Record<string, { title: string; description: string; groups: Arra
   ]},
 };
 
+function SettingControl({ label, initialValue, type }: { label: string; initialValue: string; type: string }) {
+  const [value, setValue] = useState(initialValue);
+  const name = label.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-");
+  const options = [initialValue,"Enabled","Disabled","Accrual","Cash","USD","SOS","EUR","Viewer","Manual","Monthly","Finance Manager","Sales Manager","Department Manager","Standard 5%","Input Tax 5%","Sales Tax Payable","Input Tax Receivable","Ministry of Finance","Bakaaro Central"].filter((item,index,array)=>array.indexOf(item)===index);
+
+  if (type === "select") return <Select name={name} value={value} onValueChange={setValue} options={options}/>;
+  if (type === "date") return <DatePicker name={name} value={value} onChange={setValue}/>;
+  return <input name={name} type={type} value={value} onChange={(event) => setValue(event.target.value)} className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/>;
+}
+
 export function SettingsPage({ activeSection }: { activeSection: string }) {
   const current = details[activeSection] ? activeSection : "company";
   const content = details[current];
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
   return (
     <AppShell>
@@ -91,7 +105,15 @@ export function SettingsPage({ activeSection }: { activeSection: string }) {
                 <div><h2 className="text-lg font-bold text-[#203946]">{content.title}</h2><p className="mt-1 text-xs text-[#788b96]">{content.description}</p></div>
                 <span className="grid size-10 place-items-center rounded-xl bg-[#eaf5fc] text-[#007DCC]"><Settings2 size={18}/></span>
               </div>
-              <form onSubmit={(event) => { event.preventDefault(); setSaved(true); window.setTimeout(() => setSaved(false), 2600); }} className="divide-y divide-[#e8eef2]">
+              <form onSubmit={(event) => {
+                event.preventDefault();
+                const values = Object.fromEntries(new FormData(event.currentTarget));
+                const result = z.record(z.string().min(1, "All settings fields are required")).safeParse(values);
+                if (!result.success) { setError("Complete all settings fields before saving."); return; }
+                setError("");
+                setSaved(true);
+                window.setTimeout(() => setSaved(false), 2600);
+              }} className="divide-y divide-[#e8eef2]">
                 {content.groups.map((group) => (
                   <section key={group.title} className="p-5 md:p-6">
                     <h3 className="text-sm font-bold text-[#29424e]">{group.title}</h3>
@@ -99,11 +121,7 @@ export function SettingsPage({ activeSection }: { activeSection: string }) {
                       {group.fields.map(([label, value, type]) => (
                         <label key={label} className="block">
                           <span className="mb-1.5 block text-xs font-bold text-[#526874]">{label}</span>
-                          {type === "select" ? (
-                            <select defaultValue={value} className="h-11 w-full rounded-xl border border-[#dce6ed] bg-white px-3 text-sm outline-none focus:border-[#007DCC]">
-                              {[value,"Enabled","Disabled","Accrual","Cash","USD","SOS","EUR","Viewer","Manual","Monthly","Finance Manager","Sales Manager","Department Manager","Standard 5%","Input Tax 5%","Sales Tax Payable","Input Tax Receivable","Ministry of Finance","Bakaaro Central"].filter((item,index,array)=>array.indexOf(item)===index).map((item)=><option key={item}>{item}</option>)}
-                            </select>
-                          ) : <input type={type} defaultValue={value} className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/>}
+                          <SettingControl label={label} initialValue={value} type={type}/>
                         </label>
                       ))}
                     </div>
@@ -111,6 +129,7 @@ export function SettingsPage({ activeSection }: { activeSection: string }) {
                 ))}
                 <div className="flex items-center justify-end gap-3 bg-[#f8fafc] p-4 md:px-6">
                   {saved ? <span role="status" className="mr-auto text-xs font-bold text-emerald-600">Settings saved successfully.</span> : null}
+                  {error ? <span role="alert" className="mr-auto text-xs font-bold text-red-600">{error}</span> : null}
                   <button type="reset" className="h-10 rounded-xl border border-[#dce6ed] bg-white px-4 text-xs font-bold text-[#526874]">Discard changes</button>
                   <button type="submit" className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-5 text-xs font-bold text-white"><Save size={15}/> Save settings</button>
                 </div>

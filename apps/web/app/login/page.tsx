@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, CircleDollarSign, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { CircleDollarSign, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { z } from "zod";
+import { Select } from "../../components/ui/select";
 
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [company, setCompany] = useState("Al-Furat Group");
+  const [error, setError] = useState("");
 
   return (
     <main className="grid min-h-screen bg-white lg:grid-cols-[1.05fr_0.95fr]">
@@ -43,13 +47,21 @@ export default function LoginPage() {
             className="mt-8 space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
+              const values = Object.fromEntries(new FormData(event.currentTarget));
+              const result = z.object({
+                email: z.string().email("Enter a valid email address"),
+                password: z.string().min(6, "Password must contain at least 6 characters"),
+              }).safeParse(values);
+              if (!result.success) { setError(result.error.issues[0]?.message ?? "Check your sign-in details"); return; }
+              setError("");
               setLoading(true);
               window.setTimeout(() => router.push("/"), 650);
             }}
           >
-            <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#455e6b]">Company</span><div className="relative"><Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7f929d]" size={17}/><select className="h-12 w-full appearance-none rounded-xl border border-[#dce6ed] bg-white pl-10 pr-4 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"><option>Al-Furat Group</option><option>Al-Furat Logistics</option><option>Al-Furat Retail</option></select></div></label>
-            <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#455e6b]">Email address</span><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7f929d]" size={17}/><input required type="email" defaultValue="admin@alfurat.so" className="h-12 w-full rounded-xl border border-[#dce6ed] pl-10 pr-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></div></label>
-            <label className="block"><div className="mb-1.5 flex justify-between"><span className="text-xs font-bold text-[#455e6b]">Password</span><button type="button" onClick={()=>window.alert("A password reset link would be sent by the backend.")} className="text-xs font-bold text-[#007DCC]">Forgot password?</button></div><div className="relative"><LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7f929d]" size={17}/><input required minLength={6} type={showPassword?"text":"password"} defaultValue="alfurat2026" className="h-12 w-full rounded-xl border border-[#dce6ed] pl-10 pr-11 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/><button type="button" aria-label={showPassword?"Hide password":"Show password"} onClick={()=>setShowPassword(value=>!value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6f8490]">{showPassword?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
+            <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#455e6b]">Company</span><Select name="company" value={company} onValueChange={setCompany} options={["Al-Furat Group","Al-Furat Logistics","Al-Furat Retail"]} className="h-12"/></label>
+            <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#455e6b]">Email address</span><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7f929d]" size={17}/><input name="email" type="email" defaultValue="admin@alfurat.so" className="h-12 w-full rounded-xl border border-[#dce6ed] pl-10 pr-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></div></label>
+            <label className="block"><div className="mb-1.5 flex justify-between"><span className="text-xs font-bold text-[#455e6b]">Password</span><button type="button" onClick={()=>window.alert("A password reset link would be sent by the backend.")} className="text-xs font-bold text-[#007DCC]">Forgot password?</button></div><div className="relative"><LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7f929d]" size={17}/><input name="password" type={showPassword?"text":"password"} defaultValue="alfurat2026" className="h-12 w-full rounded-xl border border-[#dce6ed] pl-10 pr-11 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/><button type="button" aria-label={showPassword?"Hide password":"Show password"} onClick={()=>setShowPassword(value=>!value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6f8490]">{showPassword?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
+            {error ? <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">{error}</p> : null}
             <label className="flex items-center gap-2 text-xs font-medium text-[#607681]"><input type="checkbox" defaultChecked className="size-4 accent-[#007DCC]"/> Keep me signed in on this device</label>
             <button disabled={loading} type="submit" className="h-12 w-full rounded-xl bg-[#007DCC] text-sm font-bold text-white shadow-lg shadow-sky-900/10 hover:bg-[#0069ad] disabled:opacity-70">{loading?"Signing in…":"Sign in securely"}</button>
           </form>

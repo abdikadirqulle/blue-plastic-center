@@ -19,6 +19,7 @@ import {
 import { AppShell } from "../../components/layout/app-shell";
 import { Badge } from "../../components/ui/badge";
 import { Card } from "../../components/ui/card";
+import { Select } from "../../components/ui/select";
 import { cn } from "../../lib/utils";
 import {
   moduleDefinitions,
@@ -127,10 +128,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
             </div>
             <div className="relative">
               <Filter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71848f]" size={15} />
-              <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-10 appearance-none rounded-xl border border-[#dce6ed] bg-white pl-9 pr-8 text-xs font-semibold text-[#526874] outline-none">
-                <option>All statuses</option>
-                {["Active","Paid","Posted","Pending","Draft","Overdue"].map((item) => <option key={item}>{item}</option>)}
-              </select>
+              <Select value={status} onValueChange={setStatus} options={["All statuses","Active","Paid","Posted","Pending","Draft","Overdue"]} className="h-10 min-w-40 pl-9 text-xs font-semibold"/>
             </div>
             <button onClick={() => { setSearch(""); setStatus("All statuses"); notify("Filters reset"); }} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] px-3 text-xs font-semibold text-[#526874]">
               <SlidersHorizontal size={15} /> Reset

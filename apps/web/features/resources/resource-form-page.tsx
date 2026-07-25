@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
+import { z } from "zod";
 import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
+import { DatePicker } from "../../components/ui/date-picker";
+import { Select } from "../../components/ui/select";
 import { cn } from "../../lib/utils";
 import type { FormField, ResourceConfig } from "./resource-config";
 
@@ -19,30 +22,36 @@ interface LineItem {
   tax: string;
 }
 
-function FormControl({ field }: { field: FormField }) {
+function FormControl({
+  field,
+  value,
+  onChange,
+}: {
+  field: FormField;
+  value: string;
+  onChange: (value: string) => void;
+}) {
   const styles =
     "h-11 w-full rounded-xl border border-[#dce6ed] bg-white px-3 text-sm text-[#29414d] outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10";
 
   if (field.type === "textarea") {
-    return <textarea name={field.name} required={field.required} placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`} className={cn(styles, "min-h-24 resize-y py-3")} />;
+    return <textarea name={field.name} value={value} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`} className={cn(styles, "min-h-24 resize-y py-3")} />;
   }
   if (field.type === "select") {
-    return (
-      <select name={field.name} required={field.required} className={styles}>
-        <option value="">Select {field.label.toLowerCase()}</option>
-        {field.options?.map((option) => <option key={option}>{option}</option>)}
-      </select>
-    );
+    return <Select name={field.name} value={value || undefined} onValueChange={onChange} options={field.options ?? []} placeholder={`Select ${field.label.toLowerCase()}`} />;
+  }
+  if (field.type === "date") {
+    return <DatePicker name={field.name} value={value} onChange={onChange} placeholder={`Select ${field.label.toLowerCase()}`} />;
   }
   if (field.type === "checkbox") {
     return (
       <span className="flex h-11 items-center gap-2 rounded-xl border border-[#dce6ed] px-3 text-xs font-semibold text-[#536a76]">
-        <input name={field.name} type="checkbox" className="size-4 accent-[#007DCC]" />
+        <input name={field.name} type="checkbox" checked={value === "true"} onChange={(event) => onChange(String(event.target.checked))} className="size-4 accent-[#007DCC]" />
         {field.label}
       </span>
     );
   }
-  return <input name={field.name} type={field.type} required={field.required} placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`} className={styles} />;
+  return <input name={field.name} type={field.type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`} className={styles} />;
 }
 
 const blankLine = (): LineItem => ({
@@ -59,17 +68,35 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
   const router = useRouter();
   const [lineItems, setLineItems] = useState<LineItem[]>([blankLine()]);
   const [message, setMessage] = useState("");
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const listHref = `/${config.module}/${config.slug}`;
 
   const save = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
-    if (!form.reportValidity()) return;
+    const fields = config.formSections.flatMap((section) => section.fields);
+    const shape = Object.fromEntries(fields.map((field) => {
+      let validator = z.string();
+      if (field.type === "email") validator = validator.email("Enter a valid email address");
+      if (field.required) validator = validator.min(1, `${field.label} is required`);
+      return [field.name, validator];
+    }));
+    const result = z.object(shape).safeParse(
+      Object.fromEntries(fields.map((field) => [field.name, values[field.name] ?? ""])),
+    );
+    if (!result.success) {
+      setErrors(Object.fromEntries(result.error.issues.map((issue) => [String(issue.path[0]), issue.message])));
+      setMessage("Please correct the highlighted fields.");
+      return;
+    }
+    setErrors({});
     const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
     const mode = submitter?.value === "new" ? "new" : "close";
 
     if (mode === "new") {
       form.reset();
+      setValues({});
       setLineItems([blankLine()]);
       setMessage(`${config.title} saved. You can add another.`);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -108,7 +135,8 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                 {section.fields.map((field) => (
                   <label key={field.name} className={cn("block", field.width === "full" ? "md:col-span-6" : field.width === "third" ? "md:col-span-2" : "md:col-span-3")}>
                     {field.type !== "checkbox" ? <span className="mb-1.5 block text-xs font-bold text-[#455c68]">{field.label}{field.required ? <span className="ml-1 text-red-500">*</span> : null}</span> : null}
-                    <FormControl field={field} />
+                    <FormControl field={field} value={values[field.name] ?? ""} onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))} />
+                    {errors[field.name] ? <span className="mt-1.5 block text-[11px] font-semibold text-red-600">{errors[field.name]}</span> : null}
                   </label>
                 ))}
               </div>
@@ -132,9 +160,9 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                           <td className="p-2"><input value={line.item} onChange={(event) => update("item", event.target.value)} placeholder="Select item" className="h-10 w-full rounded-lg border border-[#dce6ed] px-2 text-xs"/></td>
                           <td className="p-2"><input value={line.description} onChange={(event) => update("description", event.target.value)} placeholder="Description" className="h-10 w-full rounded-lg border border-[#dce6ed] px-2 text-xs"/></td>
                           <td className="p-2"><input type="number" min="0" value={line.quantity} onChange={(event) => update("quantity", event.target.value)} className="h-10 w-20 rounded-lg border border-[#dce6ed] px-2 text-xs"/></td>
-                          <td className="p-2"><select value={line.unit} onChange={(event) => update("unit", event.target.value)} className="h-10 rounded-lg border border-[#dce6ed] px-2 text-xs"><option>Each</option><option>Box</option><option>Kg</option><option>Hour</option></select></td>
+                          <td className="p-2"><Select value={line.unit} onValueChange={(value) => update("unit", value)} options={["Each","Box","Kg","Hour"]} className="h-10 text-xs"/></td>
                           <td className="p-2"><input type="number" min="0" value={line.rate} onChange={(event) => update("rate", event.target.value)} className="h-10 w-24 rounded-lg border border-[#dce6ed] px-2 text-xs"/></td>
-                          <td className="p-2"><select value={line.tax} onChange={(event) => update("tax", event.target.value)} className="h-10 rounded-lg border border-[#dce6ed] px-2 text-xs"><option>Standard tax</option><option>Non-taxable</option><option>Zero rated</option></select></td>
+                          <td className="p-2"><Select value={line.tax} onValueChange={(value) => update("tax", value)} options={["Standard tax","Non-taxable","Zero rated"]} className="h-10 text-xs"/></td>
                           <td className="p-2 text-xs font-bold text-[#29414d]">${(Number(line.quantity || 0) * Number(line.rate || 0)).toLocaleString()}</td>
                           <td className="p-2"><button type="button" aria-label="Delete line" disabled={lineItems.length === 1} onClick={() => setLineItems((current) => current.filter((item) => item.id !== line.id))} className="rounded-lg p-2 text-red-500 disabled:opacity-30"><Trash2 size={15}/></button></td>
                         </tr>

@@ -6,6 +6,8 @@
 - Tailwind CSS
 - Lucide icons
 - React Hook Form and Zod for forms and validation
+- Radix-powered Shadcn-style select and popover controls
+- React DayPicker for calendar date selection
 - `date-fns` for date presentation
 - `clsx`, `tailwind-merge`, and class variance utilities
 
@@ -59,6 +61,10 @@ settings follow the same `/:section/:resource` convention.
   edit, create, delete, and save actions are interactive in the frontend.
 - Create and edit actions open full pages at `/:section/:resource/new`; forms
   provide both **Save & new** and **Save & close** workflows.
+- User-facing dates use the shared calendar popover; enumerated values use the
+  shared dropdown component instead of native browser date/select controls.
+- Zod validates required values and formats before transaction, settings, and
+  authentication forms can submit.
 - Frontend changes are session-local until the API and database layer is
   connected.
 
