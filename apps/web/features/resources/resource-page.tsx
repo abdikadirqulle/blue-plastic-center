@@ -53,6 +53,12 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
     () => ["All statuses", ...Array.from(new Set(rows.map((row) => row.status)))],
     [rows],
   );
+  const keyOptions = useMemo(
+    () => [allKeyOption, ...Array.from(new Set(rows.map((row) => row.cells[0])))],
+    [allKeyOption, rows],
+  );
+  const selectedStatus = statusOptions.includes(status) ? status : "All statuses";
+  const selectedKeyValue = keyOptions.includes(keyValue) ? keyValue : allKeyOption;
   const dateColumnIndex = useMemo(() => {
     const columnIndex = config.columns.findIndex((column) => /date$|due date|expected|submitted|updated|generated|week$/i.test(column));
     return columnIndex > 0 ? columnIndex - 1 : -1;
@@ -66,12 +72,12 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
         const afterFrom = !dateFrom || (dateColumnIndex >= 0 && !Number.isNaN(rowDate) && rowDate >= Date.parse(dateFrom));
         const beforeTo = !dateTo || (dateColumnIndex >= 0 && !Number.isNaN(rowDate) && rowDate <= Date.parse(dateTo));
         return text.includes(search.toLowerCase())
-          && (status === "All statuses" || row.status === status)
-          && (keyValue === allKeyOption || row.cells[0] === keyValue)
+          && (selectedStatus === "All statuses" || row.status === selectedStatus)
+          && (selectedKeyValue === allKeyOption || row.cells[0] === selectedKeyValue)
           && afterFrom
           && beforeTo;
       }),
-    [rows, search, status, keyValue, dateFrom, dateTo, dateColumnIndex, allKeyOption],
+    [rows, search, selectedStatus, selectedKeyValue, dateFrom, dateTo, dateColumnIndex, allKeyOption],
   );
 
   const notify = (title: string, variant: ToastVariant = "info", description?: string) => {
@@ -149,9 +155,9 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
             <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
             <div className="relative shrink-0">
               <Filter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71848f]" size={15} />
-              <Select value={status} onValueChange={setStatus} options={statusOptions} className="h-10 w-[154px] pl-9 text-xs font-semibold"/>
+              <Select value={selectedStatus} onValueChange={setStatus} options={statusOptions} className="h-10 w-[154px] pl-9 text-xs font-semibold"/>
             </div>
-            <Select value={keyValue} onValueChange={setKeyValue} options={[allKeyOption, ...Array.from(new Set(rows.map((row) => row.cells[0])))]} placeholder={allKeyOption} className="h-10 w-[170px] text-xs font-semibold"/>
+            <Select value={selectedKeyValue} onValueChange={setKeyValue} options={keyOptions} placeholder={allKeyOption} className="h-10 w-[170px] text-xs font-semibold"/>
             {dateColumnIndex >= 0 ? <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="From" className="h-10 w-[132px] text-xs"/> : null}
             {dateColumnIndex >= 0 ? <DatePicker value={dateTo} onChange={setDateTo} placeholder="To" className="h-10 w-[132px] text-xs"/> : null}
             </div>

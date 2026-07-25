@@ -25,5 +25,5 @@ export default async function ResourceRoute({
     notFound();
   }
 
-  return <ResourcePage config={config} />;
+  return <ResourcePage key={`${section}/${resource}`} config={config} />;
 }
