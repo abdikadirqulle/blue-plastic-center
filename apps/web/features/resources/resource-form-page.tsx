@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import { z } from "zod";
 import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
+import { ConfirmDeleteDialog } from "../../components/ui/confirm-delete-dialog";
 import { DatePicker } from "../../components/ui/date-picker";
 import { Select } from "../../components/ui/select";
 import { Toast, type ToastMessage } from "../../components/ui/toast";
@@ -75,6 +76,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [deleteLineId, setDeleteLineId] = useState<number | null>(null);
   const listHref = `/${config.module}/${config.slug}`;
 
   const save = (event: React.FormEvent<HTMLFormElement>) => {
@@ -169,7 +171,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                           <td className="p-2"><input type="number" min="0" value={line.rate} onChange={(event) => update("rate", event.target.value)} className="h-10 w-24 rounded-lg border border-[#dce6ed] px-2 text-xs"/></td>
                           <td className="p-2"><Select value={line.tax} onValueChange={(value) => update("tax", value)} options={["Standard tax","Non-taxable","Zero rated"]} className="h-10 text-xs"/></td>
                           <td className="p-2 text-xs font-bold text-[#29414d]">${(Number(line.quantity || 0) * Number(line.rate || 0)).toLocaleString()}</td>
-                          <td className="p-2"><button type="button" aria-label="Delete line" disabled={lineItems.length === 1} onClick={() => setLineItems((current) => current.filter((item) => item.id !== line.id))} className="rounded-lg p-2 text-red-500 disabled:opacity-30"><Trash2 size={15}/></button></td>
+                          <td className="p-2"><button type="button" aria-label="Delete line" disabled={lineItems.length === 1} onClick={() => setDeleteLineId(line.id)} className="rounded-lg p-2 text-red-500 disabled:opacity-30"><Trash2 size={15}/></button></td>
                         </tr>
                       );
                     })}
@@ -195,6 +197,19 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
           </div>
         </div>
       </form>
+      <ConfirmDeleteDialog
+        open={deleteLineId !== null}
+        title="Remove this transaction line?"
+        recordName="Line item from the current transaction"
+        description="The item, quantity, rate, and tax entered on this line will be removed. The transaction form will remain open."
+        confirmLabel="Remove line"
+        onClose={() => setDeleteLineId(null)}
+        onConfirm={() => {
+          if (deleteLineId === null) return;
+          setLineItems((current) => current.filter((item) => item.id !== deleteLineId));
+          setDeleteLineId(null);
+        }}
+      />
     </AppShell>
   );
 }

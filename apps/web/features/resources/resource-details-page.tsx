@@ -17,6 +17,7 @@ import {
 import { AppShell } from "../../components/layout/app-shell";
 import { Badge } from "../../components/ui/badge";
 import { Card } from "../../components/ui/card";
+import { ConfirmDeleteDialog } from "../../components/ui/confirm-delete-dialog";
 import { Toast, type ToastMessage, type ToastVariant } from "../../components/ui/toast";
 import type { FormField, ResourceConfig, ResourceRow } from "./resource-config";
 
@@ -44,6 +45,7 @@ function displayValue(field: FormField, index: number, row: ResourceRow) {
 export function ResourceDetailsPage({ config, row }: { config: ResourceConfig; row: ResourceRow }) {
   const router = useRouter();
   const [message, setMessage] = useState<ToastMessage | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const listHref = `/${config.module}/${config.slug}`;
   const notify = (title: string, variant: ToastVariant = "info", description?: string) => {
     setMessage({ title, variant, description });
@@ -117,7 +119,7 @@ export function ResourceDetailsPage({ config, row }: { config: ResourceConfig; r
                 <button onClick={() => notify("Copy created", "success", "A new draft was created from this record.")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-[#425a66] hover:bg-[#f5f8fa]"><Copy size={15}/> Make a copy</button>
                 <button onClick={() => notify("Email queued", "success", "The document was marked for email delivery.")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-[#425a66] hover:bg-[#f5f8fa]"><Mail size={15}/> Send by email</button>
                 <button onClick={() => notify("Attachment added", "success", "The supporting document was attached.")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-[#425a66] hover:bg-[#f5f8fa]"><FileText size={15}/> Attach document</button>
-                <button onClick={() => { if (window.confirm(`Delete ${row.id}?`)) router.push(listHref); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-red-600 hover:bg-red-50"><Trash2 size={15}/> Delete record</button>
+                <button onClick={() => setDeleteOpen(true)} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-red-600 hover:bg-red-50"><Trash2 size={15}/> Delete record</button>
               </div>
             </Card>
             <Card className="p-5">
@@ -129,6 +131,14 @@ export function ResourceDetailsPage({ config, row }: { config: ResourceConfig; r
           </div>
         </div>
       </div>
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        title={`Delete ${row.id}?`}
+        recordName={`${row.id} · ${row.cells[0] ?? config.title}`}
+        description={`This ${config.title.toLowerCase()} record will be permanently removed. Related audit references remain available to administrators.`}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={() => router.push(`${listHref}?deleted=${encodeURIComponent(row.id)}`)}
+      />
     </AppShell>
   );
 }

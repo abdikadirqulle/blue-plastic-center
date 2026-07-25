@@ -245,3 +245,19 @@ test("supports modal quick-add for entity dropdowns without leaving the form", a
   assert.match(resourceForm, /supportsQuickAdd/);
   assert.match(resourceForm, /allowAddNew=\{supportsQuickAdd\(field\)\}/);
 });
+
+test("uses the shared delete confirmation dialog for every destructive record action", async () => {
+  const [dialog, resourcePage, detailsPage, formPage] = await Promise.all([
+    readFile(new URL("../components/ui/confirm-delete-dialog.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../features/resources/resource-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../features/resources/resource-details-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../features/resources/resource-form-page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(dialog, /role="alertdialog"/);
+  assert.match(dialog, /Delete permanently/);
+  assert.match(dialog, /Keep record/);
+  for (const source of [resourcePage, detailsPage, formPage]) {
+    assert.match(source, /ConfirmDeleteDialog/);
+    assert.doesNotMatch(source, /window\.confirm/);
+  }
+});

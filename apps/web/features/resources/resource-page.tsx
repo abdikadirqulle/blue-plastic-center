@@ -20,6 +20,7 @@ import {
 import { AppShell } from "../../components/layout/app-shell";
 import { Badge } from "../../components/ui/badge";
 import { Card } from "../../components/ui/card";
+import { ConfirmDeleteDialog } from "../../components/ui/confirm-delete-dialog";
 import { DatePicker } from "../../components/ui/date-picker";
 import { Select } from "../../components/ui/select";
 import { Toast, type ToastMessage, type ToastVariant } from "../../components/ui/toast";
@@ -49,6 +50,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
   const [rows, setRows] = useState(config.rows);
   const [menuRow, setMenuRow] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<(typeof config.rows)[number] | null>(null);
   const statusOptions = useMemo(
     () => ["All statuses", ...Array.from(new Set(rows.map((row) => row.status)))],
     [rows],
@@ -195,7 +197,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                   <div className="mt-4 flex gap-2 border-t border-[#edf1f4] pt-3">
                     <Link href={`/${config.module}/${config.slug}/${encodeURIComponent(row.id)}`} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#eef7fd] py-2 text-[11px] font-bold text-[#007DCC]"><Eye size={13}/> View</Link>
                     <Link href={`/${config.module}/${config.slug}/new?edit=${encodeURIComponent(row.id)}`} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#e1e9ee] py-2 text-[11px] font-bold text-[#526874]"><Pencil size={13}/> Edit</Link>
-                    <button onClick={() => { if (window.confirm(`Delete ${row.id}?`)) { setRows((current) => current.filter((item) => item.id !== row.id)); notify("Record deleted", "success", `${row.id} was removed successfully.`); } }} aria-label={`Delete ${row.id}`} className="grid size-8 place-items-center rounded-lg border border-red-100 text-red-600 hover:bg-red-50"><Trash2 size={13}/></button>
+                    <button onClick={() => setDeleteTarget(row)} aria-label={`Delete ${row.id}`} className="grid size-8 place-items-center rounded-lg border border-red-100 text-red-600 hover:bg-red-50"><Trash2 size={13}/></button>
                   </div>
                 </article>
               ))}
@@ -232,7 +234,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                         <div className="absolute right-8 top-12 z-20 w-36 rounded-xl border border-[#dce6ed] bg-white p-1.5 text-left shadow-xl">
                           <Link href={`/${config.module}/${config.slug}/${encodeURIComponent(row.id)}`} onClick={() => setMenuRow(null)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold hover:bg-[#eef7fd]"><Eye size={14}/> View details</Link>
                           <Link href={`/${config.module}/${config.slug}/new?edit=${encodeURIComponent(row.id)}`} onClick={() => setMenuRow(null)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold hover:bg-[#eef7fd]"><Pencil size={14}/> Edit</Link>
-                          <button onClick={() => { if (window.confirm(`Delete ${row.id}?`)) { setRows((current) => current.filter((item) => item.id !== row.id)); notify("Record deleted", "success", `${row.id} was removed successfully.`); } setMenuRow(null); }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"><Trash2 size={14}/> Delete</button>
+                          <button onClick={() => { setDeleteTarget(row); setMenuRow(null); }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"><Trash2 size={14}/> Delete</button>
                         </div>
                       ) : null}
                     </td>
@@ -255,6 +257,20 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
       </div>
 
       <Toast message={toast} onClose={() => setToast(null)}/>
+      <ConfirmDeleteDialog
+        open={Boolean(deleteTarget)}
+        title={`Delete ${config.columns[0].toLowerCase()}?`}
+        recordName={deleteTarget ? `${deleteTarget.id} · ${deleteTarget.cells[0] ?? config.title}` : undefined}
+        description={`This will permanently remove the selected ${config.title.toLowerCase()} record and its visible workspace history.`}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          const deletedId = deleteTarget.id;
+          setRows((current) => current.filter((item) => item.id !== deletedId));
+          setDeleteTarget(null);
+          notify("Record deleted", "success", `${deletedId} was removed successfully.`);
+        }}
+      />
     </AppShell>
   );
 }
