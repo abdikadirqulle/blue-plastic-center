@@ -17,6 +17,7 @@ import {
 import { AppShell } from "../../components/layout/app-shell";
 import { Badge } from "../../components/ui/badge";
 import { Card } from "../../components/ui/card";
+import { Toast, type ToastMessage, type ToastVariant } from "../../components/ui/toast";
 import type { FormField, ResourceConfig, ResourceRow } from "./resource-config";
 
 const statusVariant = (status: string) => {
@@ -42,11 +43,11 @@ function displayValue(field: FormField, index: number, row: ResourceRow) {
 
 export function ResourceDetailsPage({ config, row }: { config: ResourceConfig; row: ResourceRow }) {
   const router = useRouter();
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<ToastMessage | null>(null);
   const listHref = `/${config.module}/${config.slug}`;
-  const notify = (value: string) => {
-    setMessage(value);
-    window.setTimeout(() => setMessage(""), 2600);
+  const notify = (title: string, variant: ToastVariant = "info", description?: string) => {
+    setMessage({ title, variant, description });
+    window.setTimeout(() => setMessage(null), 3200);
   };
 
   return (
@@ -63,12 +64,12 @@ export function ResourceDetailsPage({ config, row }: { config: ResourceConfig; r
           </div>
           <div className="flex flex-wrap gap-2">
             <button onClick={() => window.print()} className="flex h-10 items-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3.5 text-xs font-bold text-[#425966]"><Printer size={15}/> Print</button>
-            <button onClick={() => notify(`${row.id} export prepared`)} className="flex h-10 items-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3.5 text-xs font-bold text-[#425966]"><Download size={15}/> Export</button>
+            <button onClick={() => notify("Export prepared", "success", `${row.id} is ready to download.`)} className="flex h-10 items-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3.5 text-xs font-bold text-[#425966]"><Download size={15}/> Export</button>
             <Link href={`${listHref}/new?edit=${encodeURIComponent(row.id)}`} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"><Pencil size={15}/> Edit</Link>
           </div>
         </div>
 
-        {message ? <div role="status" className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs font-bold text-[#0069ad]">{message}</div> : null}
+        <Toast message={message} onClose={() => setMessage(null)}/>
 
         <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_340px]">
           <div className="space-y-4">
@@ -113,9 +114,9 @@ export function ResourceDetailsPage({ config, row }: { config: ResourceConfig; r
               <h2 className="text-sm font-bold text-[#263f4b]">Actions</h2>
               <div className="mt-4 space-y-2">
                 <Link href={`${listHref}/new?edit=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-[#eaf5fc] px-3 py-3 text-xs font-bold text-[#007DCC]"><Pencil size={15}/> Edit this record</Link>
-                <button onClick={() => notify("Copy created as a new draft")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-[#425a66] hover:bg-[#f5f8fa]"><Copy size={15}/> Make a copy</button>
-                <button onClick={() => notify("Document marked for email delivery")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-[#425a66] hover:bg-[#f5f8fa]"><Mail size={15}/> Send by email</button>
-                <button onClick={() => notify("Supporting document attached")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-[#425a66] hover:bg-[#f5f8fa]"><FileText size={15}/> Attach document</button>
+                <button onClick={() => notify("Copy created", "success", "A new draft was created from this record.")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-[#425a66] hover:bg-[#f5f8fa]"><Copy size={15}/> Make a copy</button>
+                <button onClick={() => notify("Email queued", "success", "The document was marked for email delivery.")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-[#425a66] hover:bg-[#f5f8fa]"><Mail size={15}/> Send by email</button>
+                <button onClick={() => notify("Attachment added", "success", "The supporting document was attached.")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-[#425a66] hover:bg-[#f5f8fa]"><FileText size={15}/> Attach document</button>
                 <button onClick={() => { if (window.confirm(`Delete ${row.id}?`)) router.push(listHref); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-red-600 hover:bg-red-50"><Trash2 size={15}/> Delete record</button>
               </div>
             </Card>

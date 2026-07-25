@@ -61,6 +61,8 @@ settings follow the same `/:section/:resource` convention.
   edit, create, delete, and save actions are interactive in the frontend.
 - Operational tables expose module-specific primary columns and filters for
   status, the primary related entity, and From/To dates.
+- Export and Print actions live beside the filters and operate on the currently
+  filtered records.
 - Every table row opens a complete record-details route with grouped form data,
   transaction lines where relevant, audit activity, and print, export, edit,
   copy, email, attachment, and delete actions.
@@ -72,6 +74,9 @@ settings follow the same `/:section/:resource` convention.
   consistent seven-column spacing, and clear today/selected states.
 - Zod validates required values and formats before transaction, settings, and
   authentication forms can submit.
+- Shared toasts use semantic success, error, warning, and information variants
+  with matching colors, icons, descriptions, dismiss controls, and live-region
+  announcements.
 - Frontend changes are session-local until the API and database layer is
   connected.
 

@@ -20,6 +20,7 @@ import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
 import { DatePicker } from "../../components/ui/date-picker";
 import { Select } from "../../components/ui/select";
+import { Toast, type ToastMessage } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
 
 const sections = [
@@ -72,8 +73,7 @@ function SettingControl({ label, initialValue, type }: { label: string; initialV
 export function SettingsPage({ activeSection }: { activeSection: string }) {
   const current = details[activeSection] ? activeSection : "company";
   const content = details[current];
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState("");
+  const [toast, setToast] = useState<ToastMessage | null>(null);
 
   return (
     <AppShell>
@@ -109,10 +109,12 @@ export function SettingsPage({ activeSection }: { activeSection: string }) {
                 event.preventDefault();
                 const values = Object.fromEntries(new FormData(event.currentTarget));
                 const result = z.record(z.string().min(1, "All settings fields are required")).safeParse(values);
-                if (!result.success) { setError("Complete all settings fields before saving."); return; }
-                setError("");
-                setSaved(true);
-                window.setTimeout(() => setSaved(false), 2600);
+                if (!result.success) {
+                  setToast({ title: "Settings not saved", description: "Complete all settings fields before saving.", variant: "error" });
+                  return;
+                }
+                setToast({ title: "Settings saved", description: `${content.title} were updated successfully.`, variant: "success" });
+                window.setTimeout(() => setToast(null), 3200);
               }} className="divide-y divide-[#e8eef2]">
                 {content.groups.map((group) => (
                   <section key={group.title} className="p-5 md:p-6">
@@ -128,13 +130,12 @@ export function SettingsPage({ activeSection }: { activeSection: string }) {
                   </section>
                 ))}
                 <div className="flex items-center justify-end gap-3 bg-[#f8fafc] p-4 md:px-6">
-                  {saved ? <span role="status" className="mr-auto text-xs font-bold text-emerald-600">Settings saved successfully.</span> : null}
-                  {error ? <span role="alert" className="mr-auto text-xs font-bold text-red-600">{error}</span> : null}
                   <button type="reset" className="h-10 rounded-xl border border-[#dce6ed] bg-white px-4 text-xs font-bold text-[#526874]">Discard changes</button>
                   <button type="submit" className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-5 text-xs font-bold text-white"><Save size={15}/> Save settings</button>
                 </div>
               </form>
             </Card>
+            <Toast message={toast} onClose={() => setToast(null)}/>
           </div>
         </div>
       </div>

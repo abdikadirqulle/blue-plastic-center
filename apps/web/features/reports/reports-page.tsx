@@ -16,6 +16,7 @@ import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
 import { DatePicker } from "../../components/ui/date-picker";
 import { Select } from "../../components/ui/select";
+import { Toast, type ToastMessage } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
 
 const tabs = [
@@ -63,15 +64,15 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
   const [to, setTo] = useState("2026-07-26");
   const [basis, setBasis] = useState("Accrual");
   const [favorites, setFavorites] = useState<string[]>(["Profit and Loss", "Balance Sheet"]);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<ToastMessage | null>(null);
 
   const groups = reportGroups[currentTab]
     .map((group) => ({ ...group, reports: group.reports.filter((report) => report.toLowerCase().includes(query.toLowerCase())) }))
     .filter((group) => group.reports.length);
 
   const run = (report: string) => {
-    setMessage(`${report} generated for ${from} to ${to} on ${basis.toLowerCase()} basis.`);
-    window.setTimeout(() => setMessage(""), 3200);
+    setMessage({ title: "Report generated", description: `${report} · ${from} to ${to} · ${basis} basis`, variant: "success" });
+    window.setTimeout(() => setMessage(null), 3200);
   };
 
   return (
@@ -83,7 +84,7 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
             <h1 className="text-2xl font-bold tracking-[-0.035em] text-[#142735] md:text-[29px]">Reports</h1>
             <p className="mt-1.5 text-sm text-[#6b7e8a]">QuickBooks-style financial and operational reporting across every company and branch.</p>
           </div>
-          <button onClick={() => setMessage("Report center settings saved")} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"><Star size={16}/> Memorized reports</button>
+          <button onClick={() => setMessage({ title: "Report preferences saved", description: "Your memorized reports are up to date.", variant: "success" })} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"><Star size={16}/> Memorized reports</button>
         </div>
 
         <Card className="mt-6 overflow-hidden">
@@ -107,7 +108,7 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
           </div>
         </Card>
 
-        {message ? <div role="status" className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs font-bold text-[#0069ad]">{message}</div> : null}
+        <Toast message={message} onClose={() => setMessage(null)}/>
 
         <div className="mt-4 grid gap-4 xl:grid-cols-2">
           {groups.map((group) => (
@@ -124,7 +125,7 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
                       <BarChart3 size={16} className="text-[#738894]"/>
                       <button onClick={() => run(report)} className="flex-1 text-left text-xs font-bold text-[#304954]">{report}</button>
                       <button aria-label={`${favorite ? "Remove" : "Add"} ${report} favorite`} onClick={() => setFavorites((current) => favorite ? current.filter((item) => item !== report) : [...current, report])} className={favorite ? "text-amber-500" : "text-[#a0adb5]"}><Heart size={15} fill={favorite ? "currentColor" : "none"}/></button>
-                      <button aria-label={`Export ${report}`} onClick={() => setMessage(`${report} export prepared`)} className="rounded-lg p-2 text-[#758995] hover:bg-[#eaf5fc] hover:text-[#007DCC]"><Download size={15}/></button>
+                      <button aria-label={`Export ${report}`} onClick={() => setMessage({ title: "Export prepared", description: `${report} is ready to download.`, variant: "success" })} className="rounded-lg p-2 text-[#758995] hover:bg-[#eaf5fc] hover:text-[#007DCC]"><Download size={15}/></button>
                       <button onClick={() => run(report)} className="flex items-center gap-1 rounded-lg bg-[#eaf5fc] px-2.5 py-2 text-[11px] font-bold text-[#007DCC]"><Play size={13}/> Run</button>
                       <ChevronRight size={14} className="text-[#a0adb5]"/>
                     </div>

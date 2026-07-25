@@ -9,6 +9,7 @@ import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
 import { DatePicker } from "../../components/ui/date-picker";
 import { Select } from "../../components/ui/select";
+import { Toast, type ToastMessage } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
 import type { FormField, ResourceConfig } from "./resource-config";
 
@@ -67,7 +68,7 @@ const blankLine = (): LineItem => ({
 export function ResourceFormPage({ config }: { config: ResourceConfig }) {
   const router = useRouter();
   const [lineItems, setLineItems] = useState<LineItem[]>([blankLine()]);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<ToastMessage | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const listHref = `/${config.module}/${config.slug}`;
@@ -87,7 +88,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
     );
     if (!result.success) {
       setErrors(Object.fromEntries(result.error.issues.map((issue) => [String(issue.path[0]), issue.message])));
-      setMessage("Please correct the highlighted fields.");
+      setMessage({ title: "Validation failed", description: "Please correct the highlighted fields and try again.", variant: "error" });
       return;
     }
     setErrors({});
@@ -98,7 +99,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
       form.reset();
       setValues({});
       setLineItems([blankLine()]);
-      setMessage(`${config.title} saved. You can add another.`);
+      setMessage({ title: "Saved successfully", description: `${config.title} saved. You can add another.`, variant: "success" });
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
@@ -123,7 +124,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
             <h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] text-[#142735] md:text-[29px]">{config.primaryAction}</h1>
             <p className="mt-1.5 text-sm text-[#6b7e8a]">Complete the information below. Required fields are marked with an asterisk.</p>
           </div>
-          {message ? <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-700">{message}</div> : null}
+          <Toast message={message} onClose={() => setMessage(null)}/>
         </div>
 
         <div className="space-y-4">

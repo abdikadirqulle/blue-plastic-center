@@ -122,7 +122,7 @@ test("server-renders complete record detail pages", async () => {
 });
 
 test("keeps the frontend foundation documented and modular", async () => {
-  const [page, layout, resourcePage, resourceForm, datePicker, select, packageJson, agents, frontend, accountingRules] =
+  const [page, layout, resourcePage, resourceForm, datePicker, select, toast, packageJson, agents, frontend, accountingRules] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
@@ -130,6 +130,7 @@ test("keeps the frontend foundation documented and modular", async () => {
       readFile(new URL("../features/resources/resource-form-page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../components/ui/date-picker.tsx", import.meta.url), "utf8"),
       readFile(new URL("../components/ui/select.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../components/ui/toast.tsx", import.meta.url), "utf8"),
       readFile(new URL("../package.json", import.meta.url), "utf8"),
       readFile(new URL("../../../AGENTS.md", import.meta.url), "utf8"),
       readFile(new URL("../../../docs/FRONTEND.md", import.meta.url), "utf8"),
@@ -142,10 +143,14 @@ test("keeps the frontend foundation documented and modular", async () => {
   assert.match(page, /features\/dashboard\/components\/dashboard-page/);
   assert.match(layout, /Al-Furat System/);
   assert.match(resourcePage, /> Delete<\/button>/);
+  assert.match(resourcePage, /<Printer/);
+  assert.match(resourcePage, /Export completed/);
   assert.match(resourceForm, /safeParse/);
   assert.match(resourceForm, /components\/ui\/date-picker/);
   assert.match(datePicker, /react-day-picker/);
   assert.match(select, /@radix-ui\/react-select/);
+  assert.match(toast, /CheckCircle2/);
+  assert.match(toast, /AlertCircle/);
   assert.match(packageJson, /"name": "@al-furat\/web"/);
   assert.doesNotMatch(packageJson, /"recharts"/);
   assert.match(packageJson, /"react-hook-form"/);

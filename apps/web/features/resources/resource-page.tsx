@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  Printer,
   Search,
   SlidersHorizontal,
   Trash2,
@@ -21,6 +22,7 @@ import { Badge } from "../../components/ui/badge";
 import { Card } from "../../components/ui/card";
 import { DatePicker } from "../../components/ui/date-picker";
 import { Select } from "../../components/ui/select";
+import { Toast, type ToastMessage, type ToastVariant } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
 import {
   moduleDefinitions,
@@ -44,7 +46,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
   const [dateTo, setDateTo] = useState("");
   const [rows, setRows] = useState(config.rows);
   const [menuRow, setMenuRow] = useState<string | null>(null);
-  const [toast, setToast] = useState("");
+  const [toast, setToast] = useState<ToastMessage | null>(null);
 
   const filteredRows = useMemo(
     () =>
@@ -62,9 +64,9 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
     [rows, search, status, keyValue, dateFrom, dateTo],
   );
 
-  const notify = (message: string) => {
-    setToast(message);
-    window.setTimeout(() => setToast(""), 2400);
+  const notify = (title: string, variant: ToastVariant = "info", description?: string) => {
+    setToast({ title, variant, description });
+    window.setTimeout(() => setToast(null), 3200);
   };
 
   const exportRows = () => {
@@ -79,7 +81,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
     anchor.download = `al-furat-${config.module}-${config.slug}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
-    notify("CSV export downloaded");
+    notify("Export completed", "success", `${filteredRows.length} filtered ${config.title.toLowerCase()} downloaded as CSV.`);
   };
 
   return (
@@ -92,9 +94,6 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
             <p className="mt-1.5 max-w-2xl text-sm text-[#6b7e8a]">{config.description}</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={exportRows} className="flex h-10 items-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3.5 text-xs font-bold text-[#425966] hover:bg-[#f5f9fc]">
-              <Download size={16} /> Export
-            </button>
             <Link href={`/${config.module}/${config.slug}/new`} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white hover:bg-[#0069ad]">
               <Plus size={17} /> {config.primaryAction}
             </Link>
@@ -131,10 +130,10 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
             </div>
           </nav>
 
-          <div className="grid gap-3 border-b border-[#e5ecf1] p-4 lg:grid-cols-[minmax(220px,1fr)_180px_180px_170px_170px_auto]">
+          <div className="flex flex-wrap gap-3 border-b border-[#e5ecf1] p-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8496a1]" size={16} />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={config.searchPlaceholder} className="h-10 w-full rounded-xl border border-[#dce6ed] bg-[#f8fafc] pl-9 pr-3 text-xs outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={config.searchPlaceholder} className="h-10 w-full min-w-[220px] rounded-xl border border-[#dce6ed] bg-[#f8fafc] pl-9 pr-3 text-xs outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10" />
             </div>
             <div className="relative">
               <Filter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71848f]" size={15} />
@@ -143,9 +142,11 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
             <Select value={keyValue} onValueChange={setKeyValue} options={["All", ...Array.from(new Set(rows.map((row) => row.cells[0])))]} placeholder={`All ${config.columns[1]?.toLowerCase() ?? "records"}`} className="h-10 text-xs font-semibold"/>
             <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="From date" className="h-10 text-xs"/>
             <DatePicker value={dateTo} onChange={setDateTo} placeholder="To date" className="h-10 text-xs"/>
-            <button onClick={() => { setSearch(""); setStatus("All statuses"); setKeyValue("All"); setDateFrom(""); setDateTo(""); notify("Filters reset"); }} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] px-3 text-xs font-semibold text-[#526874]">
+            <button onClick={() => { setSearch(""); setStatus("All statuses"); setKeyValue("All"); setDateFrom(""); setDateTo(""); notify("Filters reset", "info", "All records are visible again."); }} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] px-3 text-xs font-semibold text-[#526874]">
               <SlidersHorizontal size={15} /> Reset
             </button>
+            <button onClick={exportRows} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-bold text-[#526874] hover:border-[#007DCC] hover:text-[#007DCC]"><Download size={15}/> Export</button>
+            <button onClick={() => { window.print(); notify("Print dialog opened", "info", `Printing ${filteredRows.length} filtered records.`); }} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-bold text-[#526874] hover:border-[#007DCC] hover:text-[#007DCC]"><Printer size={15}/> Print</button>
           </div>
 
           <div className="overflow-x-auto">
@@ -179,7 +180,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                         <div className="absolute right-8 top-12 z-20 w-36 rounded-xl border border-[#dce6ed] bg-white p-1.5 text-left shadow-xl">
                           <Link href={`/${config.module}/${config.slug}/${encodeURIComponent(row.id)}`} onClick={() => setMenuRow(null)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold hover:bg-[#eef7fd]"><Eye size={14}/> View details</Link>
                           <Link href={`/${config.module}/${config.slug}/new?edit=${encodeURIComponent(row.id)}`} onClick={() => setMenuRow(null)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold hover:bg-[#eef7fd]"><Pencil size={14}/> Edit</Link>
-                          <button onClick={() => { if (window.confirm(`Delete ${row.id}?`)) { setRows((current) => current.filter((item) => item.id !== row.id)); notify(`${row.id} deleted`); } setMenuRow(null); }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"><Trash2 size={14}/> Delete</button>
+                          <button onClick={() => { if (window.confirm(`Delete ${row.id}?`)) { setRows((current) => current.filter((item) => item.id !== row.id)); notify("Record deleted", "success", `${row.id} was removed successfully.`); } setMenuRow(null); }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"><Trash2 size={14}/> Delete</button>
                         </div>
                       ) : null}
                     </td>
@@ -200,7 +201,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
         </Card>
       </div>
 
-      {toast ? <div className="fixed bottom-5 right-5 z-[60] rounded-xl bg-[#0d2c40] px-4 py-3 text-xs font-semibold text-white shadow-xl">{toast}</div> : null}
+      <Toast message={toast} onClose={() => setToast(null)}/>
     </AppShell>
   );
 }
