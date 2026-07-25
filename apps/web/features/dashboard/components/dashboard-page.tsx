@@ -1,0 +1,163 @@
+"use client";
+
+import Link from "next/link";
+import {
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
+  Banknote,
+  Box,
+  CircleAlert,
+  FileText,
+  Receipt,
+  Repeat2,
+  ShoppingBag,
+  Sparkles,
+  Users,
+} from "lucide-react";
+import { AppShell } from "../../../components/layout/app-shell";
+import { Badge } from "../../../components/ui/badge";
+import { Card } from "../../../components/ui/card";
+import { cn, formatCurrency } from "../../../lib/utils";
+import { activities, cashFlow, metrics } from "../data";
+
+const quickActions = [
+  { label: "New invoice", icon: FileText, href: "/sales?create=invoice", color: "bg-sky-50 text-[#007DCC]" },
+  { label: "Record expense", icon: Receipt, href: "/purchasing?create=bill", color: "bg-violet-50 text-violet-700" },
+  { label: "Add customer", icon: Users, href: "/sales?create=customer", color: "bg-blue-50 text-blue-700" },
+  { label: "Stock transfer", icon: Repeat2, href: "/inventory?create=transfer", color: "bg-amber-50 text-amber-700" },
+];
+
+const activityIcons = { invoice: FileText, bill: Receipt, payment: Banknote, transfer: Repeat2 };
+const statusVariant = { paid: "success", pending: "warning", overdue: "danger", completed: "neutral" } as const;
+
+export function DashboardPage() {
+  return (
+    <AppShell>
+      <div className="mx-auto max-w-[1500px]">
+        <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <p className="mb-1 text-xs font-semibold text-[#007DCC]">Saturday, 25 July</p>
+            <h1 className="text-2xl font-bold tracking-[-0.035em] text-[#142735] md:text-[29px]">
+              Good evening, Abdikadir
+            </h1>
+            <p className="mt-1.5 text-sm text-[#6b7e8a]">Here&apos;s how Al-Furat Group is performing this month.</p>
+          </div>
+          <Link href="/accounting" className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs font-semibold text-[#0069ad]">
+            <span className="size-2 rounded-full bg-[#007DCC]" /> Books are balanced <ArrowRight size={14} />
+          </Link>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {metrics.map((metric, index) => {
+            const positive = metric.trend === "up";
+            return (
+              <Card key={metric.label} className="p-4 md:p-5">
+                <p className="text-xs font-semibold text-[#6d808c]">{metric.label}</p>
+                <p className="mt-3 text-2xl font-bold tracking-[-0.04em] text-[#152936]">
+                  {formatCurrency(metric.value)}
+                </p>
+                <div className="mt-3 flex items-center gap-1.5 text-[11px]">
+                  <span className={cn("inline-flex items-center gap-0.5 rounded-md px-1.5 py-1 font-bold", positive ? "bg-sky-50 text-[#007DCC]" : index === 2 ? "bg-red-50 text-red-700" : "bg-slate-50 text-slate-600")}>
+                    {positive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}{metric.change}%
+                  </span>
+                  <span className="text-[#82939d]">{metric.helper}</span>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.8fr)]">
+          <Card className="min-w-0 p-4 md:p-5">
+            <div className="flex justify-between gap-3">
+              <div><h2 className="text-sm font-bold text-[#203540]">Cash flow overview</h2><p className="mt-1 text-xs text-[#7c8f9a]">Money moving in and out of your business</p></div>
+              <div className="flex gap-4 text-[11px] font-semibold text-[#667b87]">
+                <span className="flex items-center gap-2"><span className="size-2.5 rounded-full bg-[#007DCC]" />Inflow</span>
+                <span className="flex items-center gap-2"><span className="size-2.5 rounded-full bg-[#b9c8d1]" />Outflow</span>
+              </div>
+            </div>
+            <div className="mt-8 flex h-[245px] items-end gap-3 border-b border-l border-[#e3eaf0] px-4 pt-4 sm:gap-6">
+              {cashFlow.map((point) => (
+                <div key={point.month} className="flex h-full flex-1 items-end justify-center gap-1">
+                  <div className="relative flex h-full flex-1 items-end">
+                    <span className="w-full rounded-t-md bg-[#007DCC]" style={{ height: `${point.inflow / 1.5}%` }} title={`Inflow $${point.inflow}k`} />
+                  </div>
+                  <div className="relative flex h-full flex-1 items-end">
+                    <span className="w-full rounded-t-md bg-[#c6d2d9]" style={{ height: `${point.outflow / 1.5}%` }} title={`Outflow $${point.outflow}k`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="ml-1 mt-2 flex justify-around text-[10px] font-medium text-[#7c8f9a]">
+              {cashFlow.map((point) => <span key={point.month}>{point.month}</span>)}
+            </div>
+          </Card>
+
+          <Card className="p-4 md:p-5">
+            <div className="flex items-center justify-between">
+              <div><h2 className="text-sm font-bold text-[#203540]">Receivables health</h2><p className="mt-1 text-xs text-[#7c8f9a]">Outstanding customer balances</p></div>
+              <CircleAlert size={18} className="text-amber-500" />
+            </div>
+            <div className="mt-6 flex items-end gap-3"><p className="text-3xl font-bold tracking-[-0.045em] text-[#152936]">$92,750</p><span className="mb-1 text-xs text-[#7a8e99]">total due</span></div>
+            <div className="mt-5 flex h-2.5 overflow-hidden rounded-full bg-slate-100"><span className="w-[61%] bg-[#007DCC]" /><span className="w-[19%] bg-amber-400" /><span className="w-[20%] bg-red-400" /></div>
+            <div className="mt-5 space-y-4">
+              {[["Current", "$56,580", "61%", "bg-[#007DCC]"],["Due in 30 days", "$17,930", "19%", "bg-amber-400"],["Overdue", "$18,240", "20%", "bg-red-400"]].map(([label,value,percent,color]) => (
+                <div key={label} className="flex items-center gap-3"><span className={cn("size-2.5 rounded-full", color)} /><span className="flex-1 text-xs font-medium text-[#526873]">{label}</span><span className="text-xs font-bold text-[#253a45]">{value}</span><span className="w-8 text-right text-[10px] text-[#8999a2]">{percent}</span></div>
+              ))}
+            </div>
+            <Link href="/sales" className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-[#dfe7ed] py-2.5 text-xs font-bold text-[#36525f] hover:bg-[#f5f9fc]">
+              Review receivables <ArrowRight size={14} />
+            </Link>
+          </Card>
+        </div>
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+          <Card className="overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#edf1f4] px-4 py-4 md:px-5">
+              <div><h2 className="text-sm font-bold text-[#203540]">Recent activity</h2><p className="mt-1 text-xs text-[#7c8f9a]">Latest transactions across your company</p></div>
+              <Link href="/accounting" className="flex items-center gap-1 text-xs font-bold text-[#007DCC]">View all <ArrowRight size={14} /></Link>
+            </div>
+            <div className="divide-y divide-[#edf1f4]">
+              {activities.map((activity) => {
+                const Icon = activityIcons[activity.kind];
+                return (
+                  <Link href={activity.kind === "invoice" ? "/sales" : activity.kind === "bill" ? "/purchasing" : activity.kind === "transfer" ? "/inventory" : "/banking"} key={activity.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3.5 hover:bg-[#f8fbfd] md:grid-cols-[auto_minmax(180px,1.4fr)_minmax(130px,1fr)_auto_auto] md:px-5">
+                    <div className="grid size-9 place-items-center rounded-xl bg-[#eaf5fc] text-[#007DCC]"><Icon size={17} /></div>
+                    <div className="min-w-0"><p className="truncate text-xs font-bold text-[#2b414c]">{activity.title}</p><p className="mt-0.5 text-[11px] text-[#82939d]">{activity.id}</p></div>
+                    <p className="hidden truncate text-xs text-[#637984] md:block">{activity.detail}</p>
+                    <div className="hidden md:block"><Badge variant={statusVariant[activity.status]}>{activity.status}</Badge></div>
+                    <div className="text-right"><p className={cn("text-xs font-bold", activity.amount > 0 ? "text-[#007DCC]" : "text-[#263d48]")}>{activity.amount ? formatCurrency(activity.amount) : "—"}</p><p className="mt-0.5 text-[10px] text-[#929fa7]">{activity.time}</p></div>
+                  </Link>
+                );
+              })}
+            </div>
+          </Card>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+            <Card className="p-4 md:p-5">
+              <div className="flex items-center justify-between"><h2 className="text-sm font-bold text-[#203540]">Quick actions</h2><Sparkles size={17} className="text-[#007DCC]" /></div>
+              <div className="mt-4 grid grid-cols-2 gap-2.5">
+                {quickActions.map(({label,icon:Icon,href,color}) => (
+                  <Link key={label} href={href} className="rounded-xl border border-[#e3eaf0] p-3 text-left hover:border-sky-200 hover:bg-sky-50/30">
+                    <span className={cn("grid size-8 place-items-center rounded-lg",color)}><Icon size={16}/></span><span className="mt-2.5 block text-[11px] font-bold text-[#3b535f]">{label}</span>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+            <Card className="p-4 md:p-5">
+              <div className="flex items-center justify-between"><h2 className="text-sm font-bold text-[#203540]">Inventory alerts</h2><Box size={17} className="text-[#6d808b]"/></div>
+              <div className="mt-4 space-y-3">
+                {[["Cement 50kg","12 left","Bakaaro"],["Premium Rice 25kg","8 left","Hodan"],["Cooking Oil 20L","5 left","Wadajir"]].map(([item,count,location],index) => (
+                  <Link href="/inventory" key={item} className="flex items-center gap-3 rounded-xl bg-[#f6f9fb] p-2.5 hover:bg-[#eef6fb]">
+                    <div className={cn("grid size-8 place-items-center rounded-lg",index===2?"bg-red-50 text-red-600":"bg-amber-50 text-amber-600")}><ShoppingBag size={15}/></div>
+                    <div className="min-w-0 flex-1"><p className="truncate text-[11px] font-bold text-[#3b535f]">{item}</p><p className="mt-0.5 text-[10px] text-[#87969e]">{location}</p></div><span className="text-[10px] font-bold text-red-600">{count}</span>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </AppShell>
+  );
+}

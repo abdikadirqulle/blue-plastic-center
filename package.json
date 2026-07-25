@@ -1,0 +1,28 @@
+{
+  "name": "al-furat-system",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Al-Furat enterprise accounting monorepo",
+  "packageManager": "npm@11.6.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev --filter=@al-furat/web",
+    "dev:web": "turbo dev --filter=@al-furat/web",
+    "dev:api": "turbo dev --filter=@al-furat/api",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "check": "npm run typecheck && npm run lint && npm run test"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.6",
+    "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "electron-to-chromium": "1.5.358"
+  }
+}
