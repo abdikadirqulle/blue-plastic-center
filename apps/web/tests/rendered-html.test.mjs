@@ -230,4 +230,18 @@ test("renders the dashboard period control and complete header menus", async () 
   }
   assert.match(shell, /View all notifications/);
   assert.match(shell, /My profile/);
+  assert.match(shell, /Close open menu/);
+});
+
+test("supports modal quick-add for entity dropdowns without leaving the form", async () => {
+  const [select, resourceForm] = await Promise.all([
+    readFile(new URL("../components/ui/select.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../features/resources/resource-form-page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(select, /Add new \{addNewLabel\}/);
+  assert.match(select, /The current transaction stays open behind this window/);
+  assert.match(select, /Save & select/);
+  assert.match(select, /aria-modal="true"/);
+  assert.match(resourceForm, /supportsQuickAdd/);
+  assert.match(resourceForm, /allowAddNew=\{supportsQuickAdd\(field\)\}/);
 });

@@ -23,6 +23,10 @@ interface LineItem {
   tax: string;
 }
 
+function supportsQuickAdd(field: FormField) {
+  return /(customer|vendor|account|warehouse|employee|project|salesRep|approver|payee)$/i.test(field.name);
+}
+
 function FormControl({
   field,
   value,
@@ -39,7 +43,7 @@ function FormControl({
     return <textarea name={field.name} value={value} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`} className={cn(styles, "min-h-24 resize-y py-3")} />;
   }
   if (field.type === "select") {
-    return <Select name={field.name} value={value || undefined} onValueChange={onChange} options={field.options ?? []} placeholder={`Select ${field.label.toLowerCase()}`} />;
+    return <Select name={field.name} value={value || undefined} onValueChange={onChange} options={field.options ?? []} placeholder={`Select ${field.label.toLowerCase()}`} allowAddNew={supportsQuickAdd(field)} addNewLabel={field.label.toLowerCase()} />;
   }
   if (field.type === "date") {
     return <DatePicker name={field.name} value={value} onChange={onChange} placeholder={`Select ${field.label.toLowerCase()}`} />;

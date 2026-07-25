@@ -1,7 +1,8 @@
 "use client";
 
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Plus, Save, X } from "lucide-react";
+import { useState } from "react";
 import { cn } from "../../lib/utils";
 
 export function Select({
@@ -12,6 +13,8 @@ export function Select({
   placeholder = "Select an option",
   name,
   className,
+  allowAddNew = false,
+  addNewLabel = "record",
 }: {
   value?: string;
   defaultValue?: string;
@@ -20,9 +23,39 @@ export function Select({
   placeholder?: string;
   name?: string;
   className?: string;
+  allowAddNew?: boolean;
+  addNewLabel?: string;
 }) {
+  const [addedOptions, setAddedOptions] = useState<string[]>([]);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newCode, setNewCode] = useState("");
+  const [newContact, setNewContact] = useState("");
+
+  const localOptions = Array.from(new Set([...options, ...addedOptions]));
+
+  const selectValue = (nextValue: string) => {
+    if (nextValue === "__add_new__") {
+      setAddModalOpen(true);
+      return;
+    }
+    onValueChange?.(nextValue);
+  };
+
+  const saveNewOption = () => {
+    const label = newName.trim();
+    if (!label) return;
+    setAddedOptions((current) => current.includes(label) || options.includes(label) ? current : [...current, label]);
+    onValueChange?.(label);
+    setAddModalOpen(false);
+    setNewName("");
+    setNewCode("");
+    setNewContact("");
+  };
+
   return (
-    <SelectPrimitive.Root name={name} value={value} defaultValue={defaultValue} onValueChange={onValueChange}>
+    <>
+    <SelectPrimitive.Root name={name} value={value} defaultValue={defaultValue} onValueChange={selectValue}>
       <SelectPrimitive.Trigger className={cn("flex h-11 w-full items-center justify-between rounded-xl border border-[#dce6ed] bg-white px-3 text-left text-sm text-[#29414d] outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10", className)}>
         <SelectPrimitive.Value placeholder={placeholder}/>
         <SelectPrimitive.Icon><ChevronDown size={15} className="text-[#7d909c]"/></SelectPrimitive.Icon>
@@ -30,15 +63,43 @@ export function Select({
       <SelectPrimitive.Portal>
         <SelectPrimitive.Content position="popper" sideOffset={5} className="z-[100] max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-[#dce6ed] bg-white p-1.5 shadow-xl">
           <SelectPrimitive.Viewport>
-            {options.map((option) => (
+            {localOptions.map((option) => (
               <SelectPrimitive.Item key={option} value={option} className="relative flex cursor-pointer select-none items-center rounded-lg py-2.5 pl-3 pr-8 text-xs font-semibold text-[#405762] outline-none data-[highlighted]:bg-[#eaf5fc] data-[highlighted]:text-[#0069ad]">
                 <SelectPrimitive.ItemText>{option}</SelectPrimitive.ItemText>
                 <SelectPrimitive.ItemIndicator className="absolute right-2.5"><Check size={14}/></SelectPrimitive.ItemIndicator>
               </SelectPrimitive.Item>
             ))}
+            {allowAddNew ? (
+              <>
+                <SelectPrimitive.Separator className="my-1 h-px bg-[#e6edf1]"/>
+                <SelectPrimitive.Item value="__add_new__" className="flex cursor-pointer select-none items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold text-[#007DCC] outline-none data-[highlighted]:bg-[#eaf5fc]">
+                  <Plus size={14}/><SelectPrimitive.ItemText>Add new {addNewLabel}</SelectPrimitive.ItemText>
+                </SelectPrimitive.Item>
+              </>
+            ) : null}
           </SelectPrimitive.Viewport>
         </SelectPrimitive.Content>
       </SelectPrimitive.Portal>
     </SelectPrimitive.Root>
+    {addModalOpen ? (
+      <div onMouseDown={() => setAddModalOpen(false)} className="fixed inset-0 z-[130] grid place-items-center bg-[#071f33]/45 p-4 backdrop-blur-sm">
+        <div role="dialog" aria-modal="true" aria-label={`Add new ${addNewLabel}`} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-lg rounded-2xl border border-[#dce6ed] bg-white shadow-[0_24px_80px_rgba(7,31,51,0.28)]">
+          <div className="flex items-start justify-between border-b border-[#e7edf1] px-5 py-4">
+            <div><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#007DCC]">Quick add</p><h2 className="mt-1 text-lg font-bold text-[#213946]">Add new {addNewLabel}</h2><p className="mt-1 text-xs text-[#758894]">The current transaction stays open behind this window.</p></div>
+            <button type="button" aria-label="Close quick add" onClick={() => setAddModalOpen(false)} className="rounded-lg p-2 text-[#71848f] hover:bg-[#f1f5f7]"><X size={17}/></button>
+          </div>
+          <div className="grid gap-4 p-5 sm:grid-cols-2">
+            <label className="text-xs font-bold text-[#405762] sm:col-span-2"><span className="mb-1.5 block">Name <span className="text-red-500">*</span></span><input autoFocus value={newName} onChange={(event) => setNewName(event.target.value)} placeholder={`Enter ${addNewLabel} name`} className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></label>
+            <label className="text-xs font-bold text-[#405762]"><span className="mb-1.5 block">Code or reference</span><input value={newCode} onChange={(event) => setNewCode(event.target.value)} placeholder="Optional code" className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></label>
+            <label className="text-xs font-bold text-[#405762]"><span className="mb-1.5 block">Email or phone</span><input value={newContact} onChange={(event) => setNewContact(event.target.value)} placeholder="Optional contact" className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></label>
+          </div>
+          <div className="flex justify-end gap-2 border-t border-[#e7edf1] px-5 py-4">
+            <button type="button" onClick={() => setAddModalOpen(false)} className="h-10 rounded-xl border border-[#dce6ed] px-4 text-xs font-bold text-[#526874]">Cancel</button>
+            <button type="button" disabled={!newName.trim()} onClick={saveNewOption} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white hover:bg-[#0069ad] disabled:cursor-not-allowed disabled:opacity-50"><Save size={14}/> Save & select</button>
+          </div>
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }

@@ -147,6 +147,19 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
+        {notifications || createMenu || profileMenu ? (
+          <button
+            type="button"
+            aria-label="Close open menu"
+            className="fixed inset-0 z-40 cursor-default bg-transparent"
+            onClick={() => {
+              setNotifications(false);
+              setCreateMenu(false);
+              setProfileMenu(false);
+            }}
+          />
+        ) : null}
+
         {notifications ? (
           <div className="fixed right-4 top-[68px] z-50 w-[330px] rounded-2xl border border-[#dfe7ed] bg-white p-3 shadow-2xl md:right-7">
             <div className="flex items-center justify-between px-2 py-1">
@@ -216,8 +229,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         ) : null}
 
         {companyMenu ? (
-          <div className="fixed inset-0 z-50 grid place-items-center bg-[#061625]/45 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+          <div onMouseDown={() => setCompanyMenu(false)} className="fixed inset-0 z-50 grid place-items-center bg-[#061625]/45 p-4 backdrop-blur-sm">
+            <div onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold">Switch company</h2>
