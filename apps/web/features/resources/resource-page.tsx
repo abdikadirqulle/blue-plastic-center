@@ -34,16 +34,7 @@ const badgeVariant = (status: string) => {
 };
 
 export function ResourcePage({ config }: { config: ResourceConfig }) {
-  const groupedModules =
-    config.module === "banking" || config.module === "accounting"
-      ? ["banking", "accounting"]
-      : [config.module];
-  const groupedResources = groupedModules.flatMap((moduleKey) =>
-    moduleDefinitions[moduleKey].resources.map((resource) => ({
-      ...resource,
-      module: moduleKey,
-    })),
-  );
+  const moduleDefinition = moduleDefinitions[config.module];
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All statuses");
   const [rows, setRows] = useState(config.rows);
@@ -112,13 +103,13 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
         <Card className="mt-4 overflow-visible">
           <nav className="overflow-x-auto border-b border-[#e5ecf1] px-4">
             <div className="flex min-w-max gap-1">
-              {groupedResources.map((resource) => (
+              {moduleDefinition.resources.map((resource) => (
                 <Link
-                  key={`${resource.module}-${resource.slug}`}
-                  href={`/${resource.module}/${resource.slug}`}
+                  key={resource.slug}
+                  href={`/${config.module}/${resource.slug}`}
                   className={cn(
                     "border-b-2 px-3 py-4 text-xs font-bold",
-                    resource.module === config.module && resource.slug === config.slug
+                    resource.slug === config.slug
                       ? "border-[#007DCC] text-[#007DCC]"
                       : "border-transparent text-[#728691] hover:text-[#2e4653]",
                   )}

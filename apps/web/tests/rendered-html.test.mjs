@@ -52,8 +52,9 @@ test("server-renders every primary workspace and dedicated sales page", async ()
     "/accounting/chart-of-accounts": "Chart of accounts",
     "/projects/projects": "Projects",
     "/payroll/pay-runs": "Pay runs",
-    "/reports/financial": "Financial reports",
-    "/settings/company": "Company profile",
+    "/reports/financial": "Reports",
+    "/settings/company": "Company settings",
+    "/import": "Import data",
     "/login": "Sign in to your workspace",
   };
 
@@ -62,6 +63,20 @@ test("server-renders every primary workspace and dedicated sales page", async ()
     assert.equal(response.status, 200, pathname);
     assert.match(await response.text(), new RegExp(title), pathname);
   }
+});
+
+test("reports and settings use purpose-built non-table layouts", async () => {
+  const reports = await render("/reports/financial");
+  const reportsHtml = await reports.text();
+  assert.match(reportsHtml, /Profit and Loss/);
+  assert.match(reportsHtml, /From date/);
+  assert.doesNotMatch(reportsHtml, /<table/i);
+
+  const settings = await render("/settings/company");
+  const settingsHtml = await settings.text();
+  assert.match(settingsHtml, /Company identity/);
+  assert.match(settingsHtml, /Save settings/);
+  assert.doesNotMatch(settingsHtml, /<table/i);
 });
 
 test("server-renders full-page forms with both save workflows", async () => {

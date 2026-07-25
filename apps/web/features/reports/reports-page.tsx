@@ -1,0 +1,142 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import {
+  BarChart3,
+  CalendarDays,
+  ChevronRight,
+  Download,
+  FileBarChart,
+  Heart,
+  Play,
+  Search,
+  Star,
+} from "lucide-react";
+import { AppShell } from "../../components/layout/app-shell";
+import { Card } from "../../components/ui/card";
+import { cn } from "../../lib/utils";
+
+const tabs = [
+  ["financial", "Financial"],
+  ["sales", "Sales"],
+  ["purchasing", "Purchasing"],
+  ["inventory", "Inventory"],
+  ["payroll", "Payroll"],
+  ["custom", "Custom reports"],
+];
+
+const reportGroups: Record<string, Array<{ group: string; reports: string[] }>> = {
+  financial: [
+    { group: "Business overview", reports: ["Profit and Loss", "Balance Sheet", "Statement of Cash Flows", "Trial Balance", "General Ledger", "Journal"] },
+    { group: "Company & financial", reports: ["Profit and Loss by Class", "Profit and Loss by Customer", "Balance Sheet Detail", "Cash Flow Forecast", "Budget vs Actuals", "Statement of Changes in Equity"] },
+    { group: "Accountant reports", reports: ["Account List", "Transaction Detail by Account", "Audit Trail", "Closing Date Exception", "Voided/Deleted Transactions", "Reconciliation Reports"] },
+  ],
+  sales: [
+    { group: "Sales & customers", reports: ["Sales by Customer Summary", "Sales by Customer Detail", "Sales by Item Summary", "Sales by Item Detail", "Sales by Rep Summary", "Open Invoices"] },
+    { group: "Receivables", reports: ["A/R Aging Summary", "A/R Aging Detail", "Customer Balance Summary", "Customer Balance Detail", "Collections Report", "Invoice List", "Unbilled Charges"] },
+  ],
+  purchasing: [
+    { group: "Expenses & vendors", reports: ["Expenses by Vendor Summary", "Expenses by Vendor Detail", "Purchases by Vendor Summary", "Purchases by Item Detail", "Vendor Contact List", "Open Purchase Orders"] },
+    { group: "Payables", reports: ["A/P Aging Summary", "A/P Aging Detail", "Vendor Balance Summary", "Vendor Balance Detail", "Unpaid Bills Detail", "Bill Payment List"] },
+  ],
+  inventory: [
+    { group: "Inventory", reports: ["Inventory Valuation Summary", "Inventory Valuation Detail", "Inventory Stock Status by Item", "Physical Inventory Worksheet", "Inventory Assembly Shortage", "Pending Builds"] },
+    { group: "Cost & movement", reports: ["Inventory Turnover", "Stock by Warehouse", "Item Profitability", "Lot and Serial Tracking", "Inventory Adjustments", "Reorder Report"] },
+  ],
+  payroll: [
+    { group: "Payroll", reports: ["Payroll Summary", "Payroll Details", "Employee Earnings Summary", "Payroll Item Detail", "Payroll Liability Balances", "Payroll Tax Liability"] },
+    { group: "Employees", reports: ["Employee Contact List", "Time Activities by Employee", "Vacation and Sick Leave", "Deductions and Contributions", "Employee Loan Balances", "Department Payroll Summary"] },
+  ],
+  custom: [
+    { group: "My custom reports", reports: ["Monthly Management Pack", "Branch Performance", "Customer Credit Review", "Warehouse Margin Analysis", "Executive Cash Position", "Board Reporting Pack"] },
+    { group: "Scheduled reports", reports: ["Monday Sales Digest", "Month-end Financial Pack", "Weekly Collections", "Daily Cash Summary"] },
+  ],
+};
+
+export function ReportsPage({ activeTab }: { activeTab: string }) {
+  const currentTab = reportGroups[activeTab] ? activeTab : "financial";
+  const [query, setQuery] = useState("");
+  const [period, setPeriod] = useState("This month-to-date");
+  const [from, setFrom] = useState("2026-07-01");
+  const [to, setTo] = useState("2026-07-26");
+  const [basis, setBasis] = useState("Accrual");
+  const [favorites, setFavorites] = useState<string[]>(["Profit and Loss", "Balance Sheet"]);
+  const [message, setMessage] = useState("");
+
+  const groups = reportGroups[currentTab]
+    .map((group) => ({ ...group, reports: group.reports.filter((report) => report.toLowerCase().includes(query.toLowerCase())) }))
+    .filter((group) => group.reports.length);
+
+  const run = (report: string) => {
+    setMessage(`${report} generated for ${from} to ${to} on ${basis.toLowerCase()} basis.`);
+    window.setTimeout(() => setMessage(""), 3200);
+  };
+
+  return (
+    <AppShell>
+      <div className="mx-auto max-w-[1500px]">
+        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+          <div>
+            <p className="mb-2 text-xs font-bold text-[#007DCC]">Reports & insights</p>
+            <h1 className="text-2xl font-bold tracking-[-0.035em] text-[#142735] md:text-[29px]">Reports</h1>
+            <p className="mt-1.5 text-sm text-[#6b7e8a]">QuickBooks-style financial and operational reporting across every company and branch.</p>
+          </div>
+          <button onClick={() => setMessage("Report center settings saved")} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"><Star size={16}/> Memorized reports</button>
+        </div>
+
+        <Card className="mt-6 overflow-hidden">
+          <nav className="overflow-x-auto border-b border-[#e5ecf1] px-4">
+            <div className="flex min-w-max">
+              {tabs.map(([slug, label]) => <Link key={slug} href={`/reports/${slug}`} className={cn("border-b-2 px-4 py-4 text-xs font-bold", slug === currentTab ? "border-[#007DCC] text-[#007DCC]" : "border-transparent text-[#71848f]")}>{label}</Link>)}
+            </div>
+          </nav>
+          <div className="grid gap-3 bg-[#f8fafc] p-4 lg:grid-cols-[1fr_auto_auto_auto]">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#80929d]"/>
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a report by name" className="h-11 w-full rounded-xl border border-[#dce6ed] bg-white pl-9 pr-3 text-xs outline-none focus:border-[#007DCC]"/>
+            </div>
+            <select aria-label="Report period" value={period} onChange={(event) => setPeriod(event.target.value)} className="h-11 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-semibold">
+              {["Today","This week","This month-to-date","This month","This quarter","This fiscal year","Last month","Last fiscal year","Custom"].map((value) => <option key={value}>{value}</option>)}
+            </select>
+            <div className="flex items-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3">
+              <CalendarDays size={16} className="text-[#007DCC]"/>
+              <input aria-label="From date" type="date" value={from} onChange={(event) => { setFrom(event.target.value); setPeriod("Custom"); }} className="h-10 bg-transparent text-xs outline-none"/>
+              <span className="text-[#90a0a9]">—</span>
+              <input aria-label="To date" type="date" value={to} onChange={(event) => { setTo(event.target.value); setPeriod("Custom"); }} className="h-10 bg-transparent text-xs outline-none"/>
+            </div>
+            <select aria-label="Accounting basis" value={basis} onChange={(event) => setBasis(event.target.value)} className="h-11 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-semibold"><option>Accrual</option><option>Cash</option></select>
+          </div>
+        </Card>
+
+        {message ? <div role="status" className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs font-bold text-[#0069ad]">{message}</div> : null}
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          {groups.map((group) => (
+            <Card key={group.group} className="overflow-hidden">
+              <div className="flex items-center gap-3 border-b border-[#e8eef2] px-5 py-4">
+                <span className="grid size-9 place-items-center rounded-xl bg-[#eaf5fc] text-[#007DCC]"><FileBarChart size={17}/></span>
+                <div><h2 className="text-sm font-bold text-[#223b48]">{group.group}</h2><p className="text-[11px] text-[#80919b]">{group.reports.length} available reports</p></div>
+              </div>
+              <div className="divide-y divide-[#edf1f4]">
+                {group.reports.map((report) => {
+                  const favorite = favorites.includes(report);
+                  return (
+                    <div key={report} className="flex items-center gap-3 px-5 py-3 hover:bg-[#f8fbfd]">
+                      <BarChart3 size={16} className="text-[#738894]"/>
+                      <button onClick={() => run(report)} className="flex-1 text-left text-xs font-bold text-[#304954]">{report}</button>
+                      <button aria-label={`${favorite ? "Remove" : "Add"} ${report} favorite`} onClick={() => setFavorites((current) => favorite ? current.filter((item) => item !== report) : [...current, report])} className={favorite ? "text-amber-500" : "text-[#a0adb5]"}><Heart size={15} fill={favorite ? "currentColor" : "none"}/></button>
+                      <button aria-label={`Export ${report}`} onClick={() => setMessage(`${report} export prepared`)} className="rounded-lg p-2 text-[#758995] hover:bg-[#eaf5fc] hover:text-[#007DCC]"><Download size={15}/></button>
+                      <button onClick={() => run(report)} className="flex items-center gap-1 rounded-lg bg-[#eaf5fc] px-2.5 py-2 text-[11px] font-bold text-[#007DCC]"><Play size={13}/> Run</button>
+                      <ChevronRight size={14} className="text-[#a0adb5]"/>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </AppShell>
+  );
+}

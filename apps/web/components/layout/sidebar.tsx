@@ -8,6 +8,8 @@ import {
   Building2,
   ChevronDown,
   CircleDollarSign,
+  ClipboardList,
+  Database,
   FileBarChart,
   Landmark,
   LayoutDashboard,
@@ -22,13 +24,15 @@ import { cn } from "../../lib/utils";
 
 export const navigation = [
   { label: "Overview", icon: LayoutDashboard, href: "/", sections: [] },
-  { label: "Iibka & macaamiisha", icon: ShoppingCart, href: "/sales/invoices", sections: ["sales"] },
-  { label: "Deymaha & iibsiga", icon: ReceiptText, href: "/purchasing/bills", sections: ["purchasing"] },
+  { label: "Sales", icon: ShoppingCart, href: "/sales/invoices", sections: ["sales"] },
+  { label: "Purchasing", icon: ReceiptText, href: "/purchasing/bills", sections: ["purchasing"] },
+  { label: "Banking", icon: Landmark, href: "/banking/accounts", sections: ["banking"] },
   { label: "Items & inventory", icon: Boxes, href: "/inventory/items", sections: ["inventory"] },
-  { label: "Lacagta & accounting", icon: Landmark, href: "/banking/accounts", sections: ["banking", "accounting"] },
+  { label: "Accounting", icon: ClipboardList, href: "/accounting/chart-of-accounts", sections: ["accounting"] },
   { label: "Projects", icon: BarChart3, href: "/projects/projects", sections: ["projects"] },
   { label: "Payroll", icon: WalletCards, href: "/payroll/pay-runs", sections: ["payroll"] },
   { label: "Reports", icon: FileBarChart, href: "/reports/financial", sections: ["reports"] },
+  { label: "Import data", icon: Database, href: "/import", sections: ["import"] },
 ];
 
 export function Sidebar({

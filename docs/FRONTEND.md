@@ -38,11 +38,11 @@ tests/               Automated validation
 - Reports
 - Settings
 
-Related work is grouped into four primary workspaces: sales and customers,
-debts and purchasing, items and inventory, and money and accounting. Banking
-and general-ledger resources share the money and accounting tab set.
+Every operational workspace remains separate in the main navigation: Sales,
+Purchasing, Banking, Items & Inventory, Accounting, Projects, Payroll, Reports,
+Import Data, and Settings.
 
-Every operational resource still has a dedicated nested route. For example, Sales uses
+Every operational resource has a dedicated nested route. For example, Sales uses
 `/sales/invoices`, `/sales/customers`, `/sales/estimates`,
 `/sales/sales-orders`, `/sales/payments`, and `/sales/credit-notes`.
 Purchasing, banking, inventory, accounting, projects, payroll, reports, and
@@ -61,6 +61,16 @@ settings follow the same `/:section/:resource` convention.
   provide both **Save & new** and **Save & close** workflows.
 - Frontend changes are session-local until the API and database layer is
   connected.
+
+## Purpose-built workspaces
+
+- Reports use a non-table report center with category tabs, QuickBooks-style
+  report catalogues, period presets, From/To date pickers, accounting basis,
+  favorites, run, and export actions.
+- Settings use a non-table section navigation with grouped preference forms
+  for company, branches, users and roles, currencies, taxes, and workflows.
+- Import Data provides module selection, CSV/Excel upload, column mapping
+  workflow steps, templates, and validation guidance.
 
 ## Frontend principles
 
