@@ -13,7 +13,9 @@ being built with the functional breadth of enterprise accounting software.
 - Login, sales, purchasing, banking, inventory, accounting, projects, payroll,
   reports, and settings pages
 - Working search, filters, forms, record details, editing, exports, and menus
-- Typed mock data boundaries
+- Typed API client boundaries and realistic frontend mock data
+- Multi-tenant Hono REST API with Zod validation and RBAC
+- PostgreSQL/Drizzle schema, migrations, seed data, audit events, and optimistic locking
 - Product, architecture, frontend, roadmap, and accounting documentation
 
 ## Technology
@@ -22,7 +24,7 @@ being built with the functional breadth of enterprise accounting software.
 - Tailwind CSS 4
 - Lucide React icons
 - React Hook Form and Zod
-- Drizzle ORM (prepared for the future data layer)
+- Hono, PostgreSQL, and Drizzle ORM
 - Vinext/Vite development and deployment runtime
 
 ## Local development
@@ -40,6 +42,18 @@ npm run dev
 ```
 
 The development server prints the local URL in the terminal.
+
+Run the API separately:
+
+```bash
+cp apps/api/.env.example apps/api/.env
+npm run db:migrate -w @al-furat/api
+npm run db:seed -w @al-furat/api
+npm run dev:api
+```
+
+The API runs at `http://localhost:4000`. Development bearer tokens and complete
+endpoint documentation are in `docs/API.md`.
 
 ## Validation
 

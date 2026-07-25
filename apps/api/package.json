@@ -2,18 +2,30 @@
   "name": "@al-furat/api",
   "version": "0.1.0",
   "private": true,
-  "description": "Reserved backend workspace for the Al-Furat API",
+  "description": "Multi-tenant REST API for the Al-Furat accounting platform",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test"
+    "start": "node dist/index.js",
+    "test": "node --test tests/*.test.mjs",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@al-furat/types": "*"
+    "@al-furat/types": "*",
+    "@hono/node-server": "^2.0.11",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.12.32",
+    "postgres": "^3.4.9",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/node": "^22.19.19",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.20.5",
     "typescript": "^5.9.3"
   }
