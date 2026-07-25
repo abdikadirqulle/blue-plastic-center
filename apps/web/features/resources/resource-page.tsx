@@ -140,23 +140,29 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
             </div>
           </nav>
 
-          <div className="flex flex-wrap gap-3 border-b border-[#e5ecf1] p-4">
-            <div className="relative">
+          <div className="border-b border-[#e5ecf1] bg-[#fbfcfd] p-3.5">
+            <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center">
+            <div className="relative min-w-[240px] flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8496a1]" size={16} />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={config.searchPlaceholder} className="h-10 w-full min-w-[220px] rounded-xl border border-[#dce6ed] bg-[#f8fafc] pl-9 pr-3 text-xs outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={config.searchPlaceholder} className="h-10 w-full rounded-xl border border-[#dce6ed] bg-white pl-9 pr-3 text-xs outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10" />
             </div>
-            <div className="relative">
+            <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
+            <div className="relative shrink-0">
               <Filter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71848f]" size={15} />
-              <Select value={status} onValueChange={setStatus} options={statusOptions} className="h-10 min-w-40 pl-9 text-xs font-semibold"/>
+              <Select value={status} onValueChange={setStatus} options={statusOptions} className="h-10 w-[154px] pl-9 text-xs font-semibold"/>
             </div>
-            <Select value={keyValue} onValueChange={setKeyValue} options={[allKeyOption, ...Array.from(new Set(rows.map((row) => row.cells[0])))]} placeholder={allKeyOption} className="h-10 text-xs font-semibold"/>
-            {dateColumnIndex >= 0 ? <DatePicker value={dateFrom} onChange={setDateFrom} placeholder={`${config.columns[dateColumnIndex + 1]} from`} className="h-10 text-xs"/> : null}
-            {dateColumnIndex >= 0 ? <DatePicker value={dateTo} onChange={setDateTo} placeholder={`${config.columns[dateColumnIndex + 1]} to`} className="h-10 text-xs"/> : null}
-            <button onClick={() => { setSearch(""); setStatus("All statuses"); setKeyValue(allKeyOption); setDateFrom(""); setDateTo(""); notify("Filters reset", "info", "All records are visible again."); }} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] px-3 text-xs font-semibold text-[#526874]">
-              <SlidersHorizontal size={15} /> Reset
+            <Select value={keyValue} onValueChange={setKeyValue} options={[allKeyOption, ...Array.from(new Set(rows.map((row) => row.cells[0])))]} placeholder={allKeyOption} className="h-10 w-[170px] text-xs font-semibold"/>
+            {dateColumnIndex >= 0 ? <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="From" className="h-10 w-[132px] text-xs"/> : null}
+            {dateColumnIndex >= 0 ? <DatePicker value={dateTo} onChange={setDateTo} placeholder="To" className="h-10 w-[132px] text-xs"/> : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5 xl:border-l xl:border-[#dfe7ec] xl:pl-2.5">
+            <button aria-label="Reset filters" title="Reset filters" onClick={() => { setSearch(""); setStatus("All statuses"); setKeyValue(allKeyOption); setDateFrom(""); setDateTo(""); notify("Filters reset", "info", "All records are visible again."); }} className="grid size-10 place-items-center rounded-xl border border-[#dce6ed] bg-white text-[#526874] hover:border-[#007DCC] hover:text-[#007DCC]">
+              <SlidersHorizontal size={15} />
             </button>
-            <button onClick={exportRows} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-bold text-[#526874] hover:border-[#007DCC] hover:text-[#007DCC]"><Download size={15}/> Export</button>
-            <button onClick={() => { window.print(); notify("Print dialog opened", "info", `Printing ${filteredRows.length} filtered records.`); }} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-bold text-[#526874] hover:border-[#007DCC] hover:text-[#007DCC]"><Printer size={15}/> Print</button>
+            <button onClick={exportRows} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-bold text-[#526874] hover:border-[#007DCC] hover:text-[#007DCC]"><Download size={15}/><span className="hidden 2xl:inline">Export</span></button>
+            <button onClick={() => { window.print(); notify("Print dialog opened", "info", `Printing ${filteredRows.length} filtered records.`); }} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-bold text-[#526874] hover:border-[#007DCC] hover:text-[#007DCC]"><Printer size={15}/><span className="hidden 2xl:inline">Print</span></button>
+            </div>
+            </div>
           </div>
 
           {config.presentation === "cards" ? (

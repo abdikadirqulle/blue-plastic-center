@@ -9,6 +9,7 @@ import {
   BarChart3,
   Box,
   BriefcaseBusiness,
+  CalendarDays,
   Calculator,
   CircleAlert,
   FileText,
@@ -18,7 +19,10 @@ import {
   Settings,
   ShoppingBag,
   Sparkles,
+  Target,
+  TrendingUp,
   Users,
+  WalletCards,
 } from "lucide-react";
 import { AppShell } from "../../../components/layout/app-shell";
 import { Badge } from "../../../components/ui/badge";
@@ -46,6 +50,25 @@ const moduleHighlights = [
   { title: "Payroll & people", value: "52 employees", helper: "$45,120 next payroll", href: "/payroll/pay-runs", icon: Users, tone: "bg-rose-50 text-rose-700" },
   { title: "Reports & insights", value: "42 reports", helper: "8 recently generated", href: "/reports/financial", icon: BarChart3, tone: "bg-cyan-50 text-cyan-700" },
   { title: "Company settings", value: "4 branches", helper: "18 active users", href: "/settings/company", icon: Settings, tone: "bg-slate-100 text-slate-700" },
+];
+
+const upcomingDeadlines = [
+  { label: "Payroll approval", date: "28 Jul", helper: "52 employees", href: "/payroll/pay-runs" },
+  { label: "VAT filing", date: "31 Jul", helper: "Jul 2026 period", href: "/accounting/fiscal-periods" },
+  { label: "Inventory count", date: "02 Aug", helper: "Bakaaro warehouse", href: "/inventory/stock-counts" },
+];
+
+const salesLeaders = [
+  { name: "Amina Yusuf", revenue: "$74,820", progress: 92 },
+  { name: "Hassan Ali", revenue: "$62,450", progress: 78 },
+  { name: "Abdi Noor", revenue: "$51,300", progress: 64 },
+];
+
+const budgetLines = [
+  { label: "Operating expenses", actual: "$82,400", budget: "$96,000", progress: 86 },
+  { label: "Purchasing", actual: "$118,200", budget: "$150,000", progress: 79 },
+  { label: "Payroll", actual: "$45,120", budget: "$49,500", progress: 91 },
+  { label: "Projects", actual: "$136,800", budget: "$180,000", progress: 76 },
 ];
 
 export function DashboardPage() {
@@ -173,6 +196,79 @@ export function DashboardPage() {
               </div>
             </Card>
           </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <Card className="overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#edf1f4] px-5 py-4">
+              <div><h2 className="text-sm font-bold text-[#203540]">Payables health</h2><p className="mt-1 text-xs text-[#7c8f9a]">What your company owes vendors</p></div>
+              <span className="grid size-9 place-items-center rounded-xl bg-violet-50 text-violet-700"><WalletCards size={17}/></span>
+            </div>
+            <div className="grid grid-cols-3 divide-x divide-[#edf1f4] p-5">
+              {[["Current","$38,720","57%"],["Due soon","$18,450","27%"],["Overdue","$11,250","16%"]].map(([label,value,share], index) => (
+                <div key={label} className={cn("px-3 first:pl-0 last:pr-0", index === 2 && "text-red-700")}>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[#82939d]">{label}</p>
+                  <p className="mt-2 text-lg font-bold tracking-[-0.03em]">{value}</p>
+                  <p className="mt-1 text-[10px] font-semibold text-[#82939d]">{share} of payables</p>
+                </div>
+              ))}
+            </div>
+            <Link href="/purchasing/bills" className="flex items-center justify-between border-t border-[#edf1f4] px-5 py-3.5 text-xs font-bold text-[#007DCC]">View all vendor bills <ArrowRight size={14}/></Link>
+          </Card>
+
+          <Card className="overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#edf1f4] px-5 py-4">
+              <div><h2 className="text-sm font-bold text-[#203540]">Upcoming deadlines</h2><p className="mt-1 text-xs text-[#7c8f9a]">Important work due in the next 7 days</p></div>
+              <span className="grid size-9 place-items-center rounded-xl bg-amber-50 text-amber-700"><CalendarDays size={17}/></span>
+            </div>
+            <div className="divide-y divide-[#edf1f4] px-5">
+              {upcomingDeadlines.map((item) => (
+                <Link href={item.href} key={item.label} className="flex items-center gap-4 py-3.5 hover:text-[#007DCC]">
+                  <span className="w-12 rounded-lg bg-[#f3f7fa] px-2 py-1.5 text-center text-[10px] font-bold text-[#526874]">{item.date}</span>
+                  <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-[#344d59]">{item.label}</span><span className="mt-0.5 block text-[10px] text-[#82939d]">{item.helper}</span></span>
+                  <ArrowRight size={13} className="text-[#9aabb4]"/>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(300px,0.75fr)_minmax(0,1.25fr)]">
+          <Card className="overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#edf1f4] px-5 py-4">
+              <div><h2 className="text-sm font-bold text-[#203540]">Sales leaderboard</h2><p className="mt-1 text-xs text-[#7c8f9a]">Revenue performance this month</p></div>
+              <TrendingUp size={18} className="text-emerald-600"/>
+            </div>
+            <div className="space-y-4 p-5">
+              {salesLeaders.map((person, index) => (
+                <div key={person.name}>
+                  <div className="flex items-center gap-3">
+                    <span className="grid size-7 place-items-center rounded-lg bg-[#eaf5fc] text-[10px] font-bold text-[#007DCC]">{index + 1}</span>
+                    <span className="flex-1 text-xs font-bold text-[#344d59]">{person.name}</span>
+                    <span className="text-xs font-bold text-[#203540]">{person.revenue}</span>
+                  </div>
+                  <div className="ml-10 mt-2 h-1.5 overflow-hidden rounded-full bg-[#edf2f5]"><span className="block h-full rounded-full bg-[#007DCC]" style={{width:`${person.progress}%`}}/></div>
+                </div>
+              ))}
+            </div>
+            <Link href="/reports/sales" className="flex items-center justify-between border-t border-[#edf1f4] px-5 py-3.5 text-xs font-bold text-[#007DCC]">View sales reports <ArrowRight size={14}/></Link>
+          </Card>
+
+          <Card className="overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#edf1f4] px-5 py-4">
+              <div><h2 className="text-sm font-bold text-[#203540]">Budget vs actual</h2><p className="mt-1 text-xs text-[#7c8f9a]">Monthly spending against approved budgets</p></div>
+              <span className="grid size-9 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><Target size={17}/></span>
+            </div>
+            <div className="grid gap-x-6 gap-y-5 p-5 sm:grid-cols-2">
+              {budgetLines.map((line) => (
+                <div key={line.label}>
+                  <div className="flex items-end justify-between gap-3"><div><p className="text-xs font-bold text-[#344d59]">{line.label}</p><p className="mt-1 text-[10px] text-[#82939d]">{line.actual} of {line.budget}</p></div><span className="text-[11px] font-bold text-[#526874]">{line.progress}%</span></div>
+                  <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-[#edf2f5]"><span className={cn("block h-full rounded-full", line.progress > 90 ? "bg-amber-500" : "bg-emerald-500")} style={{width:`${line.progress}%`}}/></div>
+                </div>
+              ))}
+            </div>
+            <Link href="/reports/financial" className="flex items-center justify-between border-t border-[#edf1f4] px-5 py-3.5 text-xs font-bold text-[#007DCC]">Open budget reports <ArrowRight size={14}/></Link>
+          </Card>
         </div>
 
         <section className="mt-4">

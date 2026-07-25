@@ -36,6 +36,10 @@ test("server-renders the Al-Furat dashboard", async () => {
   assert.match(html, /Recent activity/);
   assert.match(html, /Items &amp; inventory/);
   assert.match(html, /Business modules/);
+  assert.match(html, /Payables health/);
+  assert.match(html, /Upcoming deadlines/);
+  assert.match(html, /Sales leaderboard/);
+  assert.match(html, /Budget vs actual/);
   assert.match(html, /Purchasing &amp; expenses/);
   assert.match(html, /Projects &amp; job costing/);
   assert.match(html, /Company settings/);
