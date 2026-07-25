@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   ChevronLeft,
@@ -23,20 +22,9 @@ import { Card } from "../../components/ui/card";
 import { cn } from "../../lib/utils";
 import {
   moduleDefinitions,
-  type FormField,
   type ResourceConfig,
   type ResourceRow,
 } from "./resource-config";
-
-interface LineItem {
-  id: number;
-  item: string;
-  description: string;
-  quantity: string;
-  unit: string;
-  rate: string;
-  tax: string;
-}
 
 const badgeVariant = (status: string) => {
   if (["Paid", "Posted", "Active", "Approved", "Completed"].includes(status)) return "success";
@@ -45,55 +33,23 @@ const badgeVariant = (status: string) => {
   return "neutral";
 };
 
-function FormControl({ field, defaultValue }: { field: FormField; defaultValue?: string }) {
-  const base =
-    "h-11 w-full rounded-xl border border-[#dce6ed] bg-white px-3 text-sm text-[#29414d] outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10";
-
-  if (field.type === "textarea") {
-    return <textarea name={field.name} defaultValue={defaultValue} required={field.required} placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`} className={cn(base, "min-h-24 resize-y py-3")} />;
-  }
-  if (field.type === "select") {
-    return (
-      <select name={field.name} defaultValue={defaultValue} required={field.required} className={base}>
-        <option value="">Select {field.label.toLowerCase()}</option>
-        {field.options?.map((option) => <option key={option}>{option}</option>)}
-      </select>
-    );
-  }
-  if (field.type === "checkbox") {
-    return (
-      <label className="flex h-11 items-center gap-2 rounded-xl border border-[#dce6ed] px-3 text-xs font-semibold text-[#536a76]">
-        <input name={field.name} type="checkbox" defaultChecked={defaultValue === "true"} className="size-4 accent-[#007DCC]" />
-        {field.label}
-      </label>
-    );
-  }
-  return (
-    <input
-      name={field.name}
-      type={field.type}
-      defaultValue={defaultValue}
-      required={field.required}
-      placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`}
-      className={base}
-    />
-  );
-}
-
 export function ResourcePage({ config }: { config: ResourceConfig }) {
-  const searchParams = useSearchParams();
-  const moduleDefinition = moduleDefinitions[config.module];
-  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
+  const groupedModules =
+    config.module === "banking" || config.module === "accounting"
+      ? ["banking", "accounting"]
+      : [config.module];
+  const groupedResources = groupedModules.flatMap((moduleKey) =>
+    moduleDefinitions[moduleKey].resources.map((resource) => ({
+      ...resource,
+      module: moduleKey,
+    })),
+  );
+  const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All statuses");
   const [rows, setRows] = useState(config.rows);
-  const [formOpen, setFormOpen] = useState(() => searchParams.has("create"));
   const [detailRow, setDetailRow] = useState<ResourceRow | null>(null);
-  const [editRow, setEditRow] = useState<ResourceRow | null>(null);
   const [menuRow, setMenuRow] = useState<string | null>(null);
   const [toast, setToast] = useState("");
-  const [lineItems, setLineItems] = useState<LineItem[]>([
-    { id: 1, item: "", description: "", quantity: "1", unit: "Each", rate: "", tax: "Standard tax" },
-  ]);
 
   const filteredRows = useMemo(
     () =>
@@ -107,39 +63,6 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
   const notify = (message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(""), 2400);
-  };
-
-  const openNew = () => {
-    setEditRow(null);
-    setLineItems([{ id: 1, item: "", description: "", quantity: "1", unit: "Each", rate: "", tax: "Standard tax" }]);
-    setFormOpen(true);
-  };
-
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const firstFields = config.formSections.flatMap((section) => section.fields).filter((field) => field.type !== "checkbox");
-    const primary = String(data.get(firstFields[0]?.name) || `New ${config.title.toLowerCase()} record`);
-    const amountField = firstFields.find((field) => /amount|price|balance|budget|value|principal/i.test(field.name));
-    const value = amountField ? `$${Number(data.get(amountField.name) || 0).toLocaleString()}` : "—";
-
-    if (editRow) {
-      setRows((current) =>
-        current.map((row) =>
-          row.id === editRow.id ? { ...row, cells: [primary, value, "25 Jul 2026"], status: "Draft" } : row,
-        ),
-      );
-      notify(`${editRow.id} updated`);
-    } else {
-      const prefix = config.slug.slice(0, 3).toUpperCase();
-      setRows((current) => [
-        { id: `${prefix}-${String(current.length + 1050).padStart(4, "0")}`, cells: [primary, value, "25 Jul 2026"], status: "Draft" },
-        ...current,
-      ]);
-      notify(`${config.primaryAction} saved as draft`);
-    }
-    setFormOpen(false);
-    setEditRow(null);
   };
 
   const exportRows = () => {
@@ -157,11 +80,6 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
     notify("CSV export downloaded");
   };
 
-  const lineTotal = lineItems.reduce(
-    (total, line) => total + Number(line.quantity || 0) * Number(line.rate || 0),
-    0,
-  );
-
   return (
     <AppShell>
       <div className="mx-auto max-w-[1500px]">
@@ -175,9 +93,9 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
             <button onClick={exportRows} className="flex h-10 items-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3.5 text-xs font-bold text-[#425966] hover:bg-[#f5f9fc]">
               <Download size={16} /> Export
             </button>
-            <button onClick={openNew} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white hover:bg-[#0069ad]">
+            <Link href={`/${config.module}/${config.slug}/new`} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white hover:bg-[#0069ad]">
               <Plus size={17} /> {config.primaryAction}
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -194,13 +112,13 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
         <Card className="mt-4 overflow-visible">
           <nav className="overflow-x-auto border-b border-[#e5ecf1] px-4">
             <div className="flex min-w-max gap-1">
-              {moduleDefinition.resources.map((resource) => (
+              {groupedResources.map((resource) => (
                 <Link
-                  key={resource.slug}
-                  href={`/${config.module}/${resource.slug}`}
+                  key={`${resource.module}-${resource.slug}`}
+                  href={`/${resource.module}/${resource.slug}`}
                   className={cn(
                     "border-b-2 px-3 py-4 text-xs font-bold",
-                    resource.slug === config.slug
+                    resource.module === config.module && resource.slug === config.slug
                       ? "border-[#007DCC] text-[#007DCC]"
                       : "border-transparent text-[#728691] hover:text-[#2e4653]",
                   )}
@@ -252,7 +170,8 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                       {menuRow === row.id ? (
                         <div className="absolute right-8 top-12 z-20 w-36 rounded-xl border border-[#dce6ed] bg-white p-1.5 text-left shadow-xl">
                           <button onClick={() => { setDetailRow(row); setMenuRow(null); }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold hover:bg-[#eef7fd]"><Eye size={14}/> View</button>
-                          <button onClick={() => { setEditRow(row); setFormOpen(true); setMenuRow(null); }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold hover:bg-[#eef7fd]"><Pencil size={14}/> Edit</button>
+                          <Link href={`/${config.module}/${config.slug}/new?edit=${encodeURIComponent(row.id)}`} onClick={() => setMenuRow(null)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold hover:bg-[#eef7fd]"><Pencil size={14}/> Edit</Link>
+                          <button onClick={() => { if (window.confirm(`Delete ${row.id}?`)) { setRows((current) => current.filter((item) => item.id !== row.id)); notify(`${row.id} deleted`); } setMenuRow(null); }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"><Trash2 size={14}/> Delete</button>
                         </div>
                       ) : null}
                     </td>
@@ -272,78 +191,6 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
           </div>
         </Card>
       </div>
-
-      {formOpen ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-[#061625]/50 backdrop-blur-sm">
-          <button aria-label="Close form" className="flex-1" onClick={() => { setFormOpen(false); setEditRow(null); }} />
-          <div className="h-full w-full max-w-5xl overflow-y-auto bg-[#f7fafc] shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-start justify-between border-b border-[#dfe7ed] bg-white px-5 py-4 md:px-8">
-              <div><p className="text-xs font-bold text-[#007DCC]">{config.moduleTitle}</p><h2 className="mt-1 text-xl font-bold text-[#18313e]">{editRow ? `Edit ${editRow.id}` : config.primaryAction}</h2></div>
-              <button aria-label="Close form panel" onClick={() => { setFormOpen(false); setEditRow(null); }} className="rounded-lg p-2 hover:bg-[#f0f5f8]"><X size={20}/></button>
-            </div>
-            <form onSubmit={submit} className="space-y-4 p-4 md:p-8">
-              {config.formSections.map((section) => (
-                <Card key={section.title} className="p-5">
-                  <h3 className="text-sm font-bold text-[#213b48]">{section.title}</h3>
-                  {section.description ? <p className="mt-1 text-xs text-[#7b8e99]">{section.description}</p> : null}
-                  <div className="mt-5 grid gap-4 md:grid-cols-6">
-                    {section.fields.map((field, index) => (
-                      <label key={field.name} className={cn("block", field.width === "full" ? "md:col-span-6" : field.width === "third" ? "md:col-span-2" : "md:col-span-3")}>
-                        {field.type !== "checkbox" ? <span className="mb-1.5 block text-xs font-bold text-[#455c68]">{field.label}{field.required ? <span className="ml-1 text-red-500">*</span> : null}</span> : null}
-                        <FormControl field={field} defaultValue={editRow ? (index === 0 ? editRow.cells[0] : "") : undefined} />
-                      </label>
-                    ))}
-                  </div>
-                </Card>
-              ))}
-
-              {config.hasLineItems ? (
-                <Card className="overflow-hidden">
-                  <div className="flex items-center justify-between border-b border-[#e5ecf1] p-5">
-                    <div><h3 className="text-sm font-bold text-[#213b48]">Items, quantities & pricing</h3><p className="mt-1 text-xs text-[#7b8e99]">Add every product, service, account, class, tax, lot, or serial line required.</p></div>
-                    <button type="button" onClick={() => setLineItems((current) => [...current, { id: Date.now(), item: "", description: "", quantity: "1", unit: "Each", rate: "", tax: "Standard tax" }])} className="flex items-center gap-1.5 rounded-lg bg-[#eaf5fc] px-3 py-2 text-xs font-bold text-[#007DCC]"><Plus size={14}/> Add line</button>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[920px]">
-                      <thead><tr className="bg-[#f8fafc]">{["Item/account","Description","Qty","U/M","Rate","Tax","Amount",""].map((heading) => <th key={heading} className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#768994]">{heading}</th>)}</tr></thead>
-                      <tbody>
-                        {lineItems.map((line) => {
-                          const update = (key: keyof LineItem, value: string) => setLineItems((current) => current.map((item) => item.id === line.id ? { ...item, [key]: value } : item));
-                          return (
-                            <tr key={line.id} className="border-t border-[#edf1f4]">
-                              <td className="p-2"><input value={line.item} onChange={(event) => update("item", event.target.value)} placeholder="Select item" className="h-10 w-full rounded-lg border border-[#dce6ed] px-2 text-xs"/></td>
-                              <td className="p-2"><input value={line.description} onChange={(event) => update("description", event.target.value)} placeholder="Description" className="h-10 w-full rounded-lg border border-[#dce6ed] px-2 text-xs"/></td>
-                              <td className="p-2"><input type="number" value={line.quantity} onChange={(event) => update("quantity", event.target.value)} className="h-10 w-20 rounded-lg border border-[#dce6ed] px-2 text-xs"/></td>
-                              <td className="p-2"><select value={line.unit} onChange={(event) => update("unit", event.target.value)} className="h-10 rounded-lg border border-[#dce6ed] px-2 text-xs"><option>Each</option><option>Box</option><option>Kg</option><option>Hour</option></select></td>
-                              <td className="p-2"><input type="number" value={line.rate} onChange={(event) => update("rate", event.target.value)} className="h-10 w-24 rounded-lg border border-[#dce6ed] px-2 text-xs"/></td>
-                              <td className="p-2"><select value={line.tax} onChange={(event) => update("tax", event.target.value)} className="h-10 rounded-lg border border-[#dce6ed] px-2 text-xs"><option>Standard tax</option><option>Non-taxable</option><option>Zero rated</option></select></td>
-                              <td className="p-2 text-xs font-bold text-[#29414d]">${(Number(line.quantity || 0) * Number(line.rate || 0)).toLocaleString()}</td>
-                              <td className="p-2"><button type="button" aria-label="Delete line" disabled={lineItems.length === 1} onClick={() => setLineItems((current) => current.filter((item) => item.id !== line.id))} className="rounded-lg p-2 text-red-500 disabled:opacity-30"><Trash2 size={15}/></button></td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="flex justify-end border-t border-[#e5ecf1] p-5">
-                    <div className="w-72 space-y-2 text-xs">
-                      <div className="flex justify-between text-[#647984]"><span>Subtotal</span><span>${lineTotal.toLocaleString()}</span></div>
-                      <div className="flex justify-between text-[#647984]"><span>Estimated tax</span><span>${(lineTotal * 0.05).toLocaleString()}</span></div>
-                      <div className="flex justify-between border-t border-[#dfe7ed] pt-2 text-base font-bold text-[#17303d]"><span>Total</span><span>${(lineTotal * 1.05).toLocaleString()}</span></div>
-                    </div>
-                  </div>
-                </Card>
-              ) : null}
-
-              <div className="sticky bottom-0 flex justify-end gap-2 rounded-2xl border border-[#dfe7ed] bg-white p-4 shadow-lg">
-                <button type="button" onClick={() => { setFormOpen(false); setEditRow(null); }} className="h-10 rounded-xl border border-[#dce6ed] px-4 text-xs font-bold text-[#536b78]">Cancel</button>
-                <button type="button" onClick={() => notify("Draft saved locally")} className="h-10 rounded-xl border border-[#007DCC] px-4 text-xs font-bold text-[#007DCC]">Save draft</button>
-                <button type="submit" className="h-10 rounded-xl bg-[#007DCC] px-5 text-xs font-bold text-white hover:bg-[#0069ad]">{editRow ? "Save changes" : "Save & close"}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
 
       {detailRow ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-[#061625]/50 p-4 backdrop-blur-sm">

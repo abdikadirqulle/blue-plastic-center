@@ -64,11 +64,27 @@ test("server-renders every primary workspace and dedicated sales page", async ()
   }
 });
 
+test("server-renders full-page forms with both save workflows", async () => {
+  for (const pathname of [
+    "/sales/invoices/new",
+    "/purchasing/bills/new",
+    "/inventory/items/new",
+    "/accounting/journal-entries/new",
+  ]) {
+    const response = await render(pathname);
+    assert.equal(response.status, 200, pathname);
+    const html = await response.text();
+    assert.match(html, /Save &amp; new/, pathname);
+    assert.match(html, /Save &amp; close/, pathname);
+  }
+});
+
 test("keeps the frontend foundation documented and modular", async () => {
-  const [page, layout, packageJson, agents, frontend, accountingRules] =
+  const [page, layout, resourcePage, packageJson, agents, frontend, accountingRules] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../features/resources/resource-page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../package.json", import.meta.url), "utf8"),
       readFile(new URL("../../../AGENTS.md", import.meta.url), "utf8"),
       readFile(new URL("../../../docs/FRONTEND.md", import.meta.url), "utf8"),
@@ -80,6 +96,7 @@ test("keeps the frontend foundation documented and modular", async () => {
 
   assert.match(page, /features\/dashboard\/components\/dashboard-page/);
   assert.match(layout, /Al-Furat System/);
+  assert.match(resourcePage, /> Delete<\/button>/);
   assert.match(packageJson, /"name": "@al-furat\/web"/);
   assert.doesNotMatch(packageJson, /"recharts"/);
   assert.match(packageJson, /"react-hook-form"/);

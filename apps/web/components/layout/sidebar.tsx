@@ -8,7 +8,6 @@ import {
   Building2,
   ChevronDown,
   CircleDollarSign,
-  ClipboardList,
   FileBarChart,
   Landmark,
   LayoutDashboard,
@@ -22,15 +21,14 @@ import {
 import { cn } from "../../lib/utils";
 
 export const navigation = [
-  { label: "Overview", icon: LayoutDashboard, href: "/" },
-  { label: "Sales", icon: ShoppingCart, href: "/sales/invoices" },
-  { label: "Purchasing", icon: ReceiptText, href: "/purchasing/bills" },
-  { label: "Banking", icon: Landmark, href: "/banking/accounts" },
-  { label: "Items & inventory", icon: Boxes, href: "/inventory/items" },
-  { label: "Accounting", icon: ClipboardList, href: "/accounting/chart-of-accounts" },
-  { label: "Projects", icon: BarChart3, href: "/projects/projects" },
-  { label: "Payroll", icon: WalletCards, href: "/payroll/pay-runs" },
-  { label: "Reports", icon: FileBarChart, href: "/reports/financial" },
+  { label: "Overview", icon: LayoutDashboard, href: "/", sections: [] },
+  { label: "Iibka & macaamiisha", icon: ShoppingCart, href: "/sales/invoices", sections: ["sales"] },
+  { label: "Deymaha & iibsiga", icon: ReceiptText, href: "/purchasing/bills", sections: ["purchasing"] },
+  { label: "Items & inventory", icon: Boxes, href: "/inventory/items", sections: ["inventory"] },
+  { label: "Lacagta & accounting", icon: Landmark, href: "/banking/accounts", sections: ["banking", "accounting"] },
+  { label: "Projects", icon: BarChart3, href: "/projects/projects", sections: ["projects"] },
+  { label: "Payroll", icon: WalletCards, href: "/payroll/pay-runs", sections: ["payroll"] },
+  { label: "Reports", icon: FileBarChart, href: "/reports/financial", sections: ["reports"] },
 ];
 
 export function Sidebar({
@@ -105,9 +103,11 @@ export function Sidebar({
           <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#6f8ba1]">
             Workspace
           </p>
-          {navigation.map(({ label, icon: Icon, href }) => {
+          {navigation.map(({ label, icon: Icon, href, sections }) => {
             const active =
-              href === "/" ? pathname === "/" : pathname.startsWith(href);
+              href === "/"
+                ? pathname === "/"
+                : sections?.some((section) => pathname.startsWith(`/${section}`)) ?? pathname.startsWith(href);
             return (
               <Link
                 key={label}

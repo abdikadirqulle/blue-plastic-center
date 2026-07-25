@@ -38,7 +38,11 @@ tests/               Automated validation
 - Reports
 - Settings
 
-Every operational area has a dedicated nested route. For example, Sales uses
+Related work is grouped into four primary workspaces: sales and customers,
+debts and purchasing, items and inventory, and money and accounting. Banking
+and general-ledger resources share the money and accounting tab set.
+
+Every operational resource still has a dedicated nested route. For example, Sales uses
 `/sales/invoices`, `/sales/customers`, `/sales/estimates`,
 `/sales/sales-orders`, `/sales/payments`, and `/sales/credit-notes`.
 Purchasing, banking, inventory, accounting, projects, payroll, reports, and
@@ -53,6 +57,8 @@ settings follow the same `/:section/:resource` convention.
   payment settings, notes, and editable line items where applicable.
 - Search, status filtering, reset, CSV export, pagination controls, view,
   edit, create, delete, and save actions are interactive in the frontend.
+- Create and edit actions open full pages at `/:section/:resource/new`; forms
+  provide both **Save & new** and **Save & close** workflows.
 - Frontend changes are session-local until the API and database layer is
   connected.
 

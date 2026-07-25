@@ -22,10 +22,10 @@ import { cn, formatCurrency } from "../../../lib/utils";
 import { activities, cashFlow, metrics } from "../data";
 
 const quickActions = [
-  { label: "New invoice", icon: FileText, href: "/sales/invoices?create=invoice", color: "bg-sky-50 text-[#007DCC]" },
-  { label: "Record expense", icon: Receipt, href: "/purchasing/expenses?create=expense", color: "bg-violet-50 text-violet-700" },
-  { label: "Add customer", icon: Users, href: "/sales/customers?create=customer", color: "bg-blue-50 text-blue-700" },
-  { label: "Stock transfer", icon: Repeat2, href: "/inventory/transfers?create=transfer", color: "bg-amber-50 text-amber-700" },
+  { label: "New invoice", icon: FileText, href: "/sales/invoices/new", color: "bg-sky-50 text-[#007DCC]" },
+  { label: "Record expense", icon: Receipt, href: "/purchasing/expenses/new", color: "bg-violet-50 text-violet-700" },
+  { label: "Add customer", icon: Users, href: "/sales/customers/new", color: "bg-blue-50 text-blue-700" },
+  { label: "Stock transfer", icon: Repeat2, href: "/inventory/transfers/new", color: "bg-amber-50 text-amber-700" },
 ];
 
 const activityIcons = { invoice: FileText, bill: Receipt, payment: Banknote, transfer: Repeat2 };

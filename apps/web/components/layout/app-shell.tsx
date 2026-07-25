@@ -156,10 +156,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         {createMenu ? (
           <div className="fixed right-4 top-[68px] z-50 w-56 rounded-2xl border border-[#dfe7ed] bg-white p-2 shadow-2xl md:right-7">
             {[
-              ["New invoice", "/sales/invoices?create=invoice"],
-              ["Record expense", "/purchasing/expenses?create=expense"],
-              ["Add item", "/inventory/items?create=item"],
-              ["Journal entry", "/accounting/journal-entries?create=journal"],
+              ["New invoice", "/sales/invoices/new"],
+              ["Record expense", "/purchasing/expenses/new"],
+              ["Add item", "/inventory/items/new"],
+              ["Journal entry", "/accounting/journal-entries/new"],
             ].map(([label, href]) => (
               <Link
                 key={label}
