@@ -9,6 +9,7 @@ import { bankingSchemas } from "../dist/modules/banking/banking.schemas.js";
 import { accountingSchemas } from "../dist/modules/accounting/accounting.schemas.js";
 import { projectSchemas } from "../dist/modules/projects/project.schemas.js";
 import { payrollSchemas } from "../dist/modules/payroll/payroll.schemas.js";
+import { allowedWebOrigins } from "../dist/config/env.js";
 
 async function inject(app, path, init = {}, auth = {}) {
   const response = await app.inject({
@@ -48,6 +49,26 @@ async function getSession(app) {
 
 const request = async (app, path, init = {}) =>
   inject(app, path, init, await getSession(app));
+
+test("development CORS allows the supported local frontend ports", () => {
+  const origins = allowedWebOrigins({
+    NODE_ENV: "development",
+    HOST: "0.0.0.0",
+    PORT: 4000,
+    WEB_ORIGIN: "http://localhost:3000",
+    WEB_ORIGINS: "http://localhost:5173",
+    LOG_LEVEL: "silent",
+    SESSION_TTL_HOURS: 12,
+    COOKIE_SECURE: false,
+  });
+  for (const origin of [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5173",
+  ]) assert.ok(origins.includes(origin), origin);
+});
 
 test("secure session authentication requires valid credentials and CSRF", async () => {
   const app = createApp();

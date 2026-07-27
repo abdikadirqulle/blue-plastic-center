@@ -4,12 +4,19 @@ const csrfKey = "blue-plastic-csrf"
 
 export const authService = {
   async login(email: string, password: string) {
-    const response = await fetch(`${webEnv.apiUrl}/v1/auth/login`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    })
+    let response: Response
+    try {
+      response = await fetch(`${webEnv.apiUrl}/v1/auth/login`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      })
+    } catch {
+      throw new Error(
+        `Cannot connect to the API at ${webEnv.apiUrl}. Start the API and verify VITE_API_URL/CORS settings.`,
+      )
+    }
     const payload = await response.json() as {
       data?: { csrfToken: string }
       error?: { message?: string }
@@ -18,9 +25,14 @@ export const authService = {
     sessionStorage.setItem(csrfKey, payload.data.csrfToken)
   },
   async me() {
-    const response = await fetch(`${webEnv.apiUrl}/v1/auth/me`, {
-      credentials: "include",
-    })
+    let response: Response
+    try {
+      response = await fetch(`${webEnv.apiUrl}/v1/auth/me`, {
+        credentials: "include",
+      })
+    } catch {
+      throw new Error(`Cannot connect to the API at ${webEnv.apiUrl}`)
+    }
     if (!response.ok) throw new Error("Session expired")
     return response.json() as Promise<{
       data: {

@@ -43,17 +43,26 @@ export class ApiClient {
   ) {}
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      credentials: "include",
-      headers: {
-        ...(init?.body ? { "Content-Type": "application/json" } : {}),
-        ...(init?.method && !["GET", "HEAD"].includes(init.method)
-          ? { "X-CSRF-Token": authService.csrfToken() ?? "" }
-          : {}),
-        ...init?.headers,
-      },
-    });
+    let response: Response
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, {
+        ...init,
+        credentials: "include",
+        headers: {
+          ...(init?.body ? { "Content-Type": "application/json" } : {}),
+          ...(init?.method && !["GET", "HEAD"].includes(init.method)
+            ? { "X-CSRF-Token": authService.csrfToken() ?? "" }
+            : {}),
+          ...init?.headers,
+        },
+      });
+    } catch {
+      throw new ApiError(
+        `Cannot connect to the API at ${this.baseUrl}. Check that the backend is running and the frontend origin is allowed.`,
+        0,
+        "NETWORK_ERROR",
+      )
+    }
     if (!response.ok) {
       const body = await response.json().catch(() => ({
         error: { message: response.statusText },

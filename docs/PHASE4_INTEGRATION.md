@@ -10,6 +10,11 @@ The React/Vite application now uses the live Fastify API by default.
 - TanStack React Query owns server-state caching, query keys, mutations,
   invalidation, loading states, and error states.
 - A protected route validates `/v1/auth/me` before rendering the workspace.
+- Development CORS accepts the configured localhost/127.0.0.1 ports used by
+  Vite and local previews. Production origins remain explicitly configured with
+  `WEB_ORIGIN` and comma-separated `WEB_ORIGINS`.
+- Network failures identify the unreachable API URL instead of displaying the
+  browser's generic `Failed to fetch` message.
 - Sales, operations, enterprise accounting, project, and payroll repositories
   use the REST API. Mock repositories remain fixture code only.
 
@@ -32,3 +37,9 @@ event, and invalidates the original module cache.
 
 The API never exposes a permanent-delete operation.
 
+## Terminal diagnostics
+
+The API uses Chalk for a structured startup banner showing the server URL,
+environment, persistence adapter, and allowed frontend origins. Graceful
+shutdown, readiness, and startup errors use distinct success/warning/error
+colors.

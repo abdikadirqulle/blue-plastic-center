@@ -30,3 +30,11 @@ npm run build
 
 The Vite output ending in `built in` is
 informational. It is not a failed build.
+# Frontend/API connectivity
+
+Set `VITE_API_URL` to the public HTTPS API URL when deploying the React
+application. Set `WEB_ORIGIN` or `WEB_ORIGINS` on the API to the exact public
+frontend origin. Cookies require HTTPS in production.
+
+Local development automatically supports localhost and 127.0.0.1 on ports
+3000, 3001, 5173, and 5174.

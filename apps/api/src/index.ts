@@ -8,6 +8,8 @@ import { MemoryLedgerRepository } from "./modules/accounting/memory-ledger-repos
 import { PostgresLedgerRepository } from "./modules/accounting/postgres-ledger-repository.js";
 import { MemoryResourceRepository } from "./repositories/memory-resource-repository.js";
 import { PostgresResourceRepository } from "./repositories/postgres-resource-repository.js";
+import { allowedWebOrigins } from "./config/env.js";
+import { terminal } from "./platform/terminal.js";
 
 const env = loadEnv();
 const databaseUrl = env.DATABASE_URL;
@@ -21,12 +23,27 @@ const ledgerRepository = database
   : new MemoryLedgerRepository(repository);
 const app = createApp(repository, env, identityRepository, ledgerRepository);
 
-await app.listen({ host: env.HOST, port: env.PORT });
-app.log.info({ persistence: database ? "postgresql" : "memory" }, "BLUE PLASTIC CENTER API started");
+try {
+  await app.listen({ host: env.HOST, port: env.PORT });
+  terminal.banner({
+    host: env.HOST === "0.0.0.0" ? "localhost" : env.HOST,
+    port: env.PORT,
+    environment: env.NODE_ENV,
+    persistence: database ? "PostgreSQL / Drizzle" : "In-memory",
+    origins: allowedWebOrigins(env),
+  });
+  terminal.success("Database and API routes are ready");
+} catch (error) {
+  terminal.error(error instanceof Error ? error.message : "API failed to start");
+  await database?.close();
+  throw error;
+}
 
 const shutdown = async () => {
+  terminal.warning("Shutting down API gracefully…");
   await app.close();
   await database?.close();
+  terminal.success("API stopped");
 };
 
 process.on("SIGINT", shutdown);

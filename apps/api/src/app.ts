@@ -3,7 +3,7 @@ import cookie from "@fastify/cookie"
 import helmet from "@fastify/helmet"
 import rateLimit from "@fastify/rate-limit"
 import Fastify from "fastify"
-import type { AppEnv } from "./config/env.js"
+import { allowedWebOrigins, type AppEnv } from "./config/env.js"
 import { authRoutes } from "./modules/auth/auth.routes.js"
 import { AuthService } from "./modules/auth/auth-service.js"
 import type { IdentityRepository } from "./modules/auth/identity-repository.js"
@@ -35,6 +35,7 @@ const defaultEnv: AppEnv = {
   HOST: "0.0.0.0",
   PORT: 4000,
   WEB_ORIGIN: "http://localhost:5173",
+  WEB_ORIGINS: "",
   LOG_LEVEL: "silent",
   SESSION_TTL_HOURS: 12,
   COOKIE_SECURE: false,
@@ -60,7 +61,7 @@ export function createApp(
   app.register(cookie)
   app.register(rateLimit)
   app.register(cors, {
-    origin: env.WEB_ORIGIN,
+    origin: allowedWebOrigins(env),
     credentials: true,
     allowedHeaders: [
       "Authorization",
