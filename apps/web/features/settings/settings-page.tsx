@@ -34,13 +34,13 @@ const sections = [
 
 const details: Record<string, { title: string; description: string; groups: Array<{ title: string; fields: Array<[string, string, string]> }> }> = {
   company: { title: "Company settings", description: "Information shown on transactions, reports and statutory documents.", groups: [
-    { title: "Company identity", fields: [["Legal company name","Al-Furat Group","text"],["Trading name","Al-Furat","text"],["Registration number","AF-2026-001","text"],["Tax ID","SO-TAX-45091","text"]] },
-    { title: "Contact & address", fields: [["Company email","finance@alfurat.example","email"],["Phone","+252 61 555 0100","tel"],["Website","www.alfurat.example","text"],["Registered address","Maka Al Mukarama Road, Mogadishu","text"]] },
+    { title: "Company identity", fields: [["Legal company name","BLUE PLASTIC CENTER","text"],["Trading name","BLUE PLASTIC CENTER","text"],["Registration number","BPC-2026-001","text"],["Tax ID","SO-TAX-45091","text"]] },
+    { title: "Contact & address", fields: [["Company email","finance@blueplastic.example","email"],["Phone","+252 61 555 0100","tel"],["Website","www.blueplastic.example","text"],["Registered address","Maka Al Mukarama Road, Mogadishu","text"]] },
     { title: "Accounting preferences", fields: [["Fiscal year starts","2026-01-01","date"],["Accounting method","Accrual","select"],["Home currency","USD","select"],["Company timezone","Africa/Mogadishu","select"]] },
   ]},
   branches: { title: "Branches & locations", description: "Configure operating branches and document numbering.", groups: [
     { title: "Main branch", fields: [["Branch name","Mogadishu Main","text"],["Branch code","MGQ","text"],["Branch manager","Abdikadir","text"],["Default warehouse","Bakaaro Central","select"]] },
-    { title: "Numbering", fields: [["Invoice prefix","AF-INV","text"],["Bill prefix","AF-BILL","text"],["Journal prefix","AF-JE","text"],["Next invoice number","10042","number"]] },
+    { title: "Numbering", fields: [["Invoice prefix","BPC-INV","text"],["Bill prefix","BPC-BILL","text"],["Journal prefix","BPC-JE","text"],["Next invoice number","10042","number"]] },
   ]},
   "users-roles": { title: "Users, roles & permissions", description: "Control who can view, create, approve and delete financial records.", groups: [
     { title: "Default access", fields: [["New user role","Viewer","select"],["Session timeout (minutes)","60","number"],["Approval limit","10000","number"],["Restrict users by branch","Enabled","select"]] },

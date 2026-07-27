@@ -22,7 +22,7 @@ export default function NotificationsPage() {
     <AppShell>
       <div className="mx-auto max-w-5xl">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div><p className="text-xs font-bold text-[#007DCC]">Activity center</p><h1 className="mt-2 text-2xl font-bold tracking-[-0.035em] text-[#142735] md:text-[29px]">Notifications</h1><p className="mt-1.5 text-sm text-[#6b7e8a]">Updates requiring your review across Al-Furat Group.</p></div>
+          <div><p className="text-xs font-bold text-[#007DCC]">Activity center</p><h1 className="mt-2 text-2xl font-bold tracking-[-0.035em] text-[#142735] md:text-[29px]">Notifications</h1><p className="mt-1.5 text-sm text-[#6b7e8a]">Updates requiring your review across BLUE PLASTIC CENTER.</p></div>
           <button onClick={() => setNotifications((items) => items.map((item) => ({...item, unread:false})))} className="flex h-10 items-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-4 text-xs font-bold text-[#405762] hover:border-[#007DCC] hover:text-[#007DCC]"><CheckCheck size={16}/> Mark all as read</button>
         </div>
         <div className="mt-6 grid gap-3 sm:grid-cols-3">

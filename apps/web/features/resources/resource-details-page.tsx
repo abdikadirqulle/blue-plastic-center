@@ -34,7 +34,7 @@ function displayValue(field: FormField, index: number, row: ResourceRow) {
   if (field.type === "date") return row.cells[2] ?? "26 Jul 2026";
   if (field.type === "checkbox") return "Yes";
   if (field.type === "select") return field.options?.[0] ?? "Not specified";
-  if (/email/i.test(field.name)) return "accounts@alfurat.example";
+  if (/email/i.test(field.name)) return "accounts@blueplastic.example";
   if (/phone|mobile/i.test(field.name)) return "+252 61 555 0100";
   if (/address/i.test(field.name)) return "Maka Al Mukarama Road, Mogadishu";
   if (/currency/i.test(field.name)) return "USD";

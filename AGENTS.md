@@ -1,8 +1,8 @@
-# Al-Furat System — Codex Working Agreement
+# BLUE PLASTIC CENTER — Codex Working Agreement
 
 ## Product
 
-Al-Furat System is a web-based accounting and operations platform inspired by
+BLUE PLASTIC CENTER is a web-based accounting and operations platform inspired by
 the functional breadth of QuickBooks Enterprise. It must remain suitable for
 multi-company, multi-branch, multi-warehouse, multi-currency businesses.
 
@@ -31,7 +31,7 @@ rewriting screens.
 ## Visual direction
 
 - Professional enterprise interface with high information density.
-- Calm navy/ink foundation with Al-Furat blue `#007DCC` as the primary action color.
+- Calm navy/ink foundation with BLUE PLASTIC CENTER blue `#007DCC` as the primary action color.
 - Clear financial hierarchy, restrained decoration, and strong table usability.
 - Desktop-first, but fully usable on tablets and phones.
 - English is the initial UI language; architecture must allow Somali localization.

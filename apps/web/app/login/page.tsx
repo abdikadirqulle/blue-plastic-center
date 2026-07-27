@@ -10,7 +10,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [company, setCompany] = useState("Al-Furat Group");
+  const [company, setCompany] = useState("BLUE PLASTIC CENTER");
   const [error, setError] = useState("");
 
   return (
@@ -20,7 +20,7 @@ export default function LoginPage() {
         <div className="absolute -bottom-48 -left-24 size-[520px] rounded-full bg-sky-400/10 blur-3xl" />
         <div className="relative flex items-center gap-3">
           <span className="grid size-11 place-items-center rounded-xl bg-[#007DCC]"><CircleDollarSign size={25}/></span>
-          <div><p className="text-lg font-bold">Al-Furat</p><p className="text-xs text-[#9cb3c3]">Business system</p></div>
+          <div><p className="text-lg font-bold">BLUE PLASTIC CENTER</p><p className="text-xs text-[#9cb3c3]">Business system</p></div>
         </div>
         <div className="relative max-w-xl">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">One source of truth</p>
@@ -32,13 +32,13 @@ export default function LoginPage() {
             ))}
           </div>
         </div>
-        <p className="relative text-xs text-[#809aab]">© 2026 Al-Furat Group. Secure enterprise workspace.</p>
+        <p className="relative text-xs text-[#809aab]">© 2026 BLUE PLASTIC CENTER. Secure enterprise workspace.</p>
       </section>
       <section className="flex items-center justify-center p-5 sm:p-10">
         <div className="w-full max-w-md">
           <div className="mb-8 flex items-center gap-3 lg:hidden">
             <span className="grid size-10 place-items-center rounded-xl bg-[#007DCC] text-white"><CircleDollarSign size={23}/></span>
-            <p className="text-lg font-bold">Al-Furat</p>
+            <p className="text-lg font-bold">BLUE PLASTIC CENTER</p>
           </div>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#007DCC]">Welcome back</p>
           <h2 className="mt-2 text-3xl font-bold tracking-[-0.04em] text-[#15303f]">Sign in to your workspace</h2>
@@ -58,9 +58,9 @@ export default function LoginPage() {
               window.setTimeout(() => router.push("/"), 650);
             }}
           >
-            <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#455e6b]">Company</span><Select name="company" value={company} onValueChange={setCompany} options={["Al-Furat Group","Al-Furat Logistics","Al-Furat Retail"]} className="h-12"/></label>
-            <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#455e6b]">Email address</span><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7f929d]" size={17}/><input name="email" type="email" defaultValue="admin@alfurat.so" className="h-12 w-full rounded-xl border border-[#dce6ed] pl-10 pr-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></div></label>
-            <label className="block"><div className="mb-1.5 flex justify-between"><span className="text-xs font-bold text-[#455e6b]">Password</span><button type="button" onClick={()=>window.alert("A password reset link would be sent by the backend.")} className="text-xs font-bold text-[#007DCC]">Forgot password?</button></div><div className="relative"><LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7f929d]" size={17}/><input name="password" type={showPassword?"text":"password"} defaultValue="alfurat2026" className="h-12 w-full rounded-xl border border-[#dce6ed] pl-10 pr-11 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/><button type="button" aria-label={showPassword?"Hide password":"Show password"} onClick={()=>setShowPassword(value=>!value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6f8490]">{showPassword?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
+            <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#455e6b]">Company</span><Select name="company" value={company} onValueChange={setCompany} options={["BLUE PLASTIC CENTER","Blue Plastic Logistics","Blue Plastic Retail"]} className="h-12"/></label>
+            <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#455e6b]">Email address</span><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7f929d]" size={17}/><input name="email" type="email" defaultValue="admin@blueplastic.so" className="h-12 w-full rounded-xl border border-[#dce6ed] pl-10 pr-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></div></label>
+            <label className="block"><div className="mb-1.5 flex justify-between"><span className="text-xs font-bold text-[#455e6b]">Password</span><button type="button" onClick={()=>window.alert("A password reset link would be sent by the backend.")} className="text-xs font-bold text-[#007DCC]">Forgot password?</button></div><div className="relative"><LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7f929d]" size={17}/><input name="password" type={showPassword?"text":"password"} defaultValue="blueplastic2026" className="h-12 w-full rounded-xl border border-[#dce6ed] pl-10 pr-11 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/><button type="button" aria-label={showPassword?"Hide password":"Show password"} onClick={()=>setShowPassword(value=>!value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6f8490]">{showPassword?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
             {error ? <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">{error}</p> : null}
             <label className="flex items-center gap-2 text-xs font-medium text-[#607681]"><input type="checkbox" defaultChecked className="size-4 accent-[#007DCC]"/> Keep me signed in on this device</label>
             <button disabled={loading} type="submit" className="h-12 w-full rounded-xl bg-[#007DCC] text-sm font-bold text-white shadow-lg shadow-sky-900/10 hover:bg-[#0069ad] disabled:opacity-70">{loading?"Signing in…":"Sign in securely"}</button>

@@ -12,6 +12,6 @@ const repository = database ? new PostgresResourceRepository(database.db) : new 
 const app = createApp(repository);
 
 serve({ fetch: app.fetch, port }, (info) => {
-  console.log(`Al-Furat API listening on http://localhost:${info.port}`);
+  console.log(`BLUE PLASTIC CENTER API listening on http://localhost:${info.port}`);
   console.log(database ? "Persistence: PostgreSQL" : "Persistence: in-memory development repository");
 });

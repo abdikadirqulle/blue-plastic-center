@@ -100,7 +100,7 @@ export function DashboardPage() {
             <h1 className="text-2xl font-bold tracking-[-0.035em] text-[#142735] md:text-[29px]">
               Good evening, Abdikadir
             </h1>
-            <p className="mt-1.5 text-sm text-[#6b7e8a]">Here&apos;s how Al-Furat Group is performing this month.</p>
+            <p className="mt-1.5 text-sm text-[#6b7e8a]">Here&apos;s how BLUE PLASTIC CENTER is performing this month.</p>
           </div>
           <Link href="/accounting/chart-of-accounts" className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs font-semibold text-[#0069ad]">
             <span className="size-2 rounded-full bg-[#007DCC]" /> Books are balanced <ArrowRight size={14} />

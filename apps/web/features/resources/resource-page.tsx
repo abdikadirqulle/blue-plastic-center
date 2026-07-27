@@ -96,7 +96,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `al-furat-${config.module}-${config.slug}.csv`;
+    anchor.download = `blue-plastic-${config.module}-${config.slug}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
     notify("Export completed", "success", `${filteredRows.length} filtered ${config.title.toLowerCase()} downloaded as CSV.`);

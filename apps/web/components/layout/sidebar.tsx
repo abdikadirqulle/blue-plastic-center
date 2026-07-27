@@ -72,7 +72,7 @@ export function Sidebar({
             <CircleDollarSign size={23} strokeWidth={2.2} />
           </div>
           <div className="min-w-0">
-            <div className="text-[17px] font-bold tracking-[-0.02em]">Al-Furat</div>
+            <div className="text-[17px] font-bold tracking-[-0.02em]">BLUE PLASTIC CENTER</div>
             <div className="text-[11px] font-medium text-[#93abc0]">
               Business system
             </div>
@@ -99,7 +99,7 @@ export function Sidebar({
             <Building2 size={18} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-xs font-semibold">Al-Furat Group</div>
+            <div className="truncate text-xs font-semibold">BLUE PLASTIC CENTER</div>
             <div className="mt-0.5 text-[10px] text-[#93abc0]">Main company</div>
           </div>
           <ChevronDown size={15} className="text-[#93abc0]" />

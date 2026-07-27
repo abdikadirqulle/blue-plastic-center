@@ -37,7 +37,7 @@ export function ImportPage() {
         <div>
           <p className="mb-2 text-xs font-bold text-[#007DCC]">Data management</p>
           <h1 className="text-2xl font-bold tracking-[-0.035em] text-[#142735] md:text-[29px]">Import data</h1>
-          <p className="mt-1.5 text-sm text-[#6b7e8a]">Move existing company data into Al-Furat using CSV or Excel templates.</p>
+          <p className="mt-1.5 text-sm text-[#6b7e8a]">Move existing company data into BLUE PLASTIC CENTER using CSV or Excel templates.</p>
         </div>
 
         <div className="mt-6 flex items-center gap-2">
@@ -84,7 +84,7 @@ export function ImportPage() {
             <Card className="p-5">
               <h2 className="text-sm font-bold text-[#253e4a]">Selected module</h2>
               <p className="mt-2 text-lg font-bold text-[#007DCC]">{selected}</p>
-              <p className="mt-2 text-xs leading-5 text-[#788b96]">The next step maps your spreadsheet columns to Al-Furat fields and validates every row before import.</p>
+              <p className="mt-2 text-xs leading-5 text-[#788b96]">The next step maps your spreadsheet columns to BLUE PLASTIC CENTER fields and validates every row before import.</p>
               <button disabled={!file} onClick={() => setStep((current) => Math.min(4, current + 1))} className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#007DCC] text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">Continue <ArrowRight size={15}/></button>
             </Card>
           </div>

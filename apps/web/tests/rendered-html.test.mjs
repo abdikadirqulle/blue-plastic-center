@@ -23,13 +23,13 @@ async function render(pathname = "/") {
   );
 }
 
-test("server-renders the Al-Furat dashboard", async () => {
+test("server-renders the BLUE PLASTIC CENTER dashboard", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Al-Furat System<\/title>/i);
+  assert.match(html, /<title>BLUE PLASTIC CENTER<\/title>/i);
   assert.match(html, /Good evening, Abdikadir/);
   assert.match(html, /Cash flow overview/);
   assert.match(html, /Receivables health/);
@@ -199,7 +199,7 @@ test("keeps the frontend foundation documented and modular", async () => {
     ]);
 
   assert.match(page, /features\/dashboard\/components\/dashboard-page/);
-  assert.match(layout, /Al-Furat System/);
+  assert.match(layout, /BLUE PLASTIC CENTER/);
   assert.match(resourcePage, /> Delete<\/button>/);
   assert.match(resourcePage, /<Printer/);
   assert.match(resourcePage, /Export completed/);
@@ -209,7 +209,7 @@ test("keeps the frontend foundation documented and modular", async () => {
   assert.match(select, /@radix-ui\/react-select/);
   assert.match(toast, /CheckCircle2/);
   assert.match(toast, /AlertCircle/);
-  assert.match(packageJson, /"name": "@al-furat\/web"/);
+  assert.match(packageJson, /"name": "@blue-plastic\/web"/);
   assert.doesNotMatch(packageJson, /"recharts"/);
   assert.match(packageJson, /"react-hook-form"/);
   assert.match(packageJson, /"zod"/);

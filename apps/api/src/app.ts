@@ -65,7 +65,7 @@ export function createApp(repository: ResourceRepository = new MemoryResourceRep
 
   app.get("/health", (context) => context.json({
     data: {
-      service: "al-furat-api",
+      service: "blue-plastic-api",
       status: "healthy",
       version: "0.2.0",
       time: new Date().toISOString(),

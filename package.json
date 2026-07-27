@@ -1,17 +1,17 @@
 {
-  "name": "al-furat-system",
+  "name": "blue-plastic-center",
   "version": "0.2.0",
   "private": true,
-  "description": "Al-Furat enterprise accounting monorepo",
+  "description": "BLUE PLASTIC CENTER enterprise accounting monorepo",
   "packageManager": "npm@11.6.2",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "dev": "turbo dev --filter=@al-furat/web",
-    "dev:web": "turbo dev --filter=@al-furat/web",
-    "dev:api": "turbo dev --filter=@al-furat/api",
+    "dev": "turbo dev --filter=@blue-plastic/web",
+    "dev:web": "turbo dev --filter=@blue-plastic/web",
+    "dev:api": "turbo dev --filter=@blue-plastic/api",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
     "lint": "turbo lint",

@@ -104,7 +104,7 @@ settings follow the same `/:section/:resource` convention.
 ## Design tokens
 
 - Ink/navy for primary text and navigation.
-- Al-Furat blue `#007DCC` for primary actions, links, selected navigation, and charts.
+- BLUE PLASTIC CENTER blue `#007DCC` for primary actions, links, selected navigation, and charts.
 - Green is reserved for successful financial status.
 - Amber for pending attention.
 - Red for overdue, destructive, or failed states.

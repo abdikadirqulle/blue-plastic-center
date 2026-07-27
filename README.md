@@ -1,6 +1,6 @@
-# Al-Furat System
+# BLUE PLASTIC CENTER
 
-Al-Furat is a Turborepo-based web accounting and business operations platform
+BLUE PLASTIC CENTER is a Turborepo-based web accounting and business operations platform
 being built with the functional breadth of enterprise accounting software.
 
 ## Current features
@@ -47,8 +47,8 @@ Run the API separately:
 
 ```bash
 cp apps/api/.env.example apps/api/.env
-npm run db:migrate -w @al-furat/api
-npm run db:seed -w @al-furat/api
+npm run db:migrate -w @blue-plastic/api
+npm run db:seed -w @blue-plastic/api
 npm run dev:api
 ```
 

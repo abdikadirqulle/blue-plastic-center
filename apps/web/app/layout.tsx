@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Al-Furat System",
-    template: "%s | Al-Furat System",
+    default: "BLUE PLASTIC CENTER",
+    template: "%s | BLUE PLASTIC CENTER",
   },
   description:
     "Enterprise accounting, inventory, sales, purchasing, and reporting in one workspace.",

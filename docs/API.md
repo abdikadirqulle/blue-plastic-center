@@ -1,4 +1,4 @@
-# Al-Furat API
+# BLUE PLASTIC CENTER API
 
 ## Runtime
 
@@ -131,8 +131,8 @@ reversal or adjustment.
 ## Database commands
 
 ```bash
-npm run db:generate -w @al-furat/api
-npm run db:migrate -w @al-furat/api
-npm run db:seed -w @al-furat/api
-npm run db:studio -w @al-furat/api
+npm run db:generate -w @blue-plastic/api
+npm run db:migrate -w @blue-plastic/api
+npm run db:seed -w @blue-plastic/api
+npm run db:studio -w @blue-plastic/api
 ```

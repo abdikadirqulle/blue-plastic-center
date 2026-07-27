@@ -95,7 +95,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               ref={searchRef}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              aria-label="Search Al-Furat"
+              aria-label="Search BLUE PLASTIC CENTER"
               className="h-10 w-full rounded-xl border border-[#dfe7ed] bg-[#f8fafc] pl-10 pr-14 text-[13px] outline-none transition placeholder:text-[#90a1ad] focus:border-[#007DCC] focus:bg-white focus:ring-4 focus:ring-[#007DCC]/10"
               placeholder="Search invoices, contacts, items, or reports"
             />
@@ -240,14 +240,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <X size={19} />
                 </button>
               </div>
-              {["Al-Furat Group", "Al-Furat Logistics", "Al-Furat Retail"].map((company, index) => (
+              {["BLUE PLASTIC CENTER", "Blue Plastic Logistics", "Blue Plastic Retail"].map((company, index) => (
                 <button
                   type="button"
                   key={company}
                   onClick={() => setCompanyMenu(false)}
                   className="mt-3 flex w-full items-center rounded-xl border border-[#dfe7ed] p-3 text-left hover:border-[#007DCC] hover:bg-[#f3f9fd]"
                 >
-                  <span className="grid size-9 place-items-center rounded-lg bg-[#e4f3fc] text-xs font-bold text-[#007DCC]">AF</span>
+                  <span className="grid size-9 place-items-center rounded-lg bg-[#e4f3fc] text-xs font-bold text-[#007DCC]">BPC</span>
                   <span className="ml-3 flex-1 text-sm font-semibold">{company}</span>
                   {index === 0 ? <Check size={18} className="text-[#007DCC]" /> : null}
                 </button>

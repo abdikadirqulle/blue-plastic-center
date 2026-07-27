@@ -61,7 +61,7 @@ const valuesByColumn: Record<string, string[]> = {
   Deduction: ["$250 / month", "$180 / month", "$320 / month", "$125 / month", "$400 / month"],
   Report: ["Payroll summary", "Employee earnings", "Payroll liabilities", "Leave balances", "Loan balances"],
   Generated: ["26 Jul 2026", "25 Jul 2026", "22 Jul 2026", "18 Jul 2026", "01 Jul 2026"],
-  "Legal name": ["Al-Furat Group LLC", "Al-Furat Trading Ltd.", "Al-Furat Logistics", "Al-Furat Retail", "Al-Furat Services"],
+  "Legal name": ["BLUE PLASTIC CENTER LLC", "Blue Plastic Trading Ltd.", "Blue Plastic Logistics", "Blue Plastic Retail", "Blue Plastic Services"],
   "Fiscal year": ["Jan–Dec", "Jan–Dec", "Jul–Jun", "Jan–Dec", "Apr–Mar"],
   Branch: ["Main Office", "Hodan Branch", "Bakaaro Branch", "Wadajir Branch", "Bosaso Branch"],
   Role: ["Administrator", "Finance manager", "Sales manager", "Warehouse manager", "Accountant"],

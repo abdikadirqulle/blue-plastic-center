@@ -9,9 +9,12 @@ async function seed() {
 
   await db.insert(companies).values({
     id: "00000000-0000-4000-8000-000000000001",
-    legalName: "Al-Furat Group",
+    legalName: "BLUE PLASTIC CENTER",
     functionalCurrency: "USD",
-  }).onConflictDoNothing();
+  }).onConflictDoUpdate({
+    target: companies.id,
+    set: { legalName: "BLUE PLASTIC CENTER" },
+  });
 
   await db.insert(branches).values({
     id: "00000000-0000-4000-8000-000000000011",
@@ -20,14 +23,21 @@ async function seed() {
     code: "MAIN",
   }).onConflictDoNothing();
 
-  await db.insert(users).values([
-    { id: "00000000-0000-4000-8000-000000000001", email: "abdikadir@alfurat.example", displayName: "Abdikadir Qulle", role: "administrator" },
-    { id: "00000000-0000-4000-8000-000000000002", email: "amina@alfurat.example", displayName: "Amina Yusuf", role: "accountant" },
-    { id: "00000000-0000-4000-8000-000000000003", email: "viewer@alfurat.example", displayName: "Read Only User", role: "viewer" },
-  ]).onConflictDoNothing();
+  const seedUsers = [
+    { id: "00000000-0000-4000-8000-000000000001", email: "abdikadir@blueplastic.example", displayName: "Abdikadir Qulle", role: "administrator" },
+    { id: "00000000-0000-4000-8000-000000000002", email: "amina@blueplastic.example", displayName: "Amina Yusuf", role: "accountant" },
+    { id: "00000000-0000-4000-8000-000000000003", email: "viewer@blueplastic.example", displayName: "Read Only User", role: "viewer" },
+  ] as const;
+
+  for (const user of seedUsers) {
+    await db.insert(users).values(user).onConflictDoUpdate({
+      target: users.id,
+      set: { email: user.email, displayName: user.displayName, role: user.role },
+    });
+  }
 
   await close();
-  console.log("Al-Furat database seed completed");
+  console.log("BLUE PLASTIC CENTER database seed completed");
 }
 
 void seed();
