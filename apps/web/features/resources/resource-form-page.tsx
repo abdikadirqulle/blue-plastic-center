@@ -74,7 +74,7 @@ function FormControl({
   if (field.type === "checkbox") {
     return (
       <span className="flex h-11 items-center gap-2 rounded-xl border border-[#dce6ed] px-3 text-xs font-semibold text-[#536a76]">
-        <input name={field.name} type="checkbox" checked={value === "true"} onChange={(event) => onChange(String(event.target.checked))} className="size-4 accent-[#007DCC]" />
+        <input name={field.name} type="checkbox" checked={value === "true"} onChange={(event) => onChange(String(event.target.checked))} className="size-4 accent-[#007DCC]" aria-invalid={invalid} />
         {field.label}
       </span>
     );
@@ -275,7 +275,15 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                     <FormControl
                       field={field}
                       value={values[field.name] ?? ""}
-                      onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))}
+                      onChange={(value) => {
+                        setValues((current) => ({ ...current, [field.name]: value }));
+                        setErrors((current) => {
+                          if (!current[field.name]) return current;
+                          const next = { ...current };
+                          delete next[field.name];
+                          return next;
+                        });
+                      }}
                       options={/customer(Id|Name)?$/i.test(field.name) && customerOptions.length ? customerOptions : undefined}
                       invalid={Boolean(errors[field.name])}
                     />

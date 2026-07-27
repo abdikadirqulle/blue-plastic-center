@@ -14,6 +14,7 @@ import { Card } from "../../../components/ui/card";
 import { ConfirmDeleteDialog } from "../../../components/ui/confirm-delete-dialog";
 import { DatePicker } from "../../../components/ui/date-picker";
 import { Select } from "../../../components/ui/select";
+import { LoadingState } from "../../../components/ui/loading-state";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
 import type {
@@ -45,19 +46,6 @@ const workflowLabels: Partial<Record<OperationsResource, string[]>> = {
   "bank-feeds": ["Download", "Review", "Match or add", "Post"],
 };
 
-const operationsStats: Partial<Record<OperationsResource, ResourceConfig["stats"]>> = {
-  bills: [{ label: "Open payables", value: "$84,240", helper: "18 vendor bills" }, { label: "Due this week", value: "$31,640", helper: "6 bills" }, { label: "Overdue", value: "$12,250", helper: "3 vendors" }, { label: "Discounts available", value: "$1,840", helper: "Pay before 31 Jul" }],
-  "purchase-orders": [{ label: "Open commitments", value: "$248,420", helper: "14 purchase orders" }, { label: "Awaiting receipt", value: "8", helper: "4 overdue" }, { label: "Partially received", value: "3", helper: "92 MT remaining" }, { label: "Pending approval", value: "$42,880", helper: "9 requests" }],
-  vendors: [{ label: "Active vendors", value: "86", helper: "7 preferred" }, { label: "Open balance", value: "$84,240", helper: "18 bills" }, { label: "Open POs", value: "$248,420", helper: "14 orders" }, { label: "On-time delivery", value: "91%", helper: "+3.4% this quarter" }],
-  approvals: [{ label: "Awaiting approval", value: "9", helper: "$42,880 exposure" }, { label: "Aging over 24h", value: "3", helper: "Escalation required" }, { label: "Approved today", value: "12", helper: "$68,420 released" }, { label: "Average decision", value: "6.4h", helper: "1.2h faster" }],
-  items: [{ label: "Inventory value", value: "$428,650", helper: "Across 5 locations" }, { label: "Active items", value: "1,284", helper: "48 assemblies" }, { label: "Low stock", value: "18", helper: "6 critical" }, { label: "Committed", value: "$92,480", helper: "42 sales orders" }],
-  "reorder-planning": [{ label: "Order now", value: "6", helper: "$84,200 suggested" }, { label: "Critical shortages", value: "2", helper: "Production risk" }, { label: "Due within 30 days", value: "14", helper: "8 preferred vendors" }, { label: "Excess stock", value: "$26,800", helper: "5 slow movers" }],
-  fulfillment: [{ label: "Ready to pick", value: "12", helper: "48 order lines" }, { label: "Picking", value: "4", helper: "42% average progress" }, { label: "Packed", value: "8", helper: "Ready for dispatch" }, { label: "Backordered", value: "3", helper: "6 shortage lines" }],
-  "bank-feeds": [{ label: "For review", value: "12", helper: "$48,240 total" }, { label: "Suggested matches", value: "5", helper: "95%+ confidence" }, { label: "Rules applied", value: "18", helper: "Since last update" }, { label: "Last update", value: "8 min", helper: "3 connected accounts" }],
-  reconciliation: [{ label: "Statement balance", value: "$284,420", helper: "Premier Operating" }, { label: "Cleared balance", value: "$283,180", helper: "42 transactions" }, { label: "Difference", value: "$1,240", helper: "Needs review" }, { label: "Last reconciled", value: "30 Jun", helper: "No prior difference" }],
-  accounts: [{ label: "Available cash", value: "$408,790", helper: "5 active accounts" }, { label: "Undeposited funds", value: "$18,420", helper: "25 receipts" }, { label: "Uncleared checks", value: "$31,640", helper: "8 checks" }, { label: "Bank feed review", value: "12", helper: "5 suggested matches" }],
-};
-
 export function OperationsWorkspacePage({ config }: { config: ResourceConfig }) {
   const router = useRouter();
   const opsModule = config.module as OperationsModule;
@@ -74,7 +62,19 @@ export function OperationsWorkspacePage({ config }: { config: ResourceConfig }) 
   const { records, loading, error, remove, updateStatus } = useOperationRecords(opsModule, resource, query);
   const statuses = ["All statuses", ...Array.from(new Set(records.map((record) => record.status)))];
   const workflow = workflowLabels[resource];
-  const stats = operationsStats[resource] ?? config.stats;
+  const numericAmount = (record: OperationRecord) => {
+    const value = Number(record.amount.replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(value) ? value : 0;
+  };
+  const totalValue = records.reduce((sum, record) => sum + numericAmount(record), 0);
+  const activeCount = records.filter((record) => /active|paid|approved|posted|received|cleared|ready|reconciled/i.test(record.status)).length;
+  const attentionCount = records.filter((record) => /overdue|hold|critical|shortage|pending|open|review|draft/i.test(record.status)).length;
+  const stats = [
+    { label: `Total ${config.title.toLowerCase()}`, value: records.length.toLocaleString(), helper: "Live database records" },
+    { label: "Recorded value", value: `$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, helper: "Current filtered result" },
+    { label: "Active / complete", value: activeCount.toLocaleString(), helper: "Completed or active records" },
+    { label: "Needs attention", value: attentionCount.toLocaleString(), helper: "Open, pending, or exception" },
+  ];
 
   const notify = (title: string, description: string, toastVariant: ToastMessage["variant"] = "success") => {
     setToast({ title, description, variant: toastVariant });
@@ -115,10 +115,10 @@ export function OperationsWorkspacePage({ config }: { config: ResourceConfig }) 
           </nav>
         </section>
 
-        {workflow ? <Card className="mt-4 overflow-x-auto p-4"><div className="flex min-w-[640px] items-center">{workflow.map((label, index) => <div key={label} className="flex flex-1 items-center"><span className={`grid size-8 shrink-0 place-items-center rounded-full text-xs font-bold ${index < 2 ? "bg-[#007DCC] text-white" : "bg-[#edf3f6] text-[#70848f]"}`}>{index < 2 ? <Check size={14}/> : index + 1}</span><div className="ml-2"><p className="text-[10px] font-bold text-[#2c4552]">{label}</p><p className="text-[9px] text-[#8799a3]">{index < 2 ? "Complete" : "Next step"}</p></div>{index < workflow.length - 1 ? <div className="mx-3 h-px flex-1 bg-[#dfe8ed]"/> : null}</div>)}</div></Card> : null}
+        {workflow ? <Card className="mt-4 overflow-x-auto p-4"><div className="flex min-w-[640px] items-center">{workflow.map((label, index) => <div key={label} className="flex flex-1 items-center"><span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#edf3f6] text-xs font-medium text-[#607681]">{index + 1}</span><div className="ml-2"><p className="text-[10px] font-medium text-[#2c4552]">{label}</p><p className="text-[9px] text-[#8799a3]">Workflow step</p></div>{index < workflow.length - 1 ? <div className="mx-3 h-px flex-1 bg-[#dfe8ed]"/> : null}</div>)}</div></Card> : null}
 
         <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat, index) => <Card key={stat.label} className="relative overflow-hidden p-4"><span className={`absolute left-0 top-0 h-full w-1 ${["bg-[#007DCC]","bg-emerald-500","bg-amber-500","bg-violet-500"][index]}`}/><p className="text-[10px] font-bold uppercase tracking-wide text-[#788b96]">{stat.label}</p><p className="mt-2 text-xl font-bold text-[#1f3947]">{stat.value}</p><p className="mt-1 text-[10px] text-[#007DCC]">{stat.helper}</p></Card>)}
+          {stats.map((stat, index) => <Card key={stat.label} className="relative overflow-hidden p-4"><span className={`absolute left-0 top-0 h-full w-1 ${["bg-[#007DCC]","bg-emerald-500","bg-amber-500","bg-violet-500"][index]}`}/><p className="text-[10px] font-medium uppercase tracking-wide text-[#788b96]">{stat.label}</p><p className="mt-2 text-xl font-semibold text-[#1f3947]">{stat.value}</p><p className="mt-1 text-[10px] text-[#607681]">{stat.helper}</p></Card>)}
         </section>
 
         <Card className="mt-4 overflow-hidden">
@@ -126,7 +126,7 @@ export function OperationsWorkspacePage({ config }: { config: ResourceConfig }) 
             <div className="relative min-w-[240px] flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#82949e]"/><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={config.searchPlaceholder} className="h-10 w-full rounded-xl border border-[#dce6ed] bg-white pl-9 pr-3 text-xs outline-none focus:border-[#007DCC]"/></div>
             <div className="flex flex-wrap gap-2"><Select value={status} onValueChange={setStatus} options={statuses.length ? statuses : ["All statuses"]} className="h-10 w-[160px] text-xs"/><DatePicker value={from} onChange={setFrom} placeholder="From" className="h-10 w-[140px]"/><DatePicker value={to} onChange={setTo} placeholder="To" className="h-10 w-[140px]"/><button onClick={() => { setSearch(""); setStatus("All statuses"); setFrom(""); setTo(""); }} className="flex h-10 items-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-bold text-[#526874]"><Filter size={14}/>Reset</button></div>
           </div>
-          {error ? <div className="p-10 text-center text-sm text-red-600">{error}</div> : loading ? <div className="p-12 text-center text-sm font-semibold text-[#71848f]">Loading workspace…</div> :
+          {error ? <div className="p-10 text-center text-sm text-red-600">{error}</div> : loading ? <LoadingState label={`Loading ${config.title.toLowerCase()}…`} className="m-4"/> :
             resource === "vendors" ? <VendorCenter records={records} onOpen={(id) => router.push(`/${opsModule}/${resource}/${id}`)}/> :
             resource === "approvals" ? <ApprovalCenter records={records} onAction={(record, action) => { void updateStatus(record.id, action === "Approve" ? "Approved" : "Changes requested"); notify(`Request ${action.toLowerCase()}d`, `${record.id} was updated.`); }}/> :
             resource === "fulfillment" ? <FulfillmentCenter records={records} onOpen={(id) => router.push(`/inventory/fulfillment/${id}`)}/> :

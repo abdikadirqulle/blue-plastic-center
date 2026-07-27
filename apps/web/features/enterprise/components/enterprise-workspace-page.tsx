@@ -13,6 +13,7 @@ import { Badge } from "../../../components/ui/badge";
 import { Card } from "../../../components/ui/card";
 import { ConfirmDeleteDialog } from "../../../components/ui/confirm-delete-dialog";
 import { Select } from "../../../components/ui/select";
+import { LoadingState } from "../../../components/ui/loading-state";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
 import type { EnterpriseModule, EnterpriseRecord } from "../domain/enterprise-record";
@@ -31,12 +32,6 @@ const meta = {
   accounting: { label: "General ledger & controls", icon: Calculator, gradient: "linear-gradient(120deg, #143c5a 0%, #08263a 100%)" },
   projects: { label: "Projects & job costing", icon: BriefcaseBusiness, gradient: "linear-gradient(120deg, #4c326d 0%, #25233f 100%)" },
   payroll: { label: "Payroll & workforce", icon: WalletCards, gradient: "linear-gradient(120deg, #265648 0%, #173830 100%)" },
-};
-
-const stats: Record<EnterpriseModule, ResourceConfig["stats"]> = {
-  accounting: [{ label: "Unposted journals", value: "7", helper: "$42,880 total" }, { label: "Close progress", value: "72%", helper: "July 2026" }, { label: "Budget variance", value: "+$12,400", helper: "Favorable MTD" }, { label: "Net book value", value: "$684,200", helper: "42 fixed assets" }],
-  projects: [{ label: "Active projects", value: "12", helper: "$1.84M contract value" }, { label: "Unbilled costs", value: "$48,620", helper: "5 projects" }, { label: "Gross margin", value: "31.4%", helper: "+2.1% vs budget" }, { label: "At risk", value: "3", helper: "$284K exposure" }],
-  payroll: [{ label: "Next payroll", value: "$45,120", helper: "52 employees" }, { label: "Liabilities due", value: "$12,840", helper: "Due 31 Jul" }, { label: "Timesheet exceptions", value: "6", helper: "Needs manager review" }, { label: "Leave liability", value: "$18,200", helper: "428 accrued days" }],
 };
 
 const badgeVariant = (status: string) => {
@@ -59,6 +54,18 @@ export function EnterpriseWorkspacePage({ config }: { config: ResourceConfig }) 
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const { records, loading, error, updateStatus, remove } = useEnterpriseRecords(enterpriseModule, resource, search, status);
   const statusOptions = useMemo(() => ["All statuses", ...Array.from(new Set(records.map((record) => record.status)))], [records]);
+  const totalValue = records.reduce((sum, record) => {
+    const value = Number(record.value.replace(/[^0-9.-]/g, ""));
+    return sum + (Number.isFinite(value) ? value : 0);
+  }, 0);
+  const activeCount = records.filter((record) => /posted|active|approved|complete|paid|closed|ready/i.test(record.status)).length;
+  const attentionCount = records.filter((record) => /blocked|risk|pending|open|draft|review|processing|due/i.test(record.status)).length;
+  const liveStats = [
+    { label: `Total ${config.title.toLowerCase()}`, value: records.length.toLocaleString(), helper: "Live database records" },
+    { label: "Recorded value", value: `$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, helper: "Current filtered result" },
+    { label: "Active / complete", value: activeCount.toLocaleString(), helper: "Completed or active records" },
+    { label: "Needs attention", value: attentionCount.toLocaleString(), helper: "Open, draft, or exception" },
+  ];
   const notify = (title: string, description: string) => {
     setMessage({ title, description, variant: "success" });
     window.setTimeout(() => setMessage(null), 3000);
@@ -73,10 +80,10 @@ export function EnterpriseWorkspacePage({ config }: { config: ResourceConfig }) 
         </div>
         <nav className="flex overflow-x-auto border-t border-white/10 bg-black/10 px-3">{tabs[enterpriseModule].map(([slug,label]) => <Link key={slug} href={`/${enterpriseModule}/${slug}`} className={`shrink-0 border-b-2 px-3 py-3 text-[11px] font-semibold ${slug === resource ? "border-sky-300 text-white" : "border-transparent text-white/55"}`}>{label}</Link>)}</nav>
       </section>
-      <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{stats[enterpriseModule].map((stat,index) => <Card key={stat.label} className="relative overflow-hidden p-4"><span className={`absolute inset-y-0 left-0 w-1 ${["bg-[#007DCC]","bg-emerald-500","bg-amber-500","bg-violet-500"][index]}`}/><p className="text-[10px] font-bold uppercase text-[#788b96]">{stat.label}</p><p className="mt-2 text-xl font-bold">{stat.value}</p><p className="mt-1 text-[10px] text-[#007DCC]">{stat.helper}</p></Card>)}</section>
+      <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{liveStats.map((stat,index) => <Card key={stat.label} className="relative overflow-hidden p-4"><span className={`absolute inset-y-0 left-0 w-1 ${["bg-[#007DCC]","bg-emerald-500","bg-amber-500","bg-violet-500"][index]}`}/><p className="text-[10px] font-medium uppercase text-[#788b96]">{stat.label}</p><p className="mt-2 text-xl font-semibold">{stat.value}</p><p className="mt-1 text-[10px] text-[#607681]">{stat.helper}</p></Card>)}</section>
       <Card className="mt-4 overflow-hidden">
         <div className="flex flex-col gap-2 border-b bg-[#fbfcfd] p-3.5 lg:flex-row"><div className="relative flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#82949e]"/><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={config.searchPlaceholder} className="h-10 w-full rounded-xl border border-[#dce6ed] bg-white pl-9 pr-3 text-xs outline-none focus:border-[#007DCC]"/></div><Select value={status} onValueChange={setStatus} options={statusOptions.length ? statusOptions : ["All statuses"]} className="h-10 w-[170px] text-xs"/><button onClick={() => { setSearch(""); setStatus("All statuses"); }} className="flex h-10 items-center gap-2 rounded-xl border bg-white px-3 text-xs font-bold"><Filter size={14}/>Reset</button></div>
-        {error ? <div className="p-10 text-center text-red-600">{error}</div> : loading ? <div className="p-12 text-center text-sm text-[#71848f]">Loading enterprise workspace…</div> :
+        {error ? <div className="p-10 text-center text-red-600">{error}</div> : loading ? <LoadingState label={`Loading ${config.title.toLowerCase()}…`} className="m-4"/> :
           resource === "chart-of-accounts" ? <AccountCenter records={records} onOpen={(id) => router.push(`/accounting/chart-of-accounts/${id}`)}/> :
           resource === "close-center" ? <CloseCenter records={records} onComplete={(record) => { void updateStatus(record.id, "Complete"); notify("Close task completed", record.name); }}/> :
           resource === "budgets" ? <BudgetCenter records={records} onOpen={(id) => router.push(`/accounting/budgets/${id}`)}/> :
@@ -103,7 +110,15 @@ export function EnterpriseWorkspacePage({ config }: { config: ResourceConfig }) 
 }
 
 function AccountCenter({ records, onOpen }: { records: EnterpriseRecord[]; onOpen: (id: string) => void }) {
-  return <div className="grid md:grid-cols-[280px_1fr]"><aside className="border-r bg-[#f8fafc] p-4"><p className="text-[10px] font-bold uppercase text-[#82949e]">Account types</p>{[["Assets","$684,200"],["Liabilities","$184,420"],["Equity","$248,900"],["Income","$926,400"],["Expenses","$512,800"]].map(([label,value],index) => <div key={label} className={`mt-2 rounded-xl border p-3 ${index === 0 ? "border-sky-300 bg-white" : "border-transparent"}`}><p className="text-xs font-bold">{label}</p><p className="mt-1 text-[10px] text-[#82949e]">{value}</p></div>)}</aside><div className="p-4"><div className="mb-3 flex items-center justify-between"><div><h2 className="text-sm font-bold">Chart of accounts</h2><p className="text-[10px] text-[#82949e]">Hierarchical general-ledger accounts and balances</p></div><Badge variant="success">Balanced</Badge></div>{records.map((record,index) => <button key={record.id} onClick={() => onOpen(record.id)} className="flex w-full items-center gap-3 border-b px-2 py-3 text-left hover:bg-[#f6fafc]"><span className="font-mono text-[10px] font-bold text-[#007DCC]">{1000 + index * 100}</span><span className="min-w-0 flex-1"><strong className="block text-xs">{record.name}</strong><span className="text-[10px] text-[#82949e]">{record.detail}</span></span><span className="text-xs font-bold">{record.value}</span><ArrowRight size={14}/></button>)}</div></div>;
+  const types = ["asset", "liability", "equity", "income", "expense"].map((type) => {
+    const matches = records.filter((record) => String(record.data?.accountType ?? record.detail).toLowerCase().includes(type));
+    const total = matches.reduce((sum, record) => {
+      const value = Number(record.value.replace(/[^0-9.-]/g, ""));
+      return sum + (Number.isFinite(value) ? value : 0);
+    }, 0);
+    return { label: `${type[0].toUpperCase()}${type.slice(1)}`, count: matches.length, total };
+  });
+  return <div className="grid md:grid-cols-[280px_1fr]"><aside className="border-r bg-[#f8fafc] p-4"><p className="text-[10px] font-medium uppercase text-[#82949e]">Account types</p>{types.map(({label,count,total}) => <div key={label} className="mt-2 rounded-xl border border-transparent p-3"><p className="text-xs font-medium">{label}</p><p className="mt-1 text-[10px] text-[#82949e]">{count} accounts · ${total.toLocaleString()}</p></div>)}</aside><div className="p-4"><div className="mb-3 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Chart of accounts</h2><p className="text-[10px] text-[#82949e]">Hierarchical general-ledger accounts and balances</p></div><Badge variant="neutral">{records.length} accounts</Badge></div>{records.map((record) => <button key={record.id} onClick={() => onOpen(record.id)} className="flex w-full items-center gap-3 border-b px-2 py-3 text-left hover:bg-[#f6fafc]"><span className="font-mono text-[10px] font-medium text-[#007DCC]">{String(record.data?.accountNumber ?? "—")}</span><span className="min-w-0 flex-1"><strong className="block text-xs font-medium">{record.name}</strong><span className="text-[10px] text-[#82949e]">{record.detail}</span></span><span className="text-xs font-medium">{record.value}</span><ArrowRight size={14}/></button>)}</div></div>;
 }
 
 function CloseCenter({ records, onComplete }: { records: EnterpriseRecord[]; onComplete: (record: EnterpriseRecord) => void }) {
