@@ -1,9 +1,10 @@
 import type { SalesQuery, SalesRecordInput, SalesRepository, SalesResource } from "../domain/sales-record";
+import { webEnv } from "@/lib/env";
 import { ApiSalesRepository } from "../data/api-sales-repository";
 import { MockSalesRepository } from "../data/mock-sales-repository";
 
 const repository: SalesRepository =
-  process.env.NEXT_PUBLIC_DATA_SOURCE === "api"
+  webEnv.dataSource === "api"
     ? new ApiSalesRepository()
     : new MockSalesRepository();
 

@@ -1,7 +1,7 @@
 "use client"
 
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { Link } from "@/components/routing";
+import { useRouter } from "@/components/routing";
 import { useState } from "react"
 import {
   ArrowLeft,

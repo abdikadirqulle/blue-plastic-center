@@ -7,7 +7,7 @@ integration-heavy workloads can be extracted later without premature distributed
 systems complexity.
 
 ```text
-apps/web       Next.js frontend
+apps/web       React and Vite frontend
 apps/api       Backend workspace
 packages/types Shared domain contracts
 packages/config Shared TypeScript configuration

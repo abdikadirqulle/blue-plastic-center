@@ -1,7 +1,8 @@
 import type { EnterpriseModule, EnterpriseQuery, EnterpriseRecord, EnterpriseRepository } from "../domain/enterprise-record";
+import { webEnv } from "@/lib/env";
 
 export class ApiEnterpriseRepository implements EnterpriseRepository {
-  constructor(private readonly baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "/api") {}
+  constructor(private readonly baseUrl = webEnv.apiUrl) {}
   private url(module: EnterpriseModule, resource: string, id?: string) {
     return `${this.baseUrl}/${module}/${resource}${id ? `/${encodeURIComponent(id)}` : ""}`;
   }

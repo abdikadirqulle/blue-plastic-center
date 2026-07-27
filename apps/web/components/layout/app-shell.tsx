@@ -1,7 +1,7 @@
 "use client"
 
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { Link } from "@/components/routing";
+import { useRouter } from "@/components/routing";
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import {
   Bell,

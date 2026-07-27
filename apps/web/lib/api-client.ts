@@ -1,3 +1,5 @@
+import { webEnv } from "@/lib/env";
+
 export interface ApiEnvelope<T> {
   data: T;
   meta?: {
@@ -23,7 +25,7 @@ export interface ApiRecord<TData extends Record<string, unknown> = Record<string
 
 export class ApiClient {
   constructor(
-    private readonly baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000",
+    private readonly baseUrl = webEnv.apiUrl,
     private readonly getAccessToken: () => string | undefined = () => undefined,
   ) {}
 

@@ -2,7 +2,7 @@
 
 ## Stack
 
-- Next.js, React, and TypeScript
+- React, Vite, React Router, and TypeScript
 - Tailwind CSS
 - Lucide icons
 - React Hook Form and Zod for forms and validation
@@ -14,7 +14,7 @@
 ## Directory structure
 
 ```text
-app/                 Routes, layouts, and route metadata
+src/                 Browser entry point, route tree, and global styles
 components/
   layout/            Application shell and navigation
   ui/                Reusable low-level components
@@ -87,14 +87,14 @@ settings follow the same `/:section/:resource` convention.
   with matching colors, icons, descriptions, dismiss controls, and live-region
   announcements.
 - Sales screens consume a `SalesRepository` contract through `salesService`.
-  `MockSalesRepository` is the default; set `NEXT_PUBLIC_DATA_SOURCE=api` to use
+  `MockSalesRepository` is the default; set `VITE_DATA_SOURCE=api` to use
   `ApiSalesRepository` without changing page components.
 - Query hooks own loading, error, filter, refresh, and mutation state. Storage
   and HTTP concerns never enter UI components.
 - Purchasing, inventory, and banking screens use the shared
   `OperationsRepository` contract through `operationsService`. The mock and API
   adapters implement the same list, detail, create, update, and delete contract,
-  so connecting the backend requires changing `NEXT_PUBLIC_DATA_SOURCE`, not
+  so connecting the backend requires changing `VITE_DATA_SOURCE`, not
   rewriting pages.
 - Invoice-style documents include an on-screen preview plus working PDF
   download, print, and email-queue actions.
@@ -130,11 +130,12 @@ settings follow the same `/:section/:resource` convention.
   review and approval, benefit plans, payroll liabilities, and payroll reports.
 - Accounting, project, and payroll pages consume `EnterpriseRepository` through
   `enterpriseService`, with mock and API adapters selected through the same
-  `NEXT_PUBLIC_DATA_SOURCE` configuration used by other frontend domains.
+  `VITE_DATA_SOURCE` configuration used by other frontend domains.
 
 ## Frontend principles
 
-- Server components by default; add client components only for interaction.
+- Components remain presentation-focused; routing and data access stay in their
+  dedicated boundaries.
 - Screens consume typed service interfaces, never raw storage.
 - Filters and table state should be URL-addressable when practical.
 - All money is displayed with an explicit currency.

@@ -1,4 +1,5 @@
 import type { SalesQuery, SalesRecord, SalesRecordInput, SalesRepository, SalesResource } from "../domain/sales-record";
+import { webEnv } from "@/lib/env";
 
 interface ApiResourceRecord {
   id: string;
@@ -10,8 +11,8 @@ interface ApiResourceRecord {
 
 export class ApiSalesRepository implements SalesRepository {
   constructor(
-    private readonly baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/v1",
-    private readonly token = process.env.NEXT_PUBLIC_API_TOKEN ?? "admin-demo-token",
+    private readonly baseUrl = `${webEnv.apiUrl}/v1`,
+    private readonly token = webEnv.apiToken,
   ) {}
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {

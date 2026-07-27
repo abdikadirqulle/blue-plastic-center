@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/components/routing";
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/routing";
 import {
   ArrowRight, Boxes, Check, CheckCircle2, ClipboardCheck,
   Download, Factory, Filter, Landmark, PackageCheck, Plus, Printer,

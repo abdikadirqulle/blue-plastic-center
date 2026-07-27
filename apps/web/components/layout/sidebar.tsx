@@ -1,7 +1,7 @@
 "use client"
 
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { Link } from "@/components/routing";
+import { usePathname } from "@/components/routing";
 import type { ReactNode } from "react"
 import {
   BarChart3,

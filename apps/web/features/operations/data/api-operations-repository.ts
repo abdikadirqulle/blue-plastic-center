@@ -1,3 +1,4 @@
+import { webEnv } from "@/lib/env";
 import type {
   OperationRecord,
   OperationRecordInput,
@@ -8,7 +9,7 @@ import type {
 } from "../domain/operation-record";
 
 export class ApiOperationsRepository implements OperationsRepository {
-  constructor(private readonly baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "/api") {}
+  constructor(private readonly baseUrl = webEnv.apiUrl) {}
 
   private url(module: OperationsModule, resource: OperationsResource, id?: string) {
     return `${this.baseUrl}/${module}/${resource}${id ? `/${encodeURIComponent(id)}` : ""}`;

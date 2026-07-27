@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "../../components/routing";
 import { useState } from "react";
 import { Bell, CheckCheck, CircleAlert, PackageSearch, ReceiptText, Users } from "lucide-react";
 import { AppShell } from "../../components/layout/app-shell";

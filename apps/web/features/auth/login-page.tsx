@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "../../components/routing";
 import { CircleDollarSign, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { z } from "zod";
 import { Select } from "../../components/ui/select";

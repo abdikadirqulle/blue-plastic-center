@@ -1,8 +1,9 @@
 import { ApiEnterpriseRepository } from "../data/api-enterprise-repository";
+import { webEnv } from "@/lib/env";
 import { MockEnterpriseRepository } from "../data/mock-enterprise-repository";
 import type { EnterpriseModule, EnterpriseQuery, EnterpriseRepository } from "../domain/enterprise-record";
 
-const repository: EnterpriseRepository = process.env.NEXT_PUBLIC_DATA_SOURCE === "api"
+const repository: EnterpriseRepository = webEnv.dataSource === "api"
   ? new ApiEnterpriseRepository()
   : new MockEnterpriseRepository();
 

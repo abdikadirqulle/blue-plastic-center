@@ -1,3 +1,4 @@
+import { webEnv } from "@/lib/env";
 import type {
   OperationRecordInput,
   OperationsModule,
@@ -8,7 +9,7 @@ import type {
 import { ApiOperationsRepository } from "../data/api-operations-repository";
 import { MockOperationsRepository } from "../data/mock-operations-repository";
 
-const repository: OperationsRepository = process.env.NEXT_PUBLIC_DATA_SOURCE === "api"
+const repository: OperationsRepository = webEnv.dataSource === "api"
   ? new ApiOperationsRepository()
   : new MockOperationsRepository();
 

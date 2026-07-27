@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/components/routing";
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/routing";
 import {
   ArrowDownToLine, ArrowRight, Banknote, CalendarDays, CheckCircle2, ChevronRight,
   CircleDollarSign, Download, FileClock, FileText, Filter, Mail, MoreHorizontal,

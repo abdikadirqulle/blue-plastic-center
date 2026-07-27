@@ -1,6 +1,6 @@
 "use client"
 
-import Link from "next/link"
+import { Link } from "@/components/routing";
 import { useState } from "react"
 import { z } from "zod"
 import {

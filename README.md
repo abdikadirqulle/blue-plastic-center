@@ -30,12 +30,12 @@ being built with the functional breadth of enterprise accounting software.
 
 ## Technology
 
-- Next.js 16, React 19, and TypeScript
+- React 19, Vite 8, React Router, and TypeScript
 - Tailwind CSS 4
 - Lucide React icons
 - React Hook Form and Zod
 - Hono, PostgreSQL, and Drizzle ORM
-- Vinext/Vite development and deployment runtime
+- Vite development and deployment runtime
 
 ## Local development
 
@@ -76,7 +76,7 @@ npm test
 ## Project map
 
 ```text
-apps/web/             Next.js frontend
+apps/web/             React and Vite frontend
 apps/api/             Backend workspace
 packages/types/       Shared domain contracts
 packages/config/      Shared configuration
