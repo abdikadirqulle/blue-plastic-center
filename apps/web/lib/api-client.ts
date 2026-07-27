@@ -128,6 +128,10 @@ export class ApiClient {
     })
   }
 
+  getPath<T>(path: string) {
+    return this.request<ApiEnvelope<T>>(path)
+  }
+
   listTrash(query = "") {
     return this.request<ApiEnvelope<ApiRecord[]>>(
       `/v1/trash${query ? `?${query}` : ""}`,

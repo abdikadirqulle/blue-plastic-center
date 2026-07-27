@@ -127,7 +127,7 @@ export function createApp(
       })
       await systemRoutes(v1, repository)
       await reportRoutes(v1, ledger, service, repository)
-      await importRoutes(v1)
+      await importRoutes(v1, service)
       await resourceRoutes(v1, service)
     },
     { prefix: "/v1" },

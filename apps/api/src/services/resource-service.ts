@@ -103,6 +103,17 @@ function validateJournalBalance(
 export class ResourceService {
   constructor(private readonly repository: ResourceRepository) {}
 
+  validateData(
+    moduleName: string,
+    resourceName: string,
+    input: Record<string, unknown>,
+  ) {
+    const data = validateOperationalData(moduleName, resourceName, input)
+    validateRequired(moduleName, resourceName, data)
+    validateJournalBalance(moduleName, resourceName, data)
+    return data
+  }
+
   async list(
     context: RequestContext,
     moduleName: string,
@@ -173,7 +184,7 @@ export class ResourceService {
         `Status ${input.status} must be created through its secured workflow endpoint`,
       )
     }
-    let data = validateOperationalData(moduleName, resourceName, input.data)
+    let data = this.validateData(moduleName, resourceName, input.data)
     const documentKey = `${moduleName}/${resourceName}`
     const prefix = documentPrefixes[documentKey]
     if (prefix && !data.documentNumber) {
@@ -186,8 +197,7 @@ export class ResourceService {
         ),
       }
     }
-    validateRequired(moduleName, resourceName, data)
-    validateJournalBalance(moduleName, resourceName, data)
+    data = this.validateData(moduleName, resourceName, data)
     const now = new Date().toISOString()
     const record: ResourceRecord = {
       id: randomUUID(),

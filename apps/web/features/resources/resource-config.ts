@@ -1,9 +1,3 @@
-import {
-  createResourceRows,
-  getResourcePresentation,
-  getResourceStats,
-} from "./resource-mock-data"
-
 export type FieldType =
   | "text"
   | "email"
@@ -58,28 +52,12 @@ export interface ModuleDefinition {
   resources: Array<{ slug: string; label: string }>
 }
 
-const statuses = ["Paid", "Overdue", "Pending", "Posted", "Draft"]
-
 function sampleRows(
-  prefix: string,
-  subjects: string[],
-  values: string[],
+  _prefix: string,
+  _subjects: string[],
+  _values: string[],
 ): ResourceRow[] {
-  return subjects.map((subject, index) => ({
-    id: `${prefix}-${String(1048 - index).padStart(4, "0")}`,
-    cells: [
-      subject,
-      values[index] ?? values[0],
-      [
-        "25 Jul 2026",
-        "23 Jul 2026",
-        "22 Jul 2026",
-        "20 Jul 2026",
-        "19 Jul 2026",
-      ][index] ?? "18 Jul 2026",
-    ],
-    status: statuses[index] ?? "Active",
-  }))
+  return []
 }
 
 const addressFields: FormSection = {
@@ -222,17 +200,7 @@ const transactionTotals: FormSection = {
   ],
 }
 
-const salesRows = sampleRows(
-  "INV",
-  [
-    "Banaadir Trading Co.",
-    "Sahal Distributors",
-    "Horn Logistics",
-    "Dayax Retail",
-    "Amaan Services",
-  ],
-  ["$8,420.00", "$6,250.00", "$3,180.00", "$12,760.00", "$2,940.00"],
-)
+const salesRows: ResourceRow[] = []
 
 export const moduleDefinitions: Record<string, ModuleDefinition> = {
   sales: {
@@ -3943,10 +3911,4 @@ for (const spec of commonResourceSpecs) {
       ["$18,420", "$12,250", "$7,180", "$22,760", "$4,940"],
     ),
   }
-}
-
-for (const config of Object.values(resourceConfigs)) {
-  config.rows = createResourceRows(config)
-  config.presentation = getResourcePresentation(config.module, config.slug)
-  config.stats = getResourceStats(config)
 }

@@ -28,6 +28,7 @@ import { cn } from "../../lib/utils";
 import {
   moduleDefinitions,
   type ResourceConfig,
+  type ResourceRow,
 } from "./resource-config";
 import {
   recordAmount,
@@ -54,10 +55,10 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
   const [keyValue, setKeyValue] = useState(allKeyOption);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [rows, setRows] = useState(config.rows);
+  const [rows, setRows] = useState<ResourceRow[]>([]);
   const [menuRow, setMenuRow] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<(typeof config.rows)[number] | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ResourceRow | null>(null);
   const apiRows = useResourceList(config.module, config.slug, {
     page: 1,
     pageSize: 100,
@@ -142,7 +143,12 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {config.stats.map((stat) => (
+          {[
+            { label: `Total ${config.title.toLowerCase()}`, value: String(apiRows.data?.meta?.total ?? rows.length), helper: "Database records" },
+            { label: "Active", value: String(rows.filter((row) => ["active", "paid", "posted", "approved", "completed"].includes(row.status.toLowerCase())).length), helper: "Current records" },
+            { label: "Pending", value: String(rows.filter((row) => ["draft", "pending", "open"].includes(row.status.toLowerCase())).length), helper: "Needs attention" },
+            { label: "Deleted", value: "0", helper: "Available in Trash" },
+          ].map((stat) => (
             <Card key={stat.label} className="p-4">
               <p className="text-xs font-semibold text-[#71848f]">{stat.label}</p>
               <p className="mt-2 text-2xl font-bold tracking-[-0.04em] text-[#17303d]">{stat.value}</p>

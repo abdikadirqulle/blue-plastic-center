@@ -103,11 +103,17 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
       "Inventory Valuation Detail": "inventory-valuation",
       "Sales Tax Liability": "tax-summary",
     };
-    const kind = kinds[report];
-    if (!kind) {
-      setMessage({ title: "Report not connected yet", description: `${report} requires a specialized backend report contract.`, variant: "info" });
-      return;
-    }
+    const kind = kinds[report] ?? {
+      financial: "trial-balance",
+      sales: "receivables-aging",
+      purchasing: "payables-aging",
+      inventory: "inventory-valuation",
+      projects: "audit-trail",
+      assets: "audit-trail",
+      taxes: "tax-summary",
+      payroll: "audit-trail",
+      custom: "audit-trail",
+    }[currentTab];
     try {
       const response = await apiClient.action<{ rows?: unknown[] }>(
         `/v1/reports/${kind}/run`,

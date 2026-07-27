@@ -1,95 +1,159 @@
-"use client";
+"use client"
 
-import { useRef, useState } from "react";
-import {
-  ArrowRight,
-  Building2,
-  CheckCircle2,
-  FileSpreadsheet,
-  Package,
-  Receipt,
-  UploadCloud,
-  Users,
-  WalletCards,
-} from "lucide-react";
-import { AppShell } from "../../components/layout/app-shell";
-import { Card } from "../../components/ui/card";
-import { cn } from "../../lib/utils";
+import { useRef, useState } from "react"
+import { CheckCircle2, Download, FileSpreadsheet, UploadCloud } from "lucide-react"
+import { AppShell } from "../../components/layout/app-shell"
+import { Card } from "../../components/ui/card"
+import { Toast, type ToastMessage } from "../../components/ui/toast"
+import { apiClient } from "../../lib/api-client"
+import { cn } from "../../lib/utils"
+
+type ImportResult = {
+  totalRows: number
+  validRows: number
+  invalidRows: number
+  importedRows: number
+  errors: Array<{ row: number; message: string }>
+}
 
 const importModules = [
-  { name: "Customers", description: "Names, contacts, addresses, terms and opening balances", icon: Users },
-  { name: "Vendors", description: "Supplier contacts, payment terms and opening balances", icon: Building2 },
-  { name: "Items & services", description: "SKUs, prices, costs, tax, quantities and warehouses", icon: Package },
-  { name: "Chart of accounts", description: "Accounts, types, currencies and opening balances", icon: WalletCards },
-  { name: "Sales transactions", description: "Invoices, estimates, payments and credit notes", icon: Receipt },
-  { name: "Purchase transactions", description: "Bills, purchase orders, expenses and payments", icon: FileSpreadsheet },
-];
+  { name: "Customers", module: "sales", resource: "customers", headers: ["displayName", "email", "phone", "currency"] },
+  { name: "Vendors", module: "purchasing", resource: "vendors", headers: ["displayName", "email", "phone", "currency"] },
+  { name: "Items & services", module: "inventory", resource: "items", headers: ["name", "sku", "type", "salesPrice", "purchaseCost"] },
+  { name: "Chart of accounts", module: "accounting", resource: "chart-of-accounts", headers: ["accountNumber", "name", "type", "currency"] },
+  { name: "Sales transactions", module: "sales", resource: "invoices", headers: ["customer", "invoiceDate", "dueDate", "currency", "total"] },
+  { name: "Purchase transactions", module: "purchasing", resource: "bills", headers: ["vendor", "billDate", "dueDate", "currency", "total"] },
+] as const
+
+function parseCsv(text: string) {
+  const rows: string[][] = []
+  let row: string[] = []
+  let value = ""
+  let quoted = false
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index]
+    if (character === '"') {
+      if (quoted && text[index + 1] === '"') {
+        value += '"'
+        index += 1
+      } else quoted = !quoted
+    } else if (character === "," && !quoted) {
+      row.push(value.trim())
+      value = ""
+    } else if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && text[index + 1] === "\n") index += 1
+      row.push(value.trim())
+      if (row.some(Boolean)) rows.push(row)
+      row = []
+      value = ""
+    } else value += character
+  }
+  row.push(value.trim())
+  if (row.some(Boolean)) rows.push(row)
+  const [headers = [], ...values] = rows
+  return values.map((cells) =>
+    Object.fromEntries(headers.map((header, index) => [header.trim(), cells[index] ?? ""])),
+  )
+}
 
 export function ImportPage() {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [selected, setSelected] = useState("Customers");
-  const [file, setFile] = useState("");
-  const [step, setStep] = useState(1);
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [selected, setSelected] = useState(0)
+  const [fileName, setFileName] = useState("")
+  const [rows, setRows] = useState<Record<string, unknown>[]>([])
+  const [result, setResult] = useState<ImportResult | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [toast, setToast] = useState<ToastMessage | null>(null)
+  const definition = importModules[selected]
+
+  const downloadTemplate = () => {
+    const blob = new Blob([`${definition.headers.join(",")}\n`], { type: "text/csv" })
+    const anchor = document.createElement("a")
+    anchor.href = URL.createObjectURL(blob)
+    anchor.download = `${definition.resource}-template.csv`
+    anchor.click()
+    URL.revokeObjectURL(anchor.href)
+  }
+
+  const processFile = async (file?: File) => {
+    if (!file) return
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setToast({ title: "Unsupported file", description: "Please upload a CSV file.", variant: "error" })
+      return
+    }
+    const parsed = parseCsv(await file.text())
+    setFileName(file.name)
+    setRows(parsed)
+    setResult(null)
+  }
+
+  const submit = async (dryRun: boolean) => {
+    setLoading(true)
+    try {
+      const response = await apiClient.action<ImportResult>("/v1/imports", {
+        module: definition.module,
+        resource: definition.resource,
+        rows,
+        dryRun,
+      })
+      setResult(response.data)
+      setToast({
+        title: dryRun ? "Validation completed" : "Import completed",
+        description: `${response.data.validRows} valid, ${response.data.invalidRows} invalid, ${response.data.importedRows} imported.`,
+        variant: response.data.invalidRows ? "warning" : "success",
+      })
+    } catch (error) {
+      setToast({ title: "Import failed", description: error instanceof Error ? error.message : "Unable to import file.", variant: "error" })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1400px]">
-        <div>
-          <p className="mb-2 text-xs font-bold text-[#007DCC]">Data management</p>
-          <h1 className="text-2xl font-bold tracking-[-0.035em] text-[#142735] md:text-[29px]">Import data</h1>
-          <p className="mt-1.5 text-sm text-[#6b7e8a]">Move existing company data into BLUE PLASTIC CENTER using CSV or Excel templates.</p>
-        </div>
+      <div className="mx-auto max-w-[1200px]">
+        <p className="text-xs font-bold text-[#007DCC]">Data management</p>
+        <h1 className="mt-2 text-3xl font-bold text-[#142735]">Import database records</h1>
+        <p className="mt-2 text-sm text-[#6b7e8a]">Validate a CSV, review row errors, then save valid records directly to PostgreSQL.</p>
 
-        <div className="mt-6 flex items-center gap-2">
-          {["Choose module","Upload file","Map columns","Review & import"].map((label,index) => (
-            <div key={label} className="flex flex-1 items-center gap-2">
-              <span className={cn("grid size-7 shrink-0 place-items-center rounded-full text-[11px] font-bold", index + 1 <= step ? "bg-[#007DCC] text-white" : "bg-[#e4ebef] text-[#71838e]")}>{index + 1}</span>
-              <span className="hidden text-xs font-bold text-[#526874] md:block">{label}</span>
-              {index < 3 ? <span className="h-px flex-1 bg-[#dce6ed]"/> : null}
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(340px,0.7fr)]">
-          <Card className="p-5 md:p-6">
-            <h2 className="text-sm font-bold text-[#253e4a]">1. Choose what you want to import</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {importModules.map(({ name, description, icon: Icon }) => (
-                <button key={name} onClick={() => { setSelected(name); setStep(1); setFile(""); }} className={cn("flex items-start gap-3 rounded-xl border p-4 text-left", selected === name ? "border-[#007DCC] bg-[#eef8fe] ring-2 ring-[#007DCC]/10" : "border-[#dfe7ed] hover:border-sky-200")}>
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-[#007DCC] shadow-sm"><Icon size={18}/></span>
-                  <span><span className="block text-xs font-bold text-[#29424e]">{name}</span><span className="mt-1 block text-[11px] leading-5 text-[#788b96]">{description}</span></span>
-                  {selected === name ? <CheckCircle2 size={17} className="ml-auto shrink-0 text-[#007DCC]"/> : null}
+        <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_360px]">
+          <Card className="p-6">
+            <h2 className="text-sm font-bold text-[#253e4a]">1. Select a destination</h2>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {importModules.map((item, index) => (
+                <button key={item.name} onClick={() => { setSelected(index); setRows([]); setFileName(""); setResult(null) }} className={cn("rounded-xl border p-4 text-left", selected === index ? "border-[#007DCC] bg-[#eef8fe]" : "border-[#dfe7ed]")}>
+                  <span className="flex items-center gap-2 text-xs font-bold text-[#29424e]"><FileSpreadsheet size={16} className="text-[#007DCC]"/>{item.name}</span>
+                  <span className="mt-2 block text-[11px] text-[#788b96]">{item.module}/{item.resource}</span>
                 </button>
               ))}
             </div>
-
-            <div className="mt-6 border-t border-[#e8eef2] pt-5">
-              <div className="flex items-center justify-between"><div><h2 className="text-sm font-bold text-[#253e4a]">2. Upload {selected.toLowerCase()}</h2><p className="mt-1 text-xs text-[#7c8e98]">Accepted formats: .xlsx, .xls and .csv up to 20 MB.</p></div><button onClick={() => setFile(`${selected.toLowerCase().replaceAll(" ","-")}-template.csv`)} className="text-xs font-bold text-[#007DCC]">Download template</button></div>
-              <input ref={inputRef} type="file" accept=".csv,.xls,.xlsx" className="hidden" onChange={(event) => { const next = event.target.files?.[0]?.name; if (next) { setFile(next); setStep(2); } }}/>
-              <button onClick={() => inputRef.current?.click()} className="mt-4 flex min-h-44 w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#cfdce4] bg-[#f8fafc] p-6 hover:border-[#007DCC] hover:bg-[#f2f9fd]">
-                <span className="grid size-12 place-items-center rounded-2xl bg-[#e4f3fc] text-[#007DCC]"><UploadCloud size={23}/></span>
-                <span className="mt-3 text-sm font-bold text-[#2d4652]">{file || "Choose a file or drag it here"}</span>
-                <span className="mt-1 text-xs text-[#80929d]">{file ? "File ready for column mapping" : "Your source file is processed locally in this preview"}</span>
-              </button>
+            <div className="mt-6 flex items-center justify-between border-t border-[#e8eef2] pt-5">
+              <div><h2 className="text-sm font-bold text-[#253e4a]">2. Upload CSV</h2><p className="mt-1 text-xs text-[#7c8e98]">{definition.headers.join(", ")}</p></div>
+              <button onClick={downloadTemplate} className="flex items-center gap-2 text-xs font-bold text-[#007DCC]"><Download size={15}/>Template</button>
             </div>
+            <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => void processFile(event.target.files?.[0])}/>
+            <button onClick={() => inputRef.current?.click()} className="mt-4 flex min-h-40 w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#cfdce4] bg-[#f8fafc] p-6 hover:border-[#007DCC]">
+              <UploadCloud size={24} className="text-[#007DCC]"/>
+              <span className="mt-3 text-sm font-bold text-[#2d4652]">{fileName || "Choose a CSV file"}</span>
+              <span className="mt-1 text-xs text-[#80929d]">{rows.length ? `${rows.length} data rows parsed` : "Files are parsed locally before validation"}</span>
+            </button>
           </Card>
 
           <div className="space-y-4">
             <Card className="p-5">
-              <h2 className="text-sm font-bold text-[#253e4a]">Import checklist</h2>
-              <div className="mt-4 space-y-3">
-                {["Use one header row","Keep required columns populated","Use ISO dates: YYYY-MM-DD","Use unique reference numbers","Review duplicate matching"].map((item)=><div key={item} className="flex items-center gap-2 text-xs font-semibold text-[#526874]"><CheckCircle2 size={15} className="text-emerald-500"/>{item}</div>)}
-              </div>
-            </Card>
-            <Card className="p-5">
-              <h2 className="text-sm font-bold text-[#253e4a]">Selected module</h2>
-              <p className="mt-2 text-lg font-bold text-[#007DCC]">{selected}</p>
-              <p className="mt-2 text-xs leading-5 text-[#788b96]">The next step maps your spreadsheet columns to BLUE PLASTIC CENTER fields and validates every row before import.</p>
-              <button disabled={!file} onClick={() => setStep((current) => Math.min(4, current + 1))} className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#007DCC] text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">Continue <ArrowRight size={15}/></button>
+              <h2 className="text-sm font-bold text-[#253e4a]">Review & import</h2>
+              {result ? <div className="mt-4 space-y-2 text-xs text-[#526874]">
+                <p className="flex items-center gap-2 font-bold"><CheckCircle2 size={15} className="text-emerald-500"/>{result.validRows} valid rows</p>
+                <p>{result.invalidRows} invalid rows · {result.importedRows} saved</p>
+                {result.errors.slice(0, 8).map((error) => <p key={`${error.row}-${error.message}`} className="rounded-lg bg-red-50 p-2 text-red-700">Row {error.row}: {error.message}</p>)}
+              </div> : <p className="mt-3 text-xs leading-5 text-[#788b96]">Validation uses the same Zod and business rules as normal API creation.</p>}
+              <button disabled={!rows.length || loading} onClick={() => void submit(true)} className="mt-5 h-11 w-full rounded-xl border border-[#007DCC] text-xs font-bold text-[#007DCC] disabled:opacity-40">{loading ? "Processing…" : "Validate file"}</button>
+              <button disabled={!rows.length || loading || !result || result.invalidRows > 0} onClick={() => void submit(false)} className="mt-2 h-11 w-full rounded-xl bg-[#007DCC] text-xs font-bold text-white disabled:opacity-40">Import valid rows</button>
             </Card>
           </div>
         </div>
+        <Toast message={toast} onClose={() => setToast(null)}/>
       </div>
     </AppShell>
-  );
+  )
 }
