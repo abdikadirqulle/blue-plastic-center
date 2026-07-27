@@ -15,3 +15,16 @@ const grants: Record<Role, Action[]> = {
 export function authorize(principal: Principal, action: Action) {
   if (!grants[principal.role].includes(action)) throw forbidden()
 }
+
+const moduleRoles: Partial<Record<Role, string[]>> = {
+  sales: ["sales", "debts"],
+  purchasing: ["purchasing"],
+  warehouse: ["inventory"],
+  payroll: ["payroll"],
+}
+
+export function authorizeResource(principal: Principal, action: Action, moduleName: string) {
+  authorize(principal, action)
+  const allowedModules = moduleRoles[principal.role]
+  if (allowedModules && !allowedModules.includes(moduleName)) throw forbidden()
+}

@@ -27,10 +27,12 @@ apps/api/
       resources/            Shared CRUD routes and schemas
       system/               Metadata and audit endpoints
       auth/                 Phase 1 authentication
-      sales/                Phase 2 sales
-      purchasing/           Phase 2 procure-to-pay
-      inventory/            Phase 2 inventory
-      banking/              Phase 2 banking
+      operations/           Shared money, validation, and workflow services
+      sales/                Sales schemas, CRUD, and document workflows
+      purchasing/           Procure-to-pay schemas and workflows
+      inventory/            Inventory schemas and fulfillment workflow
+      banking/              Banking schemas and reconciliation workflow
+      documents/            Attachments, PDF, and delivery jobs
       accounting/           Phase 3 ledger
       projects/             Phase 3 project costing
       payroll/              Phase 3 payroll

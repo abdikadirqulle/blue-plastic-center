@@ -19,6 +19,34 @@ const resource = (
 ): ResourceDefinition => ({ name, label, requiredFields, searchableFields })
 
 export const modules: Record<string, ModuleDefinition> = {
+  documents: {
+    name: "documents",
+    label: "Documents and delivery",
+    resources: {
+      attachments: resource("attachments", "Attachments", [
+        "entityModule",
+        "entityResource",
+        "entityId",
+        "fileName",
+        "contentType",
+        "sizeBytes",
+        "storageKey",
+      ]),
+      "email-jobs": resource("email-jobs", "Email jobs", [
+        "entityModule",
+        "entityResource",
+        "entityId",
+        "to",
+        "subject",
+      ]),
+      "pdf-jobs": resource("pdf-jobs", "PDF jobs", [
+        "entityModule",
+        "entityResource",
+        "entityId",
+        "template",
+      ]),
+    },
+  },
   setup: {
     name: "setup",
     label: "Company setup",
@@ -42,12 +70,11 @@ export const modules: Record<string, ModuleDefinition> = {
         "name",
         "dueDays",
       ]),
-      "document-sequences": resource("document-sequences", "Document sequences", [
-        "documentType",
-        "prefix",
-        "nextNumber",
-        "padding",
-      ]),
+      "document-sequences": resource(
+        "document-sequences",
+        "Document sequences",
+        ["documentType", "prefix", "nextNumber", "padding"],
+      ),
       "opening-balances": resource("opening-balances", "Opening balances", [
         "accountId",
         "asOfDate",
@@ -324,7 +351,6 @@ export const modules: Record<string, ModuleDefinition> = {
       fulfillment: resource("fulfillment", "Pick, pack and ship", [
         "salesOrder",
         "warehouse",
-        "shipDate",
         "lines",
       ]),
       "landed-costs": resource("landed-costs", "Landed costs", [
@@ -388,9 +414,7 @@ export const modules: Record<string, ModuleDefinition> = {
         "usefulLife",
         "method",
       ]),
-      classes: resource("classes", "Classes and departments", [
-        "className",
-      ]),
+      classes: resource("classes", "Classes and departments", ["className"]),
       "audit-log": resource("audit-log", "Audit log", [
         "action",
         "entityType",

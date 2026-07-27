@@ -222,6 +222,54 @@ export const items = pgTable(
   (table) => [uniqueIndex("items_company_sku_uq").on(table.companyId, table.sku)],
 )
 
+export const idempotencyKeys = pgTable(
+  "idempotency_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    key: text("key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    resourceRecordId: uuid("resource_record_id").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("idempotency_keys_company_key_uq").on(table.companyId, table.key)],
+)
+
+export const attachments = pgTable(
+  "attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    resourceRecordId: uuid("resource_record_id").notNull(),
+    fileName: text("file_name").notNull(),
+    contentType: text("content_type").notNull(),
+    storageKey: text("storage_key").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    uploadedBy: uuid("uploaded_by").notNull().references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("attachments_resource_idx").on(table.companyId, table.resourceRecordId)],
+)
+
+export const backgroundJobs = pgTable(
+  "background_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    type: text("type").notNull(),
+    status: text("status").notNull().default("queued"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    result: jsonb("result").$type<Record<string, unknown>>(),
+    attempts: integer("attempts").notNull().default(0),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdBy: uuid("created_by").notNull().references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("background_jobs_status_idx").on(table.status, table.scheduledAt)],
+)
+
 export const accounts = pgTable(
   "accounts",
   {

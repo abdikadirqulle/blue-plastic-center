@@ -145,6 +145,9 @@ reversal or adjustment.
 - Projects: projects, tasks, time, expenses, progress billing, profitability
 - Payroll: pay runs, employees, timesheets, leave, loans, reports
 
+Detailed Phase 2 resource contracts, workflows, and permission boundaries are in
+`docs/PHASE2_OPERATIONS.md`.
+
 ## Database commands
 
 ```bash

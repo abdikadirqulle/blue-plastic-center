@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createApp } from "../dist/app.js";
 import { MemoryResourceRepository } from "../dist/repositories/memory-resource-repository.js";
+import { salesSchemas } from "../dist/modules/sales/sales.schemas.js";
+import { purchasingSchemas } from "../dist/modules/purchasing/purchasing.schemas.js";
+import { inventorySchemas } from "../dist/modules/inventory/inventory.schemas.js";
+import { bankingSchemas } from "../dist/modules/banking/banking.schemas.js";
 
 async function inject(app, path, init = {}, auth = {}) {
   const response = await app.inject({
@@ -232,4 +236,243 @@ test("report generation and bulk import validation endpoints respond with jobs",
   });
   assert.equal(imported.status, 202);
   assert.equal((await imported.json()).data.status, "validated");
+});
+
+test("Phase 2 CRUD validates operational documents, numbers them, and honors idempotency", async () => {
+  const app = createApp();
+  const line = {
+    accountId: "4000-sales",
+    description: "Blue plastic products",
+    quantity: "2",
+    unitPrice: "125.00",
+  };
+  const invoiceInput = {
+    status: "draft",
+    data: {
+      customerId: "customer-1",
+      invoiceDate: "2026-07-28",
+      dueDate: "2026-08-27",
+      currency: "USD",
+      lines: [line],
+    },
+  };
+
+  const first = await request(app, "/v1/sales/invoices", {
+    method: "POST",
+    headers: { "Idempotency-Key": "invoice-import-row-1" },
+    body: JSON.stringify(invoiceInput),
+  });
+  assert.equal(first.status, 201);
+  assert.match(first.json().data.data.documentNumber, /^INV-\d{5}$/);
+
+  const forgedPosted = await request(app, "/v1/sales/invoices", {
+    method: "POST",
+    body: JSON.stringify({ ...invoiceInput, status: "posted" }),
+  });
+  assert.equal(forgedPosted.status, 409);
+
+  const duplicate = await request(app, "/v1/sales/invoices", {
+    method: "POST",
+    headers: { "Idempotency-Key": "invoice-import-row-1" },
+    body: JSON.stringify(invoiceInput),
+  });
+  assert.equal(duplicate.json().data.id, first.json().data.id);
+
+  const conflict = await request(app, "/v1/sales/invoices", {
+    method: "POST",
+    headers: { "Idempotency-Key": "invoice-import-row-1" },
+    body: JSON.stringify({ ...invoiceInput, data: { ...invoiceInput.data, memo: "changed" } }),
+  });
+  assert.equal(conflict.status, 409);
+
+  const listed = await request(app, "/v1/sales/invoices");
+  assert.equal(listed.json().meta.total, 1);
+  const fetched = await request(app, `/v1/sales/invoices/${first.json().data.id}`);
+  assert.equal(fetched.status, 200);
+  const updated = await request(app, `/v1/sales/invoices/${first.json().data.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version: 1, data: { memo: "Customer requested delivery" } }),
+  });
+  assert.equal(updated.json().data.version, 2);
+  assert.equal((await request(app, `/v1/sales/invoices/${first.json().data.id}`, {
+    method: "DELETE",
+  })).status, 204);
+});
+
+test("Phase 2 secured workflows cover sales, purchasing, inventory, and banking", async () => {
+  const app = createApp();
+  const line = {
+    accountId: "4000-sales",
+    description: "Operational line",
+    quantity: "2",
+    unitPrice: "50.00",
+  };
+
+  const estimate = (await request(app, "/v1/sales/estimates", {
+    method: "POST",
+    body: JSON.stringify({
+      status: "draft",
+      data: {
+        customerId: "customer-1",
+        estimateDate: "2026-07-28",
+        currency: "USD",
+        lines: [line],
+      },
+    }),
+  })).json().data;
+  const converted = await request(app, `/v1/sales/estimates/${estimate.id}/convert`, {
+    method: "POST",
+    body: JSON.stringify({ targetResource: "invoices" }),
+  });
+  assert.equal(converted.status, 201);
+  assert.equal(converted.json().data.data.sourceDocumentId, estimate.id);
+
+  const payment = (await request(app, "/v1/sales/payments", {
+    method: "POST",
+    body: JSON.stringify({
+      status: "draft",
+      data: {
+        customerId: "customer-1",
+        paymentDate: "2026-07-28",
+        amount: "100.00",
+        currency: "USD",
+        depositToAccountId: "bank-1",
+        paymentMethod: "bank-transfer",
+        allocations: [],
+      },
+    }),
+  })).json().data;
+  const applied = await request(app, `/v1/sales/payments/${payment.id}/allocate`, {
+    method: "POST",
+    body: JSON.stringify({
+      allocations: [{ invoiceId: converted.json().data.id, amount: "100.00" }],
+    }),
+  });
+  assert.equal(applied.json().data.status, "applied");
+  const draftPostings = await request(app, "/v1/accounting/journal-entries");
+  assert.equal(draftPostings.json().meta.total, 1);
+
+  const attachment = await request(app, `/v1/documents/sales/invoices/${converted.json().data.id}/attachments`, {
+    method: "POST",
+    body: JSON.stringify({
+      fileName: "customer-order.pdf",
+      contentType: "application/pdf",
+      sizeBytes: 1024,
+    }),
+  });
+  assert.equal(attachment.status, 201);
+  assert.equal(attachment.json().data.status, "pending-upload");
+
+  const purchaseOrder = (await request(app, "/v1/purchasing/purchase-orders", {
+    method: "POST",
+    body: JSON.stringify({
+      status: "open",
+      data: {
+        vendorId: "vendor-1",
+        orderDate: "2026-07-28",
+        currency: "USD",
+        lines: [line],
+      },
+    }),
+  })).json().data;
+  const receipt = await request(app, `/v1/purchasing/purchase-orders/${purchaseOrder.id}/receive`, {
+    method: "POST",
+    body: JSON.stringify({
+      receiptDate: "2026-07-28",
+      warehouseId: "warehouse-1",
+      lines: [{ lineNumber: 1, quantityReceived: "2" }],
+    }),
+  });
+  assert.equal(receipt.status, 201);
+  assert.equal(receipt.json().data.status, "received");
+
+  const fulfillment = (await request(app, "/v1/inventory/fulfillment", {
+    method: "POST",
+    body: JSON.stringify({
+      status: "draft",
+      data: {
+        salesOrder: "sales-order-1",
+        warehouse: "warehouse-1",
+        lines: [line],
+      },
+    }),
+  })).json().data;
+  for (const action of ["allocate", "pick", "pack", "ship"]) {
+    const response = await request(app, `/v1/inventory/fulfillment/${fulfillment.id}/action`, {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    });
+    assert.equal(response.status, 200, action);
+  }
+
+  const reconciliation = (await request(app, "/v1/banking/reconciliation", {
+    method: "POST",
+    body: JSON.stringify({
+      status: "draft",
+      data: {
+        accountId: "bank-1",
+        statementDate: "2026-07-28",
+        beginningBalance: "100.00",
+        endingBalance: "150.00",
+        clearedTransactionIds: [],
+      },
+    }),
+  })).json().data;
+  const invalidFinish = await request(app, `/v1/banking/reconciliation/${reconciliation.id}/finish`, {
+    method: "POST",
+    body: JSON.stringify({ clearedTransactionIds: ["transaction-1"], difference: "1.00" }),
+  });
+  assert.equal(invalidFinish.status, 422);
+  const finished = await request(app, `/v1/banking/reconciliation/${reconciliation.id}/finish`, {
+    method: "POST",
+    body: JSON.stringify({ clearedTransactionIds: ["transaction-1"], difference: "0.00" }),
+  });
+  assert.equal(finished.json().data.status, "reconciled");
+});
+
+test("Phase 2 module roles cannot cross operational security boundaries", async () => {
+  const app = createApp();
+  const provisioned = await request(app, "/v1/auth/users", {
+    method: "POST",
+    body: JSON.stringify({
+      email: "sales@blueplastic.local",
+      displayName: "Sales User",
+      role: "sales",
+      password: "SalesSecure123!",
+    }),
+  });
+  assert.equal(provisioned.status, 201);
+
+  const login = await inject(app, "/v1/auth/login", {
+    method: "POST",
+    body: JSON.stringify({
+      email: "sales@blueplastic.local",
+      password: "SalesSecure123!",
+    }),
+  });
+  const salesAuth = {
+    Cookie: login.headers["set-cookie"].split(";")[0],
+    "X-CSRF-Token": login.json().data.csrfToken,
+  };
+  assert.equal((await inject(app, "/v1/sales/invoices", {}, salesAuth)).status, 200);
+  assert.equal((await inject(app, "/v1/purchasing/bills", {}, salesAuth)).status, 403);
+  assert.equal((await inject(app, "/v1/accounting/journal-entries", {}, salesAuth)).status, 403);
+});
+
+test("every Phase 2 CRUD resource has a dedicated validation contract", async () => {
+  const app = createApp();
+  const moduleMetadata = (await request(app, "/v1/meta/modules")).json().data;
+  const schemaSets = {
+    sales: salesSchemas,
+    purchasing: purchasingSchemas,
+    inventory: inventorySchemas,
+    banking: bankingSchemas,
+  };
+  for (const [moduleName, schemas] of Object.entries(schemaSets)) {
+    assert.deepEqual(
+      Object.keys(schemas).sort(),
+      Object.keys(moduleMetadata[moduleName].resources).sort(),
+      moduleName,
+    );
+  }
 });

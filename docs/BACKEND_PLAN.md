@@ -31,7 +31,7 @@ memory storage for tests and PostgreSQL when `DATABASE_URL` is configured.
 Exit criteria: demo tokens are removed; React uses secure sessions; master
 records are persistent, validated, audited, and role-protected.
 
-## Phase 2 — Operational accounting
+## Phase 2 — Operational accounting (completed)
 
 - Estimates, sales orders, invoices, cash sales, receipts, credit notes, refunds,
   statements, deposits, and recurring sales
@@ -62,5 +62,5 @@ are rehearsed.
 
 ## Recommended next work
 
-Begin Phase 2 with the sales document lifecycle and transactional document
-number allocation, then connect purchasing and inventory posting dependencies.
+Begin Phase 3 with the double-entry posting engine, fiscal-period controls, and
+subledger reconciliation before expanding financial reports.

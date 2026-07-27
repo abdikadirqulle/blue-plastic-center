@@ -4,6 +4,8 @@ import type { ResourceRepository } from "./resource-repository.js";
 export class MemoryResourceRepository implements ResourceRepository {
   private records = new Map<string, ResourceRecord>();
   private audit: AuditEvent[] = [];
+  private idempotency = new Map<string, { requestHash: string; recordId: string }>();
+  private sequences = new Map<string, number>();
 
   async list(scope: { companyId: string; branchId?: string; module: string; resource: string }, query: ListQuery) {
     const search = query.search?.toLowerCase();
@@ -34,6 +36,25 @@ export class MemoryResourceRepository implements ResourceRepository {
   async create(record: ResourceRecord) {
     this.records.set(record.id, record);
     return record;
+  }
+
+  async findByIdempotency(companyId: string, key: string) {
+    const entry = this.idempotency.get(`${companyId}:${key}`);
+    const record = entry ? this.records.get(entry.recordId) : undefined;
+    return entry && record ? { requestHash: entry.requestHash, record } : undefined;
+  }
+
+  async createIdempotent(record: ResourceRecord, key: string, requestHash: string) {
+    this.records.set(record.id, record);
+    this.idempotency.set(`${record.companyId}:${key}`, { requestHash, recordId: record.id });
+    return record;
+  }
+
+  async nextDocumentNumber(companyId: string, documentType: string, prefix: string) {
+    const key = `${companyId}:${documentType}`;
+    const next = this.sequences.get(key) ?? 1;
+    this.sequences.set(key, next + 1);
+    return `${prefix}${String(next).padStart(5, "0")}`;
   }
 
   async update(record: ResourceRecord) {

@@ -9,7 +9,16 @@ const loginSchema = z.object({
   password: z.string().min(8).max(128),
 })
 
-const roleSchema = z.enum(["administrator", "accountant", "viewer"])
+const roleSchema = z.enum([
+  "administrator",
+  "finance_manager",
+  "accountant",
+  "sales",
+  "purchasing",
+  "warehouse",
+  "payroll",
+  "viewer",
+])
 const createUserSchema = z.object({
   email: z.string().email(),
   displayName: z.string().trim().min(2).max(100),

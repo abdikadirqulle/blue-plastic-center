@@ -15,6 +15,13 @@
       "when": 1785187383057,
       "tag": "0001_solid_pandemic",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785188306564,
+      "tag": "0002_bored_sumo",
+      "breakpoints": true
     }
   ]
 }

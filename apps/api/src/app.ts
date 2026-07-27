@@ -8,6 +8,12 @@ import { authRoutes } from "./modules/auth/auth.routes.js"
 import { AuthService } from "./modules/auth/auth-service.js"
 import type { IdentityRepository } from "./modules/auth/identity-repository.js"
 import { MemoryIdentityRepository } from "./modules/auth/memory-identity-repository.js"
+import { bankingRoutes } from "./modules/banking/banking.routes.js"
+import { documentRoutes } from "./modules/documents/document.routes.js"
+import { inventoryRoutes } from "./modules/inventory/inventory.routes.js"
+import { OperationalWorkflowService } from "./modules/operations/operational-workflow.service.js"
+import { purchasingRoutes } from "./modules/purchasing/purchasing.routes.js"
+import { salesRoutes } from "./modules/sales/sales.routes.js"
 import { importRoutes } from "./modules/imports/import.routes.js"
 import { reportRoutes } from "./modules/reports/report.routes.js"
 import { resourceRoutes } from "./modules/resources/resource.routes.js"
@@ -39,6 +45,7 @@ export function createApp(
   })
   const service = new ResourceService(repository)
   const authService = new AuthService(identityRepository, env.SESSION_TTL_HOURS)
+  const workflows = new OperationalWorkflowService(service)
 
   registerErrorHandler(app)
   app.register(helmet)
@@ -54,6 +61,7 @@ export function createApp(
       "X-Branch-Id",
       "X-Request-Id",
       "X-CSRF-Token",
+      "Idempotency-Key",
     ],
     exposedHeaders: ["X-Request-Id"],
   })
@@ -70,9 +78,28 @@ export function createApp(
 
   app.register(
     async (v1) => {
+      await v1.register(async (auth) => authRoutes(auth, authService, env), {
+        prefix: "/auth",
+      })
       await v1.register(
-        async (auth) => authRoutes(auth, authService, env),
-        { prefix: "/auth" },
+        async (sales) => salesRoutes(sales, workflows, service),
+        { prefix: "/sales" },
+      )
+      await v1.register(
+        async (purchasing) => purchasingRoutes(purchasing, workflows, service),
+        { prefix: "/purchasing" },
+      )
+      await v1.register(
+        async (inventory) => inventoryRoutes(inventory, workflows),
+        { prefix: "/inventory" },
+      )
+      await v1.register(
+        async (banking) => bankingRoutes(banking, workflows, service),
+        { prefix: "/banking" },
+      )
+      await v1.register(
+        async (documents) => documentRoutes(documents, service),
+        { prefix: "/documents" },
       )
       await systemRoutes(v1, repository)
       await reportRoutes(v1)
