@@ -120,6 +120,17 @@ settings follow the same `/:section/:resource` convention.
 - Banking provides connected account feeds with match, add, exclude and rules,
   deposits, transfers, checks, registers, cash forecasts, and a dedicated
   reconciliation workspace with cleared transactions and a live difference.
+- Accounting provides a hierarchical account center, balanced journals,
+  registers, recurring entries, fiscal periods, a month-end close checklist,
+  budgets and forecasts, fixed-asset depreciation, class tracking, and an
+  immutable audit timeline.
+- Projects provides job-cost centers, tasks, time, committed and actual costs,
+  progress billing, contract change orders, and project profitability.
+- Payroll provides employee profiles, timesheets, leave and loans, pay-run
+  review and approval, benefit plans, payroll liabilities, and payroll reports.
+- Accounting, project, and payroll pages consume `EnterpriseRepository` through
+  `enterpriseService`, with mock and API adapters selected through the same
+  `NEXT_PUBLIC_DATA_SOURCE` configuration used by other frontend domains.
 
 ## Frontend principles
 

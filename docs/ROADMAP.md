@@ -1,6 +1,6 @@
 # Delivery Roadmap
 
-## Phase 1 — Frontend foundation
+## Delivered Phase 1 — Navigation and sales foundation
 
 - Application shell, navigation, company switcher, command search
 - Design tokens and reusable components
@@ -9,20 +9,19 @@
 - Mock repositories and shared domain types
 - Authentication screen designs
 
-## Phase 2 — Accounting core
+## Delivered Phase 2 — Purchasing, inventory, and banking operations
 
-- Company setup and fiscal periods
-- Chart of accounts and account registers
-- Journal entry workflow and posting rules
-- Trial balance, profit and loss, and balance sheet
-- Audit events, approvals, and period locking
+- Procure-to-pay, approvals, partial receiving, bills, payments, and credits
+- Multi-location inventory, traceability, BOM, landed costs, and fulfillment
+- Bank feeds, rules, matching, deposits, transfers, and reconciliation
 
-## Phase 3 — Sales and receivables
+## Delivered Phase 3 — Accounting and enterprise controls
 
-- Customers and contacts
-- Items and services
-- Estimates, sales orders, invoices, receipts, and credit notes
-- Customer payments, statements, and aging
+- General ledger, recurring entries, fiscal periods, month-end close, and audit
+- Budgets, forecasting, classes, fixed assets, and depreciation
+- Projects, job costing, change orders, progress billing, and profitability
+- Payroll, employee center, benefits, liabilities, and approval workflows
+- Expanded financial, tax, asset, project, payroll, and operational reports
 
 ## Phase 4 — Purchasing and payables
 
@@ -55,4 +54,3 @@
 
 Each phase requires acceptance criteria, permissions, audit behavior, tests,
 accounting review, migration notes, and user documentation before completion.
-

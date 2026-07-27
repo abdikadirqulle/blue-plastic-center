@@ -24,6 +24,9 @@ const tabs = [
   ["sales", "Sales"],
   ["purchasing", "Purchasing"],
   ["inventory", "Inventory"],
+  ["projects", "Projects & jobs"],
+  ["assets", "Fixed assets"],
+  ["taxes", "Taxes"],
   ["payroll", "Payroll"],
   ["custom", "Custom reports"],
 ];
@@ -45,6 +48,18 @@ const reportGroups: Record<string, Array<{ group: string; reports: string[] }>> 
   inventory: [
     { group: "Inventory", reports: ["Inventory Valuation Summary", "Inventory Valuation Detail", "Inventory Stock Status by Item", "Physical Inventory Worksheet", "Inventory Assembly Shortage", "Pending Builds"] },
     { group: "Cost & movement", reports: ["Inventory Turnover", "Stock by Warehouse", "Item Profitability", "Lot and Serial Tracking", "Inventory Adjustments", "Reorder Report"] },
+  ],
+  projects: [
+    { group: "Projects & job costing", reports: ["Project Profitability Summary", "Project Profitability Detail", "Job Estimates vs Actuals", "Unbilled Costs by Project", "Committed Costs", "Work in Progress"] },
+    { group: "Time & progress billing", reports: ["Time by Project", "Time by Employee", "Progress Invoice Summary", "Change Order Log", "Project Cost by Vendor", "Project Margin by Customer"] },
+  ],
+  assets: [
+    { group: "Fixed assets", reports: ["Fixed Asset Listing", "Depreciation Schedule", "Asset Acquisitions", "Asset Disposals", "Net Book Value by Category", "Asset Location Report"] },
+    { group: "Asset accounting", reports: ["Depreciation Journal", "Accumulated Depreciation", "Tax vs Book Depreciation", "Asset Roll Forward"] },
+  ],
+  taxes: [
+    { group: "Sales & purchase tax", reports: ["Sales Tax Liability", "Taxable Sales Detail", "Input Tax Recoverable", "Tax Code Detail", "Tax Agency Payments", "Tax Exception Report"] },
+    { group: "Payroll & statutory", reports: ["Payroll Tax Liability", "Employee Withholding", "Pension Contributions", "Statutory Filing Summary"] },
   ],
   payroll: [
     { group: "Payroll", reports: ["Payroll Summary", "Payroll Details", "Employee Earnings Summary", "Payroll Item Detail", "Payroll Liability Balances", "Payroll Tax Liability"] },

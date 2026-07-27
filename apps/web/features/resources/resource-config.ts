@@ -323,6 +323,10 @@ export const moduleDefinitions: Record<string, ModuleDefinition> = {
       { slug: "registers", label: "Registers" },
       { slug: "recurring", label: "Recurring" },
       { slug: "fiscal-periods", label: "Fiscal periods" },
+      { slug: "close-center", label: "Close center" },
+      { slug: "budgets", label: "Budgets" },
+      { slug: "fixed-assets", label: "Fixed assets" },
+      { slug: "classes", label: "Classes" },
       { slug: "audit-log", label: "Audit log" },
     ],
   },
@@ -336,6 +340,7 @@ export const moduleDefinitions: Record<string, ModuleDefinition> = {
       { slug: "time", label: "Time" },
       { slug: "expenses", label: "Expenses" },
       { slug: "progress-billing", label: "Progress billing" },
+      { slug: "change-orders", label: "Change orders" },
       { slug: "profitability", label: "Profitability" },
     ],
   },
@@ -349,6 +354,8 @@ export const moduleDefinitions: Record<string, ModuleDefinition> = {
       { slug: "timesheets", label: "Timesheets" },
       { slug: "leave", label: "Leave" },
       { slug: "loans", label: "Loans" },
+      { slug: "liabilities", label: "Liabilities" },
+      { slug: "benefits", label: "Benefits" },
       { slug: "reports", label: "Payroll reports" },
     ],
   },
@@ -3513,6 +3520,113 @@ const commonResourceSpecs: Array<{
   fields: FormField[]
 }>
 
+const phaseThreeSpecs: typeof commonResourceSpecs = [
+  {
+    module: "accounting", slug: "close-center", title: "Month-end close center", action: "Start close",
+    columns: ["Close task", "Owner / area", "Progress", "Due date"],
+    fields: [
+      { name: "period", label: "Fiscal period", type: "select", options: ["July 2026", "August 2026", "Q3 2026"], required: true, width: "third" },
+      { name: "closeDate", label: "Target close date", type: "date", required: true, width: "third" },
+      { name: "owner", label: "Close owner", type: "select", options: ["Finance Manager", "Controller", "Chief Accountant", "Add new user"], required: true, width: "third" },
+      { name: "checklist", label: "Reconciliation, review and posting checklist", type: "textarea", required: true },
+      { name: "closingPassword", label: "Closing date password", type: "text", width: "half" },
+      { name: "lockPeriod", label: "Lock period after close", type: "checkbox", width: "half" },
+      { name: "notes", label: "Close notes", type: "textarea" },
+    ],
+  },
+  {
+    module: "accounting", slug: "budgets", title: "Budgets and forecasts", action: "New budget",
+    columns: ["Budget", "Scope / version", "Annual value", "Updated date"],
+    fields: [
+      { name: "budgetName", label: "Budget name", type: "text", required: true, width: "half" },
+      { name: "fiscalYear", label: "Fiscal year", type: "select", options: ["FY 2026", "FY 2027", "FY 2028"], required: true, width: "half" },
+      { name: "budgetType", label: "Budget type", type: "select", options: ["Profit and loss", "Balance sheet", "Cash flow", "Project"], required: true, width: "third" },
+      { name: "scenario", label: "Scenario", type: "select", options: ["Approved", "Base", "Optimistic", "Conservative", "Forecast"], required: true, width: "third" },
+      { name: "class", label: "Class / department", type: "select", options: ["All classes", "Production", "Sales", "Logistics", "Administration", "Add new class"], width: "third" },
+      { name: "monthlyValues", label: "Accounts and monthly budget values", type: "textarea", required: true },
+      { name: "notes", label: "Assumptions and notes", type: "textarea" },
+    ],
+  },
+  {
+    module: "accounting", slug: "fixed-assets", title: "Fixed asset manager", action: "Add fixed asset",
+    columns: ["Asset", "Category / method", "Original cost", "In-service date"],
+    fields: [
+      { name: "assetName", label: "Asset name", type: "text", required: true, width: "half" },
+      { name: "assetNumber", label: "Asset number", type: "text", required: true, width: "half" },
+      { name: "category", label: "Asset category", type: "select", options: ["Machinery", "Vehicles", "Buildings", "Furniture", "IT equipment", "Add new category"], required: true, width: "third" },
+      { name: "purchaseDate", label: "Purchase date", type: "date", required: true, width: "third" },
+      { name: "inServiceDate", label: "In-service date", type: "date", required: true, width: "third" },
+      { name: "cost", label: "Original cost", type: "number", required: true, width: "third" },
+      { name: "salvageValue", label: "Salvage value", type: "number", width: "third" },
+      { name: "usefulLife", label: "Useful life (months)", type: "number", required: true, width: "third" },
+      { name: "method", label: "Depreciation method", type: "select", options: ["Straight line", "Declining balance", "Units of production", "No depreciation"], required: true, width: "third" },
+      { name: "assetAccount", label: "Asset account", type: "select", options: ["Machinery and equipment", "Vehicles", "Buildings", "Add new account"], required: true, width: "third" },
+      { name: "depreciationAccount", label: "Depreciation expense account", type: "select", options: ["Depreciation expense", "Production overhead", "Add new account"], required: true, width: "third" },
+      { name: "serialLocation", label: "Serial number and location", type: "textarea" },
+    ],
+  },
+  {
+    module: "accounting", slug: "classes", title: "Classes and departments", action: "New class",
+    columns: ["Class", "Parent / manager", "Activity", "Updated date"],
+    fields: [
+      { name: "className", label: "Class name", type: "text", required: true, width: "half" },
+      { name: "parentClass", label: "Parent class", type: "select", options: ["No parent", "Operations", "Sales", "Administration", "Add new class"], width: "half" },
+      { name: "manager", label: "Manager", type: "select", options: ["Abdisalam", "Ahmed Hassan", "Fadumo Ali", "Add new user"], width: "third" },
+      { name: "branch", label: "Default branch", type: "select", options: ["All branches", "Mogadishu Main", "Factory", "Add new branch"], width: "third" },
+      { name: "active", label: "Class is active", type: "checkbox", width: "third" },
+      { name: "description", label: "Description", type: "textarea" },
+    ],
+  },
+  {
+    module: "projects", slug: "change-orders", title: "Project change orders", action: "New change order",
+    columns: ["Change order", "Project / customer", "Contract change", "Submitted date"],
+    fields: [
+      { name: "project", label: "Project", type: "select", options: ["Factory Expansion", "Hodan Warehouse Fit-out", "New Production Line", "Add new project"], required: true, width: "third" },
+      { name: "changeNumber", label: "Change order no.", type: "text", required: true, width: "third" },
+      { name: "changeDate", label: "Change date", type: "date", required: true, width: "third" },
+      { name: "reason", label: "Reason", type: "select", options: ["Client request", "Scope clarification", "Site condition", "Design change", "Price escalation"], required: true, width: "half" },
+      { name: "amount", label: "Contract value change", type: "number", required: true, width: "half" },
+      { name: "scheduleImpact", label: "Schedule impact (days)", type: "number", width: "third" },
+      { name: "approver", label: "Customer approver", type: "text", width: "third" },
+      { name: "approvalDate", label: "Approval date", type: "date", width: "third" },
+      { name: "scope", label: "Detailed scope change", type: "textarea", required: true },
+      { name: "costLines", label: "Estimated labor, material and subcontractor costs", type: "textarea" },
+    ],
+  },
+  {
+    module: "payroll", slug: "liabilities", title: "Payroll liabilities", action: "Pay liabilities",
+    columns: ["Liability", "Agency / account", "Amount due", "Due date"],
+    fields: [
+      { name: "liabilityType", label: "Liability type", type: "select", options: ["Payroll tax", "Pension", "Employee deduction", "Health insurance", "Other"], required: true, width: "third" },
+      { name: "agency", label: "Agency / payee", type: "select", options: ["Ministry of Finance", "Pension Fund", "Health Insurer", "Add new payee"], required: true, width: "third" },
+      { name: "dueDate", label: "Due date", type: "date", required: true, width: "third" },
+      { name: "periodFrom", label: "Period from", type: "date", required: true, width: "third" },
+      { name: "periodTo", label: "Period to", type: "date", required: true, width: "third" },
+      { name: "amount", label: "Amount due", type: "number", required: true, width: "third" },
+      { name: "paymentAccount", label: "Payment account", type: "select", options: ["Premier Operating · 2048", "Salaam Bank · 1182"], width: "half" },
+      { name: "reference", label: "Payment reference", type: "text", width: "half" },
+      { name: "payrollRuns", label: "Included payroll runs and liability lines", type: "textarea", required: true },
+    ],
+  },
+  {
+    module: "payroll", slug: "benefits", title: "Employee benefits", action: "New benefit plan",
+    columns: ["Benefit", "Provider / eligibility", "Company cost", "Effective date"],
+    fields: [
+      { name: "benefitName", label: "Benefit plan name", type: "text", required: true, width: "half" },
+      { name: "benefitType", label: "Benefit type", type: "select", options: ["Health insurance", "Pension", "Allowance", "Bonus", "Other"], required: true, width: "half" },
+      { name: "provider", label: "Provider", type: "select", options: ["Internal", "Health Insurer", "Pension Fund", "Add new provider"], width: "third" },
+      { name: "effectiveDate", label: "Effective date", type: "date", required: true, width: "third" },
+      { name: "eligibility", label: "Eligibility", type: "select", options: ["All employees", "Full time", "Management", "Department", "Custom"], required: true, width: "third" },
+      { name: "employeeContribution", label: "Employee contribution", type: "number", width: "third" },
+      { name: "companyContribution", label: "Company contribution", type: "number", width: "third" },
+      { name: "calculation", label: "Calculation method", type: "select", options: ["Fixed amount", "Percentage of gross", "Percentage of basic", "Tiered"], required: true, width: "third" },
+      { name: "accounts", label: "Expense and liability accounts", type: "textarea", required: true },
+    ],
+  },
+];
+
+commonResourceSpecs.push(...phaseThreeSpecs);
+
 const phaseTwoSpecs: typeof commonResourceSpecs = [
   {
     module: "purchasing",
@@ -3813,6 +3927,9 @@ for (const spec of commonResourceSpecs) {
       "fulfillment",
       "landed-costs",
       "deposits",
+      "budgets",
+      "change-orders",
+      "liabilities",
     ].includes(spec.slug),
     rows: sampleRows(
       spec.slug.slice(0, 3).toUpperCase(),

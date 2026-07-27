@@ -209,6 +209,15 @@ const operationsPulse = [
   { title: "Reconciliation", metric: "$1,240 diff", helper: "Premier Operating · July", href: "/banking/reconciliation", icon: Target, tone: "bg-rose-50 text-rose-700" },
 ]
 
+const enterpriseControls = [
+  { title: "Month-end close", value: "72%", helper: "3 tasks need review", href: "/accounting/close-center", icon: Calculator, tone: "bg-sky-50 text-[#007DCC]" },
+  { title: "Budget performance", value: "+$12,400", helper: "Favorable month-to-date", href: "/accounting/budgets", icon: Target, tone: "bg-emerald-50 text-emerald-700" },
+  { title: "Fixed assets", value: "$684,200", helper: "Net book value · 42 assets", href: "/accounting/fixed-assets", icon: Landmark, tone: "bg-indigo-50 text-indigo-700" },
+  { title: "Project margin", value: "31.4%", helper: "3 projects at risk", href: "/projects/profitability", icon: BriefcaseBusiness, tone: "bg-violet-50 text-violet-700" },
+  { title: "Next payroll", value: "$45,120", helper: "52 employees · 31 Jul", href: "/payroll/pay-runs", icon: WalletCards, tone: "bg-rose-50 text-rose-700" },
+  { title: "Payroll liabilities", value: "$12,840", helper: "Due before 31 Jul", href: "/payroll/liabilities", icon: CircleAlert, tone: "bg-amber-50 text-amber-700" },
+]
+
 export function DashboardPage() {
   const [fromDate, setFromDate] = useState("2026-07-01")
   const [toDate, setToDate] = useState("2026-07-25")
@@ -787,6 +796,16 @@ export function DashboardPage() {
                 </Card>
               </Link>
             ))}
+          </div>
+        </section>
+
+        <section className="mt-4">
+          <div className="mb-3 flex items-end justify-between gap-4">
+            <div><h2 className="text-sm font-bold text-[#203540]">Enterprise controls</h2><p className="mt-1 text-xs text-[#7c8f9a]">Close, planning, assets, projects, and workforce governance</p></div>
+            <Link href="/accounting/close-center" className="flex shrink-0 items-center gap-1 text-xs font-bold text-[#007DCC]">Open finance center <ArrowRight size={14}/></Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {enterpriseControls.map(({ title, value, helper, href, icon: ControlIcon, tone }) => <Link key={title} href={href}><Card className="group flex h-full items-center gap-3 p-4 transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-sm"><span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", tone)}><ControlIcon size={18}/></span><div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#304853]">{title}</p><p className="mt-1 text-base font-bold text-[#17303d]">{value}</p><p className="mt-0.5 truncate text-[10px] text-[#82939d]">{helper}</p></div><ArrowRight size={14} className="text-[#007DCC] transition group-hover:translate-x-0.5"/></Card></Link>)}
           </div>
         </section>
 

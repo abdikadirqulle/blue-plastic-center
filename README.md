@@ -20,6 +20,9 @@ being built with the functional breadth of enterprise accounting software.
 - Phase 2 procure-to-pay, advanced inventory/fulfillment, bank feeds, rules, and
   full account reconciliation workspaces
 - Swappable mock/API operations repository for purchasing, inventory, and banking
+- Phase 3 general ledger, month-end close, budgets, fixed assets, job costing,
+  payroll approval/liabilities, and expanded enterprise reports
+- Swappable mock/API enterprise repository for accounting, projects, and payroll
 - Typed API client boundaries and realistic frontend mock data
 - Multi-tenant Hono REST API with Zod validation and RBAC
 - PostgreSQL/Drizzle schema, migrations, seed data, audit events, and optimistic locking

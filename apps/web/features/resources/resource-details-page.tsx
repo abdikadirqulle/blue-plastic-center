@@ -262,6 +262,24 @@ export function ResourceDetailsPage({
                 {config.module === "banking" && config.slug === "bank-feeds" ? (
                   <button onClick={() => notify("Transaction matched", "success", `${row.id} was matched and is ready to post.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Match transaction</button>
                 ) : null}
+                {config.module === "accounting" && config.slug === "journal-entries" ? (
+                  <>
+                    <button onClick={() => notify("Journal posted", "success", `${row.id} passed balance validation and was posted.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Validate and post journal</button>
+                    <Link href={`/accounting/journal-entries/new?reverse=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-amber-50 px-3 py-3 text-xs font-bold text-amber-700"><RefreshCcw size={15}/> Create reversing entry</Link>
+                  </>
+                ) : null}
+                {config.module === "accounting" && config.slug === "budgets" ? (
+                  <Link href={`/accounting/budgets/new?revision=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-[#eaf5fc] px-3 py-3 text-xs font-bold text-[#007DCC]"><Copy size={15}/> Create budget revision</Link>
+                ) : null}
+                {config.module === "accounting" && config.slug === "fixed-assets" ? (
+                  <button onClick={() => notify("Depreciation posted", "success", `${row.id} depreciation was added to a balanced journal entry.`)} className="flex w-full items-center gap-3 rounded-xl bg-indigo-50 px-3 py-3 text-xs font-bold text-indigo-700"><CheckCircle2 size={15}/> Post asset depreciation</button>
+                ) : null}
+                {config.module === "projects" && config.slug === "progress-billing" ? (
+                  <Link href={`/sales/invoices/new?projectBilling=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-[#eaf5fc] px-3 py-3 text-xs font-bold text-[#007DCC]"><ArrowRight size={15}/> Create progress invoice</Link>
+                ) : null}
+                {config.module === "payroll" && config.slug === "pay-runs" ? (
+                  <button onClick={() => notify("Payroll approved", "success", `${row.id} is ready for payment and liability posting.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Approve payroll</button>
+                ) : null}
                 <Link
                   href={`${listHref}/new?edit=${encodeURIComponent(row.id)}`}
                   className="flex w-full items-center gap-3 rounded-xl bg-[#eaf5fc] px-3 py-3 text-xs font-bold text-[#007DCC]"

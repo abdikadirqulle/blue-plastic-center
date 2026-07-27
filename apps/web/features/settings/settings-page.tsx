@@ -6,6 +6,7 @@ import { z } from "zod"
 import {
   Bell,
   Building2,
+  Calculator,
   ChevronRight,
   CircleDollarSign,
   GitBranch,
@@ -59,6 +60,24 @@ const sections = [
     label: "Workflows",
     description: "Approvals and transaction controls",
     icon: ShieldCheck,
+  },
+  {
+    slug: "accounting-controls",
+    label: "Accounting controls",
+    description: "Closing, numbering and posting policies",
+    icon: Calculator,
+  },
+  {
+    slug: "security",
+    label: "Security",
+    description: "Authentication, sessions and audit retention",
+    icon: LockKeyhole,
+  },
+  {
+    slug: "integrations",
+    label: "Integrations",
+    description: "API, bank, email and external services",
+    icon: Settings2,
   },
 ]
 
@@ -222,6 +241,78 @@ const details: Record<
           ["Bill approver", "Finance Manager", "select"],
           ["Expense approver", "Department Manager", "select"],
           ["Require attachments", "Enabled", "select"],
+        ],
+      },
+    ],
+  },
+  "accounting-controls": {
+    title: "Accounting controls",
+    description: "Protect the general ledger with closing and posting policies.",
+    groups: [
+      {
+        title: "Closing controls",
+        fields: [
+          ["Closing date", "2026-06-30", "date"],
+          ["Closing date password", "Required", "select"],
+          ["Warn on prior-period posting", "Enabled", "select"],
+          ["Auto-reverse accruals", "Enabled", "select"],
+        ],
+      },
+      {
+        title: "General ledger",
+        fields: [
+          ["Require balanced journals", "Enabled", "select"],
+          ["Journal approval threshold", "10000", "number"],
+          ["Retained earnings account", "Retained Earnings", "select"],
+          ["Default class tracking", "Required", "select"],
+        ],
+      },
+    ],
+  },
+  security: {
+    title: "Security & audit",
+    description: "Company-wide authentication, access and audit policies.",
+    groups: [
+      {
+        title: "Authentication",
+        fields: [
+          ["Require two-factor authentication", "Enabled", "select"],
+          ["Session timeout (minutes)", "60", "number"],
+          ["Password expiry (days)", "90", "number"],
+          ["Trusted device duration (days)", "30", "number"],
+        ],
+      },
+      {
+        title: "Audit & retention",
+        fields: [
+          ["Audit retention (years)", "7", "number"],
+          ["Log report exports", "Enabled", "select"],
+          ["Log failed access", "Enabled", "select"],
+          ["Security alert recipients", "finance@blueplastic.example", "email"],
+        ],
+      },
+    ],
+  },
+  integrations: {
+    title: "Integrations",
+    description: "Connections for banking, communication and external systems.",
+    groups: [
+      {
+        title: "API & webhooks",
+        fields: [
+          ["API access", "Enabled", "select"],
+          ["Webhook signing", "Enabled", "select"],
+          ["API rate limit per minute", "120", "number"],
+          ["Webhook retry attempts", "5", "number"],
+        ],
+      },
+      {
+        title: "Connected services",
+        fields: [
+          ["Bank feed provider", "Connected", "select"],
+          ["Transaction email delivery", "Enabled", "select"],
+          ["Payroll payment file", "Enabled", "select"],
+          ["Document storage", "Internal", "select"],
         ],
       },
     ],

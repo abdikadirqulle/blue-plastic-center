@@ -5,6 +5,7 @@ import { resourceConfigs } from "../../../features/resources/resource-config";
 import { SettingsPage } from "../../../features/settings/settings-page";
 import { SalesWorkspacePage } from "../../../features/sales/components/sales-workspace-page";
 import { OperationsWorkspacePage } from "../../../features/operations/components/operations-workspace-page";
+import { EnterpriseWorkspacePage } from "../../../features/enterprise/components/enterprise-workspace-page";
 
 export default async function ResourceRoute({
   params,
@@ -33,6 +34,10 @@ export default async function ResourceRoute({
 
   if (["purchasing", "inventory", "banking"].includes(section)) {
     return <OperationsWorkspacePage key={`${section}/${resource}`} config={config} />;
+  }
+
+  if (["accounting", "projects", "payroll"].includes(section)) {
+    return <EnterpriseWorkspacePage key={`${section}/${resource}`} config={config} />;
   }
 
   return <ResourcePage key={`${section}/${resource}`} config={config} />;
