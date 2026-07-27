@@ -17,6 +17,9 @@ being built with the functional breadth of enterprise accounting software.
 - Cash sales, refunds, statements, deposits, recurring invoices, allocations,
   transaction conversions, document preview, print, and invoice PDF download
 - Swappable mock/API sales repositories with service and query-state boundaries
+- Phase 2 procure-to-pay, advanced inventory/fulfillment, bank feeds, rules, and
+  full account reconciliation workspaces
+- Swappable mock/API operations repository for purchasing, inventory, and banking
 - Typed API client boundaries and realistic frontend mock data
 - Multi-tenant Hono REST API with Zod validation and RBAC
 - PostgreSQL/Drizzle schema, migrations, seed data, audit events, and optimistic locking

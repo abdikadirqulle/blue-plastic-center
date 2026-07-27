@@ -241,6 +241,27 @@ export function ResourceDetailsPage({
                 {config.module === "sales" && config.slug === "credit-notes" ? (
                   <Link href={`/sales/refund-receipts/new?credit=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-amber-50 px-3 py-3 text-xs font-bold text-amber-700"><RefreshCcw size={15}/> Issue customer refund</Link>
                 ) : null}
+                {config.module === "purchasing" && config.slug === "purchase-orders" ? (
+                  <>
+                    <Link href={`/purchasing/receipts/new?purchaseOrder=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Receive items</Link>
+                    <Link href={`/purchasing/bills/new?purchaseOrder=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-[#eaf5fc] px-3 py-3 text-xs font-bold text-[#007DCC]"><ArrowRight size={15}/> Convert to bill</Link>
+                  </>
+                ) : null}
+                {config.module === "purchasing" && config.slug === "receipts" ? (
+                  <Link href={`/purchasing/bills/new?receipt=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-[#eaf5fc] px-3 py-3 text-xs font-bold text-[#007DCC]"><ArrowRight size={15}/> Create bill from receipt</Link>
+                ) : null}
+                {config.module === "purchasing" && config.slug === "bills" ? (
+                  <Link href={`/purchasing/bill-payments/new?bill=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Pay this bill</Link>
+                ) : null}
+                {config.module === "purchasing" && config.slug === "vendor-credits" ? (
+                  <Link href={`/purchasing/bill-payments/new?credit=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-amber-50 px-3 py-3 text-xs font-bold text-amber-700"><RefreshCcw size={15}/> Apply to open bills</Link>
+                ) : null}
+                {config.module === "inventory" && config.slug === "fulfillment" ? (
+                  <button onClick={() => notify("Fulfillment advanced", "success", `${row.id} moved to the next pick-pack-ship stage.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><ArrowRight size={15}/> Advance fulfillment stage</button>
+                ) : null}
+                {config.module === "banking" && config.slug === "bank-feeds" ? (
+                  <button onClick={() => notify("Transaction matched", "success", `${row.id} was matched and is ready to post.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Match transaction</button>
+                ) : null}
                 <Link
                   href={`${listHref}/new?edit=${encodeURIComponent(row.id)}`}
                   className="flex w-full items-center gap-3 rounded-xl bg-[#eaf5fc] px-3 py-3 text-xs font-bold text-[#007DCC]"

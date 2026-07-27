@@ -91,6 +91,11 @@ settings follow the same `/:section/:resource` convention.
   `ApiSalesRepository` without changing page components.
 - Query hooks own loading, error, filter, refresh, and mutation state. Storage
   and HTTP concerns never enter UI components.
+- Purchasing, inventory, and banking screens use the shared
+  `OperationsRepository` contract through `operationsService`. The mock and API
+  adapters implement the same list, detail, create, update, and delete contract,
+  so connecting the backend requires changing `NEXT_PUBLIC_DATA_SOURCE`, not
+  rewriting pages.
 - Invoice-style documents include an on-screen preview plus working PDF
   download, print, and email-queue actions.
 - Estimate and sales-order details can create draft invoices. Credit memos can
@@ -106,6 +111,15 @@ settings follow the same `/:section/:resource` convention.
   for company, branches, users and roles, currencies, taxes, and workflows.
 - Import Data provides module selection, CSV/Excel upload, column mapping
   workflow steps, templates, and validation guidance.
+- Purchasing provides a vendor center, bills and partial bill payment,
+  purchase-order to partial receipt to bill workflows, vendor credits, checks,
+  expenses, and a card-based approval queue with decision history.
+- Inventory provides warehouse and bin-aware stock, quantity/value adjustments,
+  cycle counts, assemblies and BOMs, lots, serials and expiry, landed costs,
+  reorder suggestions, and a pick-pack-ship fulfillment board with backorders.
+- Banking provides connected account feeds with match, add, exclude and rules,
+  deposits, transfers, checks, registers, cash forecasts, and a dedicated
+  reconciliation workspace with cleared transactions and a live difference.
 
 ## Frontend principles
 

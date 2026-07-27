@@ -297,6 +297,46 @@ test("phase one sales uses swappable repositories and complete document workflow
   assert.match(preview, /jspdf/)
 })
 
+test("phase two renders distinct purchasing, inventory, and banking workspaces", async () => {
+  const cases = [
+    ["/purchasing/vendors", /Vendors/],
+    ["/purchasing/approvals", /Purchase approvals/],
+    ["/purchasing/purchase-orders", /Purchase orders/],
+    ["/inventory/reorder-planning", /Reorder planning/],
+    ["/inventory/fulfillment", /Pick, pack and ship/],
+    ["/inventory/lots-serials", /Lot and serial tracking/],
+    ["/banking/bank-feeds", /Bank feeds/],
+    ["/banking/reconciliation", /Reconciliations/],
+    ["/banking/bank-rules", /Bank rules/],
+  ]
+  for (const [pathname, expected] of cases) {
+    const response = await render(pathname)
+    assert.equal(response.status, 200, pathname)
+    assert.match(await response.text(), expected, pathname)
+  }
+})
+
+test("phase two operations use a swappable repository and workflow actions", async () => {
+  const [domain, mockRepository, apiRepository, service, page, details] = await Promise.all([
+    readFile(new URL("../features/operations/domain/operation-record.ts", import.meta.url), "utf8"),
+    readFile(new URL("../features/operations/data/mock-operations-repository.ts", import.meta.url), "utf8"),
+    readFile(new URL("../features/operations/data/api-operations-repository.ts", import.meta.url), "utf8"),
+    readFile(new URL("../features/operations/services/operations-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../features/operations/components/operations-workspace-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../features/resources/resource-details-page.tsx", import.meta.url), "utf8"),
+  ])
+  assert.match(domain, /interface OperationsRepository/)
+  assert.match(mockRepository, /class MockOperationsRepository/)
+  assert.match(apiRepository, /class ApiOperationsRepository/)
+  assert.match(service, /NEXT_PUBLIC_DATA_SOURCE/)
+  assert.match(page, /VendorCenter/)
+  assert.match(page, /FulfillmentCenter/)
+  assert.match(page, /BankFeeds/)
+  assert.match(page, /Reconciliation/)
+  assert.match(details, /Create bill from receipt/)
+  assert.match(details, /Pay this bill/)
+})
+
 test("supports modal quick-add for entity dropdowns without leaving the form", async () => {
   const [select, resourceForm] = await Promise.all([
     readFile(new URL("../components/ui/select.tsx", import.meta.url), "utf8"),

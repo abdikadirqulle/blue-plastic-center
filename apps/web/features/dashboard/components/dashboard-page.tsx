@@ -13,6 +13,7 @@ import {
   CalendarDays,
   Calculator,
   CircleAlert,
+  ClipboardCheck,
   FileText,
   Landmark,
   Receipt,
@@ -197,6 +198,15 @@ const budgetLines = [
   { label: "Purchasing", actual: "$118,200", budget: "$150,000", progress: 79 },
   { label: "Payroll", actual: "$45,120", budget: "$49,500", progress: 91 },
   { label: "Projects", actual: "$136,800", budget: "$180,000", progress: 76 },
+]
+
+const operationsPulse = [
+  { title: "Procure to pay", metric: "9 approvals", helper: "$42,880 awaiting approval", href: "/purchasing/approvals", icon: ClipboardCheck, tone: "bg-violet-50 text-violet-700" },
+  { title: "Receiving", metric: "3 partial", helper: "72 MT received against open POs", href: "/purchasing/receipts", icon: Receipt, tone: "bg-blue-50 text-blue-700" },
+  { title: "Fulfillment", metric: "18 orders", helper: "4 orders currently picking", href: "/inventory/fulfillment", icon: Box, tone: "bg-emerald-50 text-emerald-700" },
+  { title: "Reorder alerts", metric: "6 critical", helper: "2 raw materials below safety stock", href: "/inventory/reorder-planning", icon: CircleAlert, tone: "bg-amber-50 text-amber-700" },
+  { title: "Bank review", metric: "12 feeds", helper: "5 high-confidence matches", href: "/banking/bank-feeds", icon: Landmark, tone: "bg-indigo-50 text-indigo-700" },
+  { title: "Reconciliation", metric: "$1,240 diff", helper: "Premier Operating · July", href: "/banking/reconciliation", icon: Target, tone: "bg-rose-50 text-rose-700" },
 ]
 
 export function DashboardPage() {
@@ -758,6 +768,27 @@ export function DashboardPage() {
             </Link>
           </Card>
         </div>
+
+        <section className="mt-4">
+          <div className="mb-3 flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-bold text-[#203540]">Operations pulse</h2>
+              <p className="mt-1 text-xs text-[#7c8f9a]">Purchasing, inventory fulfillment, and cash controls that need attention</p>
+            </div>
+            <Link href="/purchasing/approvals" className="flex shrink-0 items-center gap-1 text-xs font-bold text-[#007DCC]">Open operations <ArrowRight size={14}/></Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {operationsPulse.map(({ title, metric, helper, href, icon: PulseIcon, tone }) => (
+              <Link key={title} href={href}>
+                <Card className="group flex h-full items-center gap-3 p-4 transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-sm">
+                  <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", tone)}><PulseIcon size={18}/></span>
+                  <div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#304853]">{title}</p><p className="mt-1 text-base font-bold text-[#17303d]">{metric}</p><p className="mt-0.5 truncate text-[10px] text-[#82939d]">{helper}</p></div>
+                  <ArrowRight size={14} className="text-[#007DCC] transition group-hover:translate-x-0.5"/>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
 
         <section className="mt-4">
           <div className="mb-3 flex items-end justify-between gap-4">
