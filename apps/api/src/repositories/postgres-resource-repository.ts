@@ -1,6 +1,14 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import type { Database } from "../db/client.js";
-import { auditEvents, documentSequences, idempotencyKeys, resourceRecords } from "../db/schema.js";
+import {
+  auditEvents,
+  customers,
+  documentSequences,
+  idempotencyKeys,
+  invoiceLines,
+  invoices,
+  resourceRecords,
+} from "../db/schema.js";
 import type { AuditEvent, ListQuery, ResourceRecord, TrashQuery } from "../platform/types.js";
 import type { ResourceRepository } from "./resource-repository.js";
 
@@ -21,10 +29,125 @@ const toRecord = (row: typeof resourceRecords.$inferSelect): ResourceRecord => (
   deletedAt: row.deletedAt?.toISOString(),
 });
 
+const dateText = (value: Date) => value.toISOString().slice(0, 10)
+
+const customerRecord = (
+  row: typeof customers.$inferSelect,
+  fallbackBranchId = "",
+): ResourceRecord => ({
+  id: row.id,
+  module: "sales",
+  resource: "customers",
+  companyId: row.companyId,
+  branchId: row.branchId ?? fallbackBranchId,
+  status: row.active ? "active" : "inactive",
+  version: row.version,
+  data: {
+    displayName: row.displayName,
+    companyName: row.companyName,
+    email: row.email,
+    phone: row.phone,
+    currency: row.currency,
+    paymentTermId: row.paymentTermId,
+    receivableAccountId: row.receivableAccountId,
+    openingBalance: row.openingBalance,
+  },
+  createdAt: row.createdAt.toISOString(),
+  createdBy: row.createdBy ?? "",
+  updatedAt: row.updatedAt.toISOString(),
+  updatedBy: row.updatedBy ?? "",
+  isDeleted: row.isDeleted,
+  deletedAt: row.deletedAt?.toISOString(),
+})
+
+const invoiceRecord = (
+  row: typeof invoices.$inferSelect,
+  lines: Array<typeof invoiceLines.$inferSelect> = [],
+): ResourceRecord => ({
+  id: row.id,
+  module: "sales",
+  resource: "invoices",
+  companyId: row.companyId,
+  branchId: row.branchId,
+  status: row.status,
+  version: row.version,
+  data: {
+    customerId: row.customerId,
+    documentNumber: row.invoiceNumber,
+    invoiceDate: dateText(row.invoiceDate),
+    dueDate: dateText(row.dueDate),
+    currency: row.currency,
+    exchangeRate: row.exchangeRate,
+    customerPurchaseOrder: row.customerPurchaseOrder,
+    memo: row.memo,
+    subtotal: row.subtotal,
+    discountTotal: row.discountTotal,
+    taxTotal: row.taxTotal,
+    total: row.total,
+    amountPaid: row.amountPaid,
+    balanceDue: row.balanceDue,
+    lines: lines.map((line) => ({
+      id: line.id,
+      itemId: line.itemId,
+      accountId: line.accountId,
+      taxCodeId: line.taxCodeId,
+      description: line.description,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      discountAmount: line.discountAmount,
+      taxAmount: line.taxAmount,
+      lineTotal: line.lineTotal,
+      lineNumber: line.lineNumber,
+    })),
+  },
+  createdAt: row.createdAt.toISOString(),
+  createdBy: row.createdBy,
+  updatedAt: row.updatedAt.toISOString(),
+  updatedBy: row.updatedBy,
+  isDeleted: row.isDeleted,
+  deletedAt: row.deletedAt?.toISOString(),
+})
+
+const isRelationalSales = (moduleName: string, resourceName: string) =>
+  moduleName === "sales" && ["customers", "invoices"].includes(resourceName)
+
 export class PostgresResourceRepository implements ResourceRepository {
   constructor(private readonly db: Database) {}
 
   async list(scope: { companyId: string; branchId?: string; module: string; resource: string }, query: ListQuery) {
+    if (scope.module === "sales" && scope.resource === "customers") {
+      const conditions = [
+        eq(customers.companyId, scope.companyId),
+        eq(customers.isDeleted, false),
+        isNull(customers.deletedAt),
+      ]
+      if (scope.branchId) conditions.push(eq(customers.branchId, scope.branchId))
+      if (query.status) conditions.push(eq(customers.active, query.status === "active"))
+      if (query.search)
+        conditions.push(sql`concat_ws(' ', ${customers.displayName}, ${customers.companyName}, ${customers.email}, ${customers.phone}) ILIKE ${`%${query.search}%`}`)
+      const where = and(...conditions)
+      const [{ count }] = await this.db.select({ count: sql<number>`count(*)::int` }).from(customers).where(where)
+      const rows = await this.db.select().from(customers).where(where)
+        .orderBy(query.order === "asc" ? asc(customers.createdAt) : desc(customers.createdAt))
+        .limit(query.pageSize).offset((query.page - 1) * query.pageSize)
+      return { data: rows.map((row) => customerRecord(row, scope.branchId)), total: count }
+    }
+    if (scope.module === "sales" && scope.resource === "invoices") {
+      const conditions = [
+        eq(invoices.companyId, scope.companyId),
+        eq(invoices.isDeleted, false),
+        isNull(invoices.deletedAt),
+      ]
+      if (scope.branchId) conditions.push(eq(invoices.branchId, scope.branchId))
+      if (query.status) conditions.push(eq(invoices.status, query.status))
+      if (query.search) conditions.push(sql`${invoices.invoiceNumber} ILIKE ${`%${query.search}%`}`)
+      const where = and(...conditions)
+      const [{ count }] = await this.db.select({ count: sql<number>`count(*)::int` }).from(invoices).where(where)
+      const rows = await this.db.select().from(invoices).where(where)
+        .orderBy(query.order === "asc" ? asc(invoices.createdAt) : desc(invoices.createdAt))
+        .limit(query.pageSize).offset((query.page - 1) * query.pageSize)
+      return { data: rows.map((row) => invoiceRecord(row)), total: count }
+    }
     const conditions = [
       eq(resourceRecords.companyId, scope.companyId),
       eq(resourceRecords.module, scope.module),
@@ -45,6 +168,23 @@ export class PostgresResourceRepository implements ResourceRepository {
   }
 
   async findById(scope: { companyId: string; module: string; resource: string }, id: string) {
+    if (scope.module === "sales" && scope.resource === "customers") {
+      const [row] = await this.db.select().from(customers).where(and(
+        eq(customers.id, id), eq(customers.companyId, scope.companyId),
+        eq(customers.isDeleted, false), isNull(customers.deletedAt),
+      )).limit(1)
+      return row ? customerRecord(row) : undefined
+    }
+    if (scope.module === "sales" && scope.resource === "invoices") {
+      const [row] = await this.db.select().from(invoices).where(and(
+        eq(invoices.id, id), eq(invoices.companyId, scope.companyId),
+        eq(invoices.isDeleted, false), isNull(invoices.deletedAt),
+      )).limit(1)
+      if (!row) return undefined
+      const lines = await this.db.select().from(invoiceLines)
+        .where(eq(invoiceLines.invoiceId, row.id)).orderBy(asc(invoiceLines.lineNumber))
+      return invoiceRecord(row, lines)
+    }
     const [row] = await this.db.select().from(resourceRecords).where(and(
       eq(resourceRecords.id, id), eq(resourceRecords.companyId, scope.companyId),
       eq(resourceRecords.module, scope.module), eq(resourceRecords.resource, scope.resource),
@@ -55,6 +195,72 @@ export class PostgresResourceRepository implements ResourceRepository {
   }
 
   async create(record: ResourceRecord) {
+    if (record.module === "sales" && record.resource === "customers") {
+      await this.db.insert(customers).values({
+        id: record.id,
+        companyId: record.companyId,
+        branchId: record.branchId,
+        displayName: String(record.data.displayName),
+        companyName: typeof record.data.companyName === "string" ? record.data.companyName : null,
+        email: typeof record.data.email === "string" ? record.data.email : null,
+        phone: typeof record.data.phone === "string" ? record.data.phone : null,
+        currency: typeof record.data.currency === "string" ? record.data.currency : "USD",
+        openingBalance: String(record.data.openingBalance ?? "0"),
+        active: record.status !== "inactive",
+        version: record.version,
+        createdBy: record.createdBy,
+        updatedBy: record.updatedBy,
+        createdAt: new Date(record.createdAt),
+        updatedAt: new Date(record.updatedAt),
+      })
+      return record
+    }
+    if (record.module === "sales" && record.resource === "invoices") {
+      const sourceLines = Array.isArray(record.data.lines) ? record.data.lines as Array<Record<string, unknown>> : []
+      await this.db.transaction(async (transaction) => {
+        await transaction.insert(invoices).values({
+          id: record.id,
+          companyId: record.companyId,
+          branchId: record.branchId,
+          customerId: String(record.data.customerId),
+          invoiceNumber: String(record.data.documentNumber),
+          invoiceDate: new Date(String(record.data.invoiceDate)),
+          dueDate: new Date(String(record.data.dueDate)),
+          currency: String(record.data.currency),
+          exchangeRate: String(record.data.exchangeRate ?? "1"),
+          status: record.status,
+          customerPurchaseOrder: typeof record.data.customerPurchaseOrder === "string" ? record.data.customerPurchaseOrder : null,
+          memo: typeof record.data.memo === "string" ? record.data.memo : null,
+          subtotal: String(record.data.subtotal ?? record.data.total ?? "0"),
+          discountTotal: String(record.data.discountTotal ?? "0"),
+          taxTotal: String(record.data.taxTotal ?? "0"),
+          total: String(record.data.total ?? "0"),
+          amountPaid: String(record.data.amountPaid ?? "0"),
+          balanceDue: String(record.data.balanceDue ?? record.data.total ?? "0"),
+          version: record.version,
+          createdBy: record.createdBy,
+          updatedBy: record.updatedBy,
+          createdAt: new Date(record.createdAt),
+          updatedAt: new Date(record.updatedAt),
+        })
+        if (sourceLines.length) {
+          await transaction.insert(invoiceLines).values(sourceLines.map((line, index) => ({
+            invoiceId: record.id,
+            itemId: typeof line.itemId === "string" && line.itemId ? line.itemId : null,
+            accountId: typeof line.accountId === "string" && line.accountId ? line.accountId : null,
+            taxCodeId: typeof line.taxCodeId === "string" && line.taxCodeId ? line.taxCodeId : null,
+            description: String(line.description ?? line.item ?? "Invoice line"),
+            quantity: String(line.quantity ?? "1"),
+            unitPrice: String(line.unitPrice ?? line.rate ?? "0"),
+            discountAmount: String(line.discountAmount ?? "0"),
+            taxAmount: String(line.taxAmount ?? "0"),
+            lineTotal: String(line.lineTotal ?? line.amount ?? "0"),
+            lineNumber: index + 1,
+          })))
+        }
+      })
+      return record
+    }
     await this.db.insert(resourceRecords).values({
       ...record,
       createdAt: new Date(record.createdAt),
@@ -80,6 +286,17 @@ export class PostgresResourceRepository implements ResourceRepository {
   }
 
   async createIdempotent(record: ResourceRecord, key: string, requestHash: string) {
+    if (isRelationalSales(record.module, record.resource)) {
+      const created = await this.create(record)
+      await this.db.insert(idempotencyKeys).values({
+        companyId: record.companyId,
+        key,
+        requestHash,
+        resourceRecordId: record.id,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60_000),
+      })
+      return created
+    }
     await this.db.transaction(async (transaction) => {
       await transaction.insert(resourceRecords).values({
         ...record,
@@ -121,6 +338,45 @@ export class PostgresResourceRepository implements ResourceRepository {
   }
 
   async update(record: ResourceRecord) {
+    if (record.module === "sales" && record.resource === "customers") {
+      await this.db.update(customers).set({
+        displayName: String(record.data.displayName),
+        companyName: typeof record.data.companyName === "string" ? record.data.companyName : null,
+        email: typeof record.data.email === "string" ? record.data.email : null,
+        phone: typeof record.data.phone === "string" ? record.data.phone : null,
+        currency: String(record.data.currency ?? "USD"),
+        openingBalance: String(record.data.openingBalance ?? "0"),
+        active: record.status !== "inactive",
+        version: record.version,
+        updatedBy: record.updatedBy,
+        updatedAt: new Date(record.updatedAt),
+        isDeleted: record.isDeleted,
+        deletedAt: record.deletedAt ? new Date(record.deletedAt) : null,
+      }).where(and(eq(customers.id, record.id), eq(customers.companyId, record.companyId)))
+      return record
+    }
+    if (record.module === "sales" && record.resource === "invoices") {
+      await this.db.update(invoices).set({
+        status: record.status,
+        invoiceDate: new Date(String(record.data.invoiceDate)),
+        dueDate: new Date(String(record.data.dueDate)),
+        currency: String(record.data.currency),
+        exchangeRate: String(record.data.exchangeRate ?? "1"),
+        memo: typeof record.data.memo === "string" ? record.data.memo : null,
+        subtotal: String(record.data.subtotal ?? record.data.total ?? "0"),
+        discountTotal: String(record.data.discountTotal ?? "0"),
+        taxTotal: String(record.data.taxTotal ?? "0"),
+        total: String(record.data.total ?? "0"),
+        amountPaid: String(record.data.amountPaid ?? "0"),
+        balanceDue: String(record.data.balanceDue ?? record.data.total ?? "0"),
+        version: record.version,
+        updatedBy: record.updatedBy,
+        updatedAt: new Date(record.updatedAt),
+        isDeleted: record.isDeleted,
+        deletedAt: record.deletedAt ? new Date(record.deletedAt) : null,
+      }).where(and(eq(invoices.id, record.id), eq(invoices.companyId, record.companyId)))
+      return record
+    }
     await this.db.update(resourceRecords).set({
       status: record.status, version: record.version, data: record.data,
       updatedAt: new Date(record.updatedAt), updatedBy: record.updatedBy,

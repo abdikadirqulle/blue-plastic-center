@@ -1,4 +1,5 @@
 import "dotenv/config"
+import { eq } from "drizzle-orm"
 import { createDatabase } from "./client.js"
 import {
   accountingLines,
@@ -6,7 +7,9 @@ import {
   accounts,
   branches,
   companies,
+  customers,
   fiscalPeriods,
+  invoices,
   resourceRecords,
   users,
 } from "./schema.js"
@@ -132,9 +135,6 @@ async function seed() {
     })
 
   const records = [
-    ["sales", "customers", "active", { displayName: "Mogadishu Retail Ltd", email: "accounts@mogretail.so", phone: "+252 61 400 1000", currency: "USD", openingBalance: 2400 }],
-    ["sales", "customers", "active", { displayName: "Hodan Wholesale", email: "finance@hodanwholesale.so", phone: "+252 61 400 2000", currency: "USD", openingBalance: 0 }],
-    ["sales", "invoices", "open", { documentNumber: "INV-00001", customer: "Mogadishu Retail Ltd", invoiceDate: "2026-07-20", dueDate: "2026-08-19", currency: "USD", total: 12500, balanceDue: 12500 }],
     ["purchasing", "vendors", "active", { displayName: "Somali Polymer Supply", email: "sales@polymer.so", phone: "+252 61 500 1000", currency: "USD" }],
     ["purchasing", "bills", "open", { documentNumber: "BILL-00001", vendor: "Somali Polymer Supply", billDate: "2026-07-18", dueDate: "2026-08-17", currency: "USD", total: 3500, balanceDue: 3500 }],
     ["inventory", "items", "active", { name: "Blue HDPE Container 20L", sku: "BPC-HDPE-20", type: "inventory", salesPrice: 18.5, purchaseCost: 10.25 }],
@@ -171,6 +171,54 @@ async function seed() {
       set: { status, data, isDeleted: false, deletedAt: null },
     })
   }
+
+  const customerSeeds = [
+    { id: "30000000-0000-4000-8000-000000000001", displayName: "Mogadishu Retail Ltd", email: "accounts@mogretail.so", phone: "+252 61 400 1000", openingBalance: "2400" },
+    { id: "30000000-0000-4000-8000-000000000002", displayName: "Hodan Wholesale", email: "finance@hodanwholesale.so", phone: "+252 61 400 2000", openingBalance: "0" },
+  ]
+  for (const customer of customerSeeds) {
+    await db.insert(customers).values({
+      ...customer,
+      companyId: "00000000-0000-4000-8000-000000000001",
+      branchId: "00000000-0000-4000-8000-000000000011",
+      currency: "USD",
+      createdBy: "00000000-0000-4000-8000-000000000001",
+      updatedBy: "00000000-0000-4000-8000-000000000001",
+    }).onConflictDoUpdate({
+      target: customers.id,
+      set: { displayName: customer.displayName, email: customer.email, phone: customer.phone, openingBalance: customer.openingBalance, isDeleted: false, deletedAt: null },
+    })
+  }
+  for (const duplicateId of [
+    "31000000-0000-4000-8000-000000000001",
+    "31000000-0000-4000-8000-000000000002",
+  ]) {
+    await db.update(customers).set({
+      isDeleted: true,
+      deletedAt: new Date(),
+      updatedBy: "00000000-0000-4000-8000-000000000001",
+    }).where(eq(customers.id, duplicateId))
+  }
+
+  await db.insert(invoices).values({
+    id: "32000000-0000-4000-8000-000000000001",
+    companyId: "00000000-0000-4000-8000-000000000001",
+    branchId: "00000000-0000-4000-8000-000000000011",
+    customerId: "30000000-0000-4000-8000-000000000001",
+    invoiceNumber: "INV-00001",
+    invoiceDate: new Date("2026-07-20T12:00:00.000Z"),
+    dueDate: new Date("2026-08-19T12:00:00.000Z"),
+    currency: "USD",
+    status: "open",
+    subtotal: "12500",
+    total: "12500",
+    balanceDue: "12500",
+    createdBy: "00000000-0000-4000-8000-000000000001",
+    updatedBy: "00000000-0000-4000-8000-000000000001",
+  }).onConflictDoUpdate({
+    target: [invoices.companyId, invoices.invoiceNumber],
+    set: { customerId: "30000000-0000-4000-8000-000000000001", status: "open", total: "12500", balanceDue: "12500", isDeleted: false, deletedAt: null },
+  })
 
   const journals = [
     { id: "40000000-0000-4000-8000-000000000001", number: "SEED-SALE-001", date: "2026-07-20", memo: "Posted customer sale", debitAccount: 0, creditAccount: 6, amount: "12500.0000" },

@@ -20,6 +20,16 @@ const auditColumns = {
     .defaultNow(),
 }
 
+const ownedRecordColumns = () => ({
+  branchId: uuid("branch_id").references(() => branches.id),
+  version: integer("version").notNull().default(1),
+  createdBy: uuid("created_by").references(() => users.id),
+  updatedBy: uuid("updated_by").references(() => users.id),
+  isDeleted: boolean("is_deleted").notNull().default(false),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  ...auditColumns,
+})
+
 export const companies = pgTable("companies", {
   id: uuid("id").primaryKey().defaultRandom(),
   legalName: text("legal_name").notNull(),
@@ -164,7 +174,7 @@ export const customers = pgTable(
     receivableAccountId: uuid("receivable_account_id").references(() => accounts.id),
     openingBalance: numeric("opening_balance", { precision: 20, scale: 4 }).notNull().default("0"),
     active: boolean("active").notNull().default(true),
-    ...auditColumns,
+    ...ownedRecordColumns(),
   },
   (table) => [index("customers_company_name_idx").on(table.companyId, table.displayName)],
 )
@@ -183,7 +193,7 @@ export const vendors = pgTable(
     payableAccountId: uuid("payable_account_id").references(() => accounts.id),
     openingBalance: numeric("opening_balance", { precision: 20, scale: 4 }).notNull().default("0"),
     active: boolean("active").notNull().default(true),
-    ...auditColumns,
+    ...ownedRecordColumns(),
   },
   (table) => [index("vendors_company_name_idx").on(table.companyId, table.displayName)],
 )
@@ -217,9 +227,110 @@ export const items = pgTable(
     inventoryAccountId: uuid("inventory_account_id").references(() => accounts.id),
     taxCodeId: uuid("tax_code_id").references(() => taxCodes.id),
     active: boolean("active").notNull().default(true),
-    ...auditColumns,
+    ...ownedRecordColumns(),
   },
   (table) => [uniqueIndex("items_company_sku_uq").on(table.companyId, table.sku)],
+)
+
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    branchId: uuid("branch_id").notNull().references(() => branches.id),
+    customerId: uuid("customer_id").notNull().references(() => customers.id),
+    invoiceNumber: text("invoice_number").notNull(),
+    invoiceDate: timestamp("invoice_date", { withTimezone: true }).notNull(),
+    dueDate: timestamp("due_date", { withTimezone: true }).notNull(),
+    currency: text("currency").notNull(),
+    exchangeRate: numeric("exchange_rate", { precision: 20, scale: 8 }).notNull().default("1"),
+    status: text("status").notNull().default("draft"),
+    customerPurchaseOrder: text("customer_purchase_order"),
+    memo: text("memo"),
+    subtotal: numeric("subtotal", { precision: 20, scale: 4 }).notNull().default("0"),
+    discountTotal: numeric("discount_total", { precision: 20, scale: 4 }).notNull().default("0"),
+    taxTotal: numeric("tax_total", { precision: 20, scale: 4 }).notNull().default("0"),
+    total: numeric("total", { precision: 20, scale: 4 }).notNull().default("0"),
+    amountPaid: numeric("amount_paid", { precision: 20, scale: 4 }).notNull().default("0"),
+    balanceDue: numeric("balance_due", { precision: 20, scale: 4 }).notNull().default("0"),
+    version: integer("version").notNull().default(1),
+    createdBy: uuid("created_by").notNull().references(() => users.id),
+    updatedBy: uuid("updated_by").notNull().references(() => users.id),
+    isDeleted: boolean("is_deleted").notNull().default(false),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("invoices_company_number_uq").on(table.companyId, table.invoiceNumber),
+    index("invoices_company_customer_idx").on(table.companyId, table.customerId),
+    index("invoices_company_due_idx").on(table.companyId, table.dueDate),
+  ],
+)
+
+export const invoiceLines = pgTable(
+  "invoice_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    invoiceId: uuid("invoice_id").notNull().references(() => invoices.id),
+    itemId: uuid("item_id").references(() => items.id),
+    accountId: uuid("account_id").references(() => accounts.id),
+    taxCodeId: uuid("tax_code_id").references(() => taxCodes.id),
+    description: text("description").notNull(),
+    quantity: numeric("quantity", { precision: 20, scale: 4 }).notNull().default("1"),
+    unitPrice: numeric("unit_price", { precision: 20, scale: 4 }).notNull().default("0"),
+    discountAmount: numeric("discount_amount", { precision: 20, scale: 4 }).notNull().default("0"),
+    taxAmount: numeric("tax_amount", { precision: 20, scale: 4 }).notNull().default("0"),
+    lineTotal: numeric("line_total", { precision: 20, scale: 4 }).notNull().default("0"),
+    lineNumber: integer("line_number").notNull(),
+  },
+  (table) => [
+    uniqueIndex("invoice_lines_invoice_number_uq").on(table.invoiceId, table.lineNumber),
+    index("invoice_lines_invoice_idx").on(table.invoiceId),
+  ],
+)
+
+export const customerPayments = pgTable(
+  "customer_payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    branchId: uuid("branch_id").notNull().references(() => branches.id),
+    customerId: uuid("customer_id").notNull().references(() => customers.id),
+    paymentNumber: text("payment_number").notNull(),
+    paymentDate: timestamp("payment_date", { withTimezone: true }).notNull(),
+    currency: text("currency").notNull(),
+    exchangeRate: numeric("exchange_rate", { precision: 20, scale: 8 }).notNull().default("1"),
+    amount: numeric("amount", { precision: 20, scale: 4 }).notNull(),
+    unappliedAmount: numeric("unapplied_amount", { precision: 20, scale: 4 }).notNull().default("0"),
+    paymentMethod: text("payment_method"),
+    reference: text("reference"),
+    depositAccountId: uuid("deposit_account_id").references(() => accounts.id),
+    status: text("status").notNull().default("draft"),
+    version: integer("version").notNull().default(1),
+    createdBy: uuid("created_by").notNull().references(() => users.id),
+    updatedBy: uuid("updated_by").notNull().references(() => users.id),
+    isDeleted: boolean("is_deleted").notNull().default(false),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("customer_payments_company_number_uq").on(table.companyId, table.paymentNumber),
+    index("customer_payments_customer_idx").on(table.companyId, table.customerId),
+  ],
+)
+
+export const customerPaymentAllocations = pgTable(
+  "customer_payment_allocations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    paymentId: uuid("payment_id").notNull().references(() => customerPayments.id),
+    invoiceId: uuid("invoice_id").notNull().references(() => invoices.id),
+    amount: numeric("amount", { precision: 20, scale: 4 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("payment_allocations_payment_invoice_uq").on(table.paymentId, table.invoiceId),
+  ],
 )
 
 export const idempotencyKeys = pgTable(

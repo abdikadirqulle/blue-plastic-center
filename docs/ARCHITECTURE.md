@@ -57,13 +57,13 @@ apps/api/
       env.ts                       Zod-validated runtime configuration
     db/
       client.ts                    PostgreSQL/Drizzle connection
-      schema.ts                    Tenant, ledger, resource, and audit tables
+      schema.ts                    Tenant, dedicated module, ledger, and audit tables
       seed.ts                      Initial company, branch, and demo users
     domain/
       modules.ts                   Module/resource registry and required fields
     modules/
       system/                      Metadata and audit routes
-      resources/                   Generic CRUD routes and request schemas
+      resources/                   Transitional CRUD adapter for unmigrated modules
       reports/                     Report execution
       imports/                     Import validation
     plugins/
@@ -74,7 +74,7 @@ apps/api/
       errors.ts                    Stable API error codes
       types.ts                     Context, records, pagination, and audit types
     repositories/
-      resource-repository.ts       Persistence contract
+      resource-repository.ts       Transitional persistence contract
       memory-resource-repository.ts
       postgres-resource-repository.ts
     services/
@@ -94,3 +94,11 @@ apps/api/
 - Updates use a `version` field to prevent lost writes.
 - Deletes are soft deletes and generate audit events.
 - Every create, update, delete, and post operation records actor, request, company, branch, entity, and timestamp.
+
+## Relational persistence decision
+
+Core business records use dedicated tables with typed columns and foreign keys.
+The former `resource_records` JSONB table is retained only during the
+expand-and-contract migration documented in `RELATIONAL-MIGRATION.md`. A module
+is not considered production-ready while its primary records still use that
+transition table.
