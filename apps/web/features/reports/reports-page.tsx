@@ -2,6 +2,8 @@
 
 import { Link } from "@/components/routing";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { endOfMonth, format, startOfMonth, startOfQuarter, startOfWeek, startOfYear, subMonths, subYears } from "date-fns";
 import {
   BarChart3,
   ChevronRight,
@@ -18,7 +20,6 @@ import { DatePicker } from "../../components/ui/date-picker";
 import { Select } from "../../components/ui/select";
 import { Toast, type ToastMessage } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
-import { apiClient } from "../../lib/api-client";
 
 const tabs = [
   ["financial", "Financial"],
@@ -73,21 +74,43 @@ const reportGroups: Record<string, Array<{ group: string; reports: string[] }>> 
 };
 
 export function ReportsPage({ activeTab }: { activeTab: string }) {
+  const today = format(new Date(), "yyyy-MM-dd");
   const currentTab = reportGroups[activeTab] ? activeTab : "financial";
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [period, setPeriod] = useState("This month-to-date");
-  const [from, setFrom] = useState("2026-07-01");
-  const [to, setTo] = useState("2026-07-26");
+  const [from, setFrom] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [to, setTo] = useState(today);
   const [basis, setBasis] = useState("Accrual");
   const [favorites, setFavorites] = useState<string[]>(["Profit and Loss", "Balance Sheet"]);
   const [message, setMessage] = useState<ToastMessage | null>(null);
-  const [lastReport, setLastReport] = useState<{ name: string; rows: unknown[] } | null>(null);
+  const [runningReport, setRunningReport] = useState("");
 
   const groups = reportGroups[currentTab]
     .map((group) => ({ ...group, reports: group.reports.filter((report) => report.toLowerCase().includes(query.toLowerCase())) }))
     .filter((group) => group.reports.length);
 
-  const run = async (report: string) => {
+  const choosePeriod = (nextPeriod: string) => {
+    setPeriod(nextPeriod);
+    const now = new Date();
+    const ranges: Record<string, [Date, Date]> = {
+      Today: [now, now],
+      "This week": [startOfWeek(now), now],
+      "This month-to-date": [startOfMonth(now), now],
+      "This month": [startOfMonth(now), endOfMonth(now)],
+      "This quarter": [startOfQuarter(now), now],
+      "This fiscal year": [startOfYear(now), now],
+      "Last month": [startOfMonth(subMonths(now, 1)), endOfMonth(subMonths(now, 1))],
+      "Last fiscal year": [startOfYear(subYears(now, 1)), new Date(startOfYear(now).getTime() - 86_400_000)],
+    };
+    const range = ranges[nextPeriod];
+    if (range) {
+      setFrom(format(range[0], "yyyy-MM-dd"));
+      setTo(format(range[1], "yyyy-MM-dd"));
+    }
+  };
+
+  const run = (report: string) => {
     const kinds: Record<string, string> = {
       "Profit and Loss": "profit-and-loss",
       "Balance Sheet": "balance-sheet",
@@ -114,17 +137,8 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
       payroll: "audit-trail",
       custom: "audit-trail",
     }[currentTab];
-    try {
-      const response = await apiClient.action<{ rows?: unknown[] }>(
-        `/v1/reports/${kind}/run`,
-        { from, to, basis: basis.toLowerCase(), currency: "USD" },
-      );
-      setLastReport({ name: report, rows: response.data.rows ?? [] });
-      setMessage({ title: "Report generated", description: `${report} · ${from} to ${to} · ${basis} basis`, variant: "success" });
-    } catch (error) {
-      setMessage({ title: "Report failed", description: error instanceof Error ? error.message : "Unable to generate report.", variant: "error" });
-    }
-    window.setTimeout(() => setMessage(null), 3200);
+    setRunningReport(report);
+    navigate(`/reports/view?${new URLSearchParams({ name: report, kind, from, to, basis: basis.toLowerCase() })}`);
   };
 
   return (
@@ -133,7 +147,7 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
           <div>
             <p className="mb-2 text-xs font-bold text-[#007DCC]">Reports & insights</p>
-            <h1 className="text-2xl font-bold tracking-[-0.035em] text-[#142735] md:text-[29px]">Reports</h1>
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[#142735]">Reports</h1>
             <p className="mt-1.5 text-sm text-[#6b7e8a]">QuickBooks-style financial and operational reporting across every company and branch.</p>
           </div>
           <button onClick={() => setMessage({ title: "Report preferences saved", description: "Your memorized reports are up to date.", variant: "success" })} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"><Star size={16}/> Memorized reports</button>
@@ -142,7 +156,7 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
         <Card className="mt-6 overflow-hidden">
           <nav className="overflow-x-auto border-b border-[#e5ecf1] px-4">
             <div className="flex min-w-max">
-              {tabs.map(([slug, label]) => <Link key={slug} href={`/reports/${slug}`} className={cn("border-b-2 px-4 py-4 text-xs font-bold", slug === currentTab ? "border-[#007DCC] text-[#007DCC]" : "border-transparent text-[#71848f]")}>{label}</Link>)}
+              {tabs.map(([slug, label]) => <Link key={slug} href={`/reports/${slug}`} className={cn("border-b-2 px-4 py-3 text-xs font-medium", slug === currentTab ? "border-[#007DCC] text-[#007DCC]" : "border-transparent text-[#71848f]")}>{label}</Link>)}
             </div>
           </nav>
           <div className="grid gap-3 bg-[#f8fafc] p-4 lg:grid-cols-[1fr_auto_auto_auto]">
@@ -150,7 +164,7 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#80929d]"/>
               <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a report by name" className="h-11 w-full rounded-xl border border-[#dce6ed] bg-white pl-9 pr-3 text-xs outline-none focus:border-[#007DCC]"/>
             </div>
-            <Select value={period} onValueChange={setPeriod} options={["Today","This week","This month-to-date","This month","This quarter","This fiscal year","Last month","Last fiscal year","Custom"]} className="min-w-44 text-xs font-semibold"/>
+            <Select value={period} onValueChange={choosePeriod} options={["Today","This week","This month-to-date","This month","This quarter","This fiscal year","Last month","Last fiscal year","Custom"]} className="min-w-44 text-xs"/>
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
               <DatePicker value={from} onChange={(value) => { setFrom(value); setPeriod("Custom"); }} placeholder="From date"/>
               <span className="text-[#90a0a9]">—</span>
@@ -167,7 +181,7 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
             <Card key={group.group} className="overflow-hidden">
               <div className="flex items-center gap-3 border-b border-[#e8eef2] px-5 py-4">
                 <span className="grid size-9 place-items-center rounded-xl bg-[#eaf5fc] text-[#007DCC]"><FileBarChart size={17}/></span>
-                <div><h2 className="text-sm font-bold text-[#223b48]">{group.group}</h2><p className="text-[11px] text-[#80919b]">{group.reports.length} available reports</p></div>
+                <div><h2 className="text-sm font-semibold text-[#223b48]">{group.group}</h2><p className="text-[11px] text-[#80919b]">{group.reports.length} available reports</p></div>
               </div>
               <div className="divide-y divide-[#edf1f4]">
                 {group.reports.map((report) => {
@@ -175,10 +189,10 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
                   return (
                     <div key={report} className="flex items-center gap-3 px-5 py-3 hover:bg-[#f8fbfd]">
                       <BarChart3 size={16} className="text-[#738894]"/>
-                      <button onClick={() => void run(report)} className="flex-1 text-left text-xs font-bold text-[#304954]">{report}</button>
+                      <button onClick={() => run(report)} className="flex-1 text-left text-xs font-medium text-[#304954]">{report}</button>
                       <button aria-label={`${favorite ? "Remove" : "Add"} ${report} favorite`} onClick={() => setFavorites((current) => favorite ? current.filter((item) => item !== report) : [...current, report])} className={favorite ? "text-amber-500" : "text-[#a0adb5]"}><Heart size={15} fill={favorite ? "currentColor" : "none"}/></button>
                       <button aria-label={`Export ${report}`} onClick={() => setMessage({ title: "Export prepared", description: `${report} is ready to download.`, variant: "success" })} className="rounded-lg p-2 text-[#758995] hover:bg-[#eaf5fc] hover:text-[#007DCC]"><Download size={15}/></button>
-                      <button onClick={() => void run(report)} className="flex items-center gap-1 rounded-lg bg-[#eaf5fc] px-2.5 py-2 text-[11px] font-bold text-[#007DCC]"><Play size={13}/> Run</button>
+                      <button onClick={() => run(report)} className="flex items-center gap-1 rounded-lg bg-[#eaf5fc] px-2.5 py-2 text-[11px] font-medium text-[#007DCC]">{runningReport === report ? <span className="size-3 animate-spin rounded-full border-2 border-[#9bcdeb] border-t-[#007DCC]"/> : <Play size={13}/>} Run</button>
                       <ChevronRight size={14} className="text-[#a0adb5]"/>
                     </div>
                   );
@@ -187,15 +201,6 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
             </Card>
           ))}
         </div>
-        {lastReport ? (
-          <Card className="mt-4 p-5">
-            <h2 className="text-sm font-bold text-[#223b48]">{lastReport.name}</h2>
-            <p className="mt-1 text-xs text-[#71848f]">{lastReport.rows.length} rows returned by the accounting API.</p>
-            <pre className="mt-4 max-h-80 overflow-auto rounded-xl bg-[#0b2638] p-4 text-[11px] text-sky-100">
-              {JSON.stringify(lastReport.rows, null, 2)}
-            </pre>
-          </Card>
-        ) : null}
       </div>
     </AppShell>
   );

@@ -8,6 +8,7 @@ import NotificationsPage from "../features/notifications/notifications-page"
 import { OperationsWorkspacePage } from "../features/operations/components/operations-workspace-page"
 import ProfilePage from "../features/profile/profile-page"
 import { ReportsPage } from "../features/reports/reports-page"
+import { ReportViewerPage } from "../features/reports/report-viewer-page"
 import { ResourceDetailsPage } from "../features/resources/resource-details-page"
 import { ResourceFormPage } from "../features/resources/resource-form-page"
 import { ResourcePage } from "../features/resources/resource-page"
@@ -28,7 +29,7 @@ function ProtectedRoute() {
     retry: false,
   })
   if (session.isLoading)
-    return <main className="grid min-h-screen place-items-center bg-[#f4f7fa] text-sm font-semibold text-[#607681]">Loading secure workspace…</main>
+    return <main className="grid min-h-screen place-items-center bg-[#f4f7fa]"><div className="flex items-center gap-3 text-sm text-[#607681]"><span className="size-5 animate-spin rounded-full border-2 border-[#c9d7df] border-t-[#007DCC]"/><span>Opening your workspace…</span></div></main>
   return session.isError ? <Navigate to="/login" replace /> : <Outlet />
 }
 
@@ -108,6 +109,7 @@ export function App() {
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/trash" element={<TrashPage />} />
+        <Route path="/reports/view" element={<ReportViewerPage />} />
         <Route path="/:section/:resource/new" element={<ResourceFormRoute />} />
         <Route
           path="/:section/:resource/:id"
