@@ -4,7 +4,7 @@ import { Link } from "@/components/routing";
 import { useMemo, useState } from "react";
 import { useRouter } from "@/components/routing";
 import {
-  ArrowDownToLine, ArrowRight, Banknote, CalendarDays, CheckCircle2, ChevronRight,
+  ArrowDownToLine, ArrowRight, Banknote, CalendarDays, ChevronRight,
   CircleDollarSign, Download, FileClock, FileText, Filter, Mail, MoreHorizontal,
   Plus, Printer, Receipt, RefreshCcw, Search, Send, ShoppingBag, Trash2, Users,
 } from "lucide-react";
@@ -56,6 +56,19 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
   const isCustomerCenter = resource === "customers";
   const isDepositCenter = resource === "deposits";
   const isStatementCenter = resource === "statements";
+  const selectedCustomer = isCustomerCenter ? records[0] : null;
+  const statusCount = (pattern: RegExp) =>
+    records.filter((record) => pattern.test(record.status)).length;
+  const totalAmount = records.reduce((total, record) => {
+    const numeric = Number(record.amount.replace(/[^0-9.-]/g, ""));
+    return total + (Number.isFinite(numeric) ? numeric : 0);
+  }, 0);
+  const liveStats = [
+    { label: `Total ${config.title.toLowerCase()}`, value: records.length.toLocaleString(), helper: "Live database records" },
+    { label: "Open / active", value: statusCount(/open|active|sent|pending|overdue/i).toLocaleString(), helper: "Requires attention" },
+    { label: "Completed", value: statusCount(/paid|closed|accepted|deposited|cleared|applied/i).toLocaleString(), helper: "Completed records" },
+    { label: "Total value", value: `$${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, helper: "Current filtered result" },
+  ];
 
   const notify = (title: string, description: string) => {
     setToast({ title, description, variant: "success" });
@@ -83,14 +96,14 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
         </section>
 
         <section className={`mt-4 grid gap-3 ${isCustomerCenter ? "sm:grid-cols-2 xl:grid-cols-4" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
-          {config.stats.map((stat, index) => <Card key={stat.label} className="relative overflow-hidden p-4">
+          {liveStats.map((stat, index) => <Card key={stat.label} className="relative overflow-hidden p-4">
             <div className={`absolute inset-y-0 left-0 w-1 ${["bg-[#007DCC]","bg-emerald-500","bg-amber-500","bg-violet-500"][index]}`}/>
             <p className="text-[10px] font-bold uppercase tracking-wide text-[#788b96]">{stat.label}</p><p className="mt-2 text-xl font-bold tracking-[-0.03em] text-[#1f3947]">{stat.value}</p><p className="mt-1 text-[10px] text-[#007DCC]">{stat.helper}</p>
           </Card>)}
         </section>
 
         {resource === "invoices" ? <div className="mt-4 grid gap-3 md:grid-cols-4">
-          {[["Draft","8","Prepare & review"],["Sent","24","Awaiting payment"],["Overdue","9","Collection required"],["Paid","64","Closed this month"]].map(([label,count,helper], index) => <Card key={label} className="flex items-center gap-3 p-4"><span className={`grid size-9 place-items-center rounded-full text-xs font-bold ${index === 2 ? "bg-red-50 text-red-600" : "bg-sky-50 text-[#007DCC]"}`}>{count}</span><div><p className="text-xs font-bold">{label}</p><p className="mt-0.5 text-[10px] text-[#82949e]">{helper}</p></div><ArrowRight size={14} className="ml-auto text-[#9aa8b0]"/></Card>)}
+          {[["Draft",/draft/i,"Prepare & review"],["Sent",/sent/i,"Awaiting payment"],["Overdue",/overdue/i,"Collection required"],["Paid",/paid/i,"Closed invoices"]].map(([label,pattern,helper], index) => <Card key={String(label)} className="flex items-center gap-3 p-4"><span className={`grid size-9 place-items-center rounded-full text-xs font-bold ${index === 2 ? "bg-red-50 text-red-600" : "bg-sky-50 text-[#007DCC]"}`}>{statusCount(pattern as RegExp)}</span><div><p className="text-xs font-bold">{String(label)}</p><p className="mt-0.5 text-[10px] text-[#82949e]">{String(helper)}</p></div><ArrowRight size={14} className="ml-auto text-[#9aa8b0]"/></Card>)}
         </div> : null}
 
         <Card className="mt-4 overflow-hidden">
@@ -108,7 +121,9 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
           isCustomerCenter ? (
             <div className="grid gap-0 md:grid-cols-[320px_1fr]">
               <div className="border-r border-[#e4ebf0] bg-[#f8fafc] p-3">{records.map((record, index) => <button key={record.id} onClick={() => router.push(`/sales/customers/${record.id}`)} className={`mb-2 flex w-full items-center gap-3 rounded-xl border p-3 text-left ${index === 0 ? "border-[#007DCC] bg-white shadow-sm" : "border-transparent hover:bg-white"}`}><span className="grid size-9 place-items-center rounded-full bg-[#e6f4fc] text-[10px] font-bold text-[#007DCC]">{record.customer.split(" ").map((word) => word[0]).slice(0,2)}</span><span className="min-w-0"><strong className="block truncate text-xs text-[#2c4552]">{record.customer}</strong><span className="text-[10px] text-[#82949e]">{record.id} · {record.status}</span></span><ChevronRight size={14} className="ml-auto"/></button>)}</div>
-              <div className="p-5"><div className="flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase text-[#82949e]">Selected customer</p><h2 className="mt-1 text-xl font-bold">Banaadir Trading Co.</h2><p className="mt-1 text-xs text-[#71848f]">Wholesale · Net 30 · USD</p></div><Link href="/sales/customers/CUS-1048" className="rounded-xl bg-[#007DCC] px-3 py-2 text-xs font-bold text-white">Open customer</Link></div><div className="mt-6 grid gap-3 sm:grid-cols-3">{[["Open balance","$18,420"],["Available credit","$6,580"],["Last payment","25 Jul 2026"]].map(([label,value]) => <div key={label} className="rounded-xl bg-[#f6f9fb] p-4"><p className="text-[10px] text-[#82949e]">{label}</p><p className="mt-1 text-sm font-bold">{value}</p></div>)}</div><h3 className="mt-6 text-xs font-bold">Recent customer activity</h3><div className="mt-2 divide-y divide-[#edf1f4]">{["Invoice INV-1048 posted","Payment PAY-1045 received","Statement STM-1047 sent"].map((activity) => <div key={activity} className="flex items-center gap-3 py-3 text-xs"><CheckCircle2 size={15} className="text-emerald-500"/>{activity}<span className="ml-auto text-[10px] text-[#82949e]">Jul 2026</span></div>)}</div></div>
+              <div className="p-5">
+                {selectedCustomer ? <><div className="flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase text-[#82949e]">Selected customer</p><h2 className="mt-1 text-xl font-bold">{selectedCustomer.customer}</h2><p className="mt-1 text-xs text-[#71848f]">{selectedCustomer.reference || selectedCustomer.id} · {selectedCustomer.status}</p></div><Link href={`/sales/customers/${selectedCustomer.id}`} className="rounded-xl bg-[#007DCC] px-3 py-2 text-xs font-bold text-white">Open customer</Link></div><div className="mt-6 grid gap-3 sm:grid-cols-3">{[["Balance",selectedCustomer.balance ?? selectedCustomer.amount],["Status",selectedCustomer.status],["Created",selectedCustomer.date]].map(([label,value]) => <div key={label} className="rounded-xl bg-[#f6f9fb] p-4"><p className="text-[10px] text-[#82949e]">{label}</p><p className="mt-1 text-sm font-bold">{value || "—"}</p></div>)}</div></> : <div className="grid min-h-56 place-items-center text-center"><div><Users className="mx-auto text-[#9bb0bb]"/><h2 className="mt-3 text-sm font-bold">No customers yet</h2><p className="mt-1 text-xs text-[#71848f]">Add your first customer to start recording sales.</p><Link href="/sales/customers/new" className="mt-4 inline-flex rounded-xl bg-[#007DCC] px-4 py-2.5 text-xs font-bold text-white">Add customer</Link></div></div>}
+              </div>
             </div>
           ) : isStatementCenter ? (
             <div className="grid gap-3 p-4 lg:grid-cols-2">{records.map((record) => <article key={record.id} className="rounded-2xl border border-[#e2eaf0] p-4 hover:border-[#9dcdeb]"><div className="flex items-start justify-between"><div><p className="text-[10px] font-bold text-[#007DCC]">{record.id}</p><h3 className="mt-1 text-sm font-bold">{record.customer}</h3></div><Badge variant={variants(record.status)}>{record.status}</Badge></div><div className="mt-4 flex items-end justify-between"><div><p className="text-[10px] text-[#82949e]">Statement balance</p><p className="mt-1 text-lg font-bold">{record.amount}</p></div><div className="flex gap-2"><button onClick={() => notify("Statement emailed", `${record.id} was sent to ${record.customer}.`)} className="rounded-lg border p-2 text-[#007DCC]"><Send size={15}/></button><Link href={`/sales/statements/${record.id}`} className="rounded-lg bg-[#eef7fd] px-3 py-2 text-[11px] font-bold text-[#007DCC]">Preview</Link></div></div></article>)}</div>

@@ -10,11 +10,11 @@ import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
 import { ConfirmDeleteDialog } from "../../components/ui/confirm-delete-dialog";
 import { DatePicker } from "../../components/ui/date-picker";
-import { Select } from "../../components/ui/select";
+import { Select, type SelectOption } from "../../components/ui/select";
 import { Toast, type ToastMessage } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
 import type { FormField, ResourceConfig } from "./resource-config";
-import { useResourceDetail, useResourceMutations } from "./resource-api";
+import { recordTitle, useResourceDetail, useResourceList, useResourceMutations } from "./resource-api";
 
 interface LineItem {
   id: number;
@@ -34,10 +34,12 @@ function FormControl({
   field,
   value,
   onChange,
+  options,
 }: {
   field: FormField;
   value: string;
   onChange: (value: string) => void;
+  options?: SelectOption[];
 }) {
   const styles =
     "h-11 w-full rounded-xl border border-[#dce6ed] bg-white px-3 text-sm text-[#29414d] outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10";
@@ -46,7 +48,7 @@ function FormControl({
     return <textarea name={field.name} value={value} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`} className={cn(styles, "min-h-24 resize-y py-3")} />;
   }
   if (field.type === "select") {
-    return <Select name={field.name} value={value || undefined} onValueChange={onChange} options={field.options ?? []} placeholder={`Select ${field.label.toLowerCase()}`} allowAddNew={supportsQuickAdd(field)} addNewLabel={field.label.toLowerCase()} />;
+    return <Select name={field.name} value={value || undefined} onValueChange={onChange} options={options ?? field.options ?? []} placeholder={`Select ${field.label.toLowerCase()}`} allowAddNew={supportsQuickAdd(field)} addNewLabel={field.label.toLowerCase()} />;
   }
   if (field.type === "date") {
     return <DatePicker name={field.name} value={value} onChange={onChange} placeholder={`Select ${field.label.toLowerCase()}`} />;
@@ -78,12 +80,18 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
   const editId = searchParams.get("edit") ?? "";
   const detail = useResourceDetail(config.module, config.slug, editId);
   const mutations = useResourceMutations(config.module, config.slug);
+  const customers = useResourceList("sales", "customers", { page: 1, pageSize: 100 });
   const [lineItems, setLineItems] = useState<LineItem[]>([blankLine()]);
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [deleteLineId, setDeleteLineId] = useState<number | null>(null);
+  const [saveMode, setSaveMode] = useState<"new" | "close">("close");
   const listHref = `/${config.module}/${config.slug}`;
+  const customerOptions: SelectOption[] = (customers.data?.data ?? []).map((record) => ({
+    label: recordTitle(record),
+    value: record.id,
+  }));
 
   useEffect(() => {
     if (!detail.data?.data) return;
@@ -122,9 +130,13 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
     const form = event.currentTarget;
     const fields = config.formSections.flatMap((section) => section.fields);
     const shape = Object.fromEntries(fields.map((field) => {
-      let validator = z.string();
-      if (field.type === "email") validator = validator.email("Enter a valid email address");
-      if (field.required) validator = validator.min(1, `${field.label} is required`);
+      let validator: z.ZodTypeAny = field.required
+        ? z.string().min(1, `${field.label} is required`)
+        : z.string();
+      if (field.type === "email")
+        validator = field.required
+          ? z.string().email("Enter a valid email address")
+          : z.union([z.literal(""), z.string().email("Enter a valid email address")]);
       return [field.name, validator];
     }));
     const result = z.object(shape).safeParse(
@@ -136,12 +148,10 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
       return;
     }
     setErrors({});
-    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
-    const mode = submitter?.value === "new" ? "new" : "close";
-    const data: Record<string, unknown> = { ...values };
+    const data: Record<string, unknown> = Object.fromEntries(
+      Object.entries(values).filter(([, value]) => value !== ""),
+    );
     for (const field of fields) {
-      if (field.type === "number" && values[field.name] !== "")
-        data[field.name] = Number(values[field.name]);
       if (field.type === "checkbox")
         data[field.name] = values[field.name] === "true";
     }
@@ -152,7 +162,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
       employeeId: ["employee"],
       warehouseId: ["warehouse"],
       accountId: ["account"],
-      displayName: ["customer", "vendor", "name"],
+      displayName: ["customerName", "vendorName", "customer", "vendor", "name"],
     };
     for (const [target, sources] of Object.entries(aliases)) {
       if (data[target]) continue;
@@ -165,8 +175,14 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
         description: line.description || line.item || "Transaction line",
         quantity: line.quantity || "1",
         unitPrice: line.rate || "0",
-        taxCodeId: line.tax,
+        ...(!["Standard tax", "Non-taxable", "Zero rated"].includes(line.tax)
+          ? { taxCodeId: line.tax }
+          : {}),
       }));
+      data.subtotal = lineTotal.toFixed(4);
+      data.taxTotal = (lineTotal * 0.05).toFixed(4);
+      data.total = (lineTotal * 1.05).toFixed(4);
+      data.balanceDue = (lineTotal * 1.05).toFixed(4);
     }
     if (!data.currency) data.currency = "USD";
     try {
@@ -188,7 +204,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
       return;
     }
 
-    if (mode === "new") {
+    if (saveMode === "new") {
       form.reset();
       setValues({});
       setLineItems([blankLine()]);
@@ -229,7 +245,12 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                 {section.fields.map((field) => (
                   <label key={field.name} className={cn("block", field.width === "full" ? "md:col-span-6" : field.width === "third" ? "md:col-span-2" : "md:col-span-3")}>
                     {field.type !== "checkbox" ? <span className="mb-1.5 block text-xs font-bold text-[#455c68]">{field.label}{field.required ? <span className="ml-1 text-red-500">*</span> : null}</span> : null}
-                    <FormControl field={field} value={values[field.name] ?? ""} onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))} />
+                    <FormControl
+                      field={field}
+                      value={values[field.name] ?? ""}
+                      onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))}
+                      options={/customer(Id|Name)?$/i.test(field.name) && customerOptions.length ? customerOptions : undefined}
+                    />
                     {errors[field.name] ? <span className="mt-1.5 block text-[11px] font-semibold text-red-600">{errors[field.name]}</span> : null}
                   </label>
                 ))}
@@ -294,8 +315,8 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
         <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-[#dfe7ed] bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(14,42,61,0.08)] backdrop-blur md:px-7">
           <div className="mx-auto flex max-w-[1500px] justify-end gap-2">
             <Link href={listHref} className="flex h-10 items-center rounded-xl border border-[#dce6ed] px-4 text-xs font-bold text-[#536b78]">Cancel</Link>
-            <button type="submit" name="saveMode" value="new" className="flex h-10 items-center gap-2 rounded-xl border border-[#007DCC] px-4 text-xs font-bold text-[#007DCC]"><Save size={15}/> Save & new</button>
-            <button type="submit" name="saveMode" value="close" className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-5 text-xs font-bold text-white hover:bg-[#0069ad]"><Save size={15}/> Save & close</button>
+            <button type="submit" onClick={() => setSaveMode("new")} className="flex h-10 items-center gap-2 rounded-xl border border-[#007DCC] px-4 text-xs font-bold text-[#007DCC]"><Save size={15}/> Save & new</button>
+            <button type="submit" onClick={() => setSaveMode("close")} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-5 text-xs font-bold text-white hover:bg-[#0069ad]"><Save size={15}/> Save & close</button>
           </div>
         </div>
       </form>

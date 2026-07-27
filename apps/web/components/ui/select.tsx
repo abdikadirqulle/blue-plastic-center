@@ -5,6 +5,8 @@ import { Check, ChevronDown, Plus, Save, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "../../lib/utils";
 
+export type SelectOption = string | { label: string; value: string };
+
 export function Select({
   value,
   defaultValue,
@@ -19,7 +21,7 @@ export function Select({
   value?: string;
   defaultValue?: string;
   onValueChange?: (value: string) => void;
-  options: string[];
+  options: SelectOption[];
   placeholder?: string;
   name?: string;
   className?: string;
@@ -32,7 +34,15 @@ export function Select({
   const [newCode, setNewCode] = useState("");
   const [newContact, setNewContact] = useState("");
 
-  const localOptions = Array.from(new Set([...options, ...addedOptions]));
+  const normalizedOptions = options.map((option) =>
+    typeof option === "string" ? { label: option, value: option } : option,
+  );
+  const localOptions = [
+    ...normalizedOptions,
+    ...addedOptions
+      .filter((value) => !normalizedOptions.some((option) => option.value === value))
+      .map((value) => ({ label: value, value })),
+  ];
 
   const selectValue = (nextValue: string) => {
     if (nextValue === "__add_new__") {
@@ -45,7 +55,11 @@ export function Select({
   const saveNewOption = () => {
     const label = newName.trim();
     if (!label) return;
-    setAddedOptions((current) => current.includes(label) || options.includes(label) ? current : [...current, label]);
+    setAddedOptions((current) =>
+      current.includes(label) || normalizedOptions.some((option) => option.value === label)
+        ? current
+        : [...current, label],
+    );
     onValueChange?.(label);
     setAddModalOpen(false);
     setNewName("");
@@ -64,8 +78,8 @@ export function Select({
         <SelectPrimitive.Content position="popper" sideOffset={5} className="z-[100] max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-[#dce6ed] bg-white p-1.5 shadow-xl">
           <SelectPrimitive.Viewport>
             {localOptions.map((option) => (
-              <SelectPrimitive.Item key={option} value={option} className="relative flex cursor-pointer select-none items-center rounded-lg py-2.5 pl-3 pr-8 text-xs font-semibold text-[#405762] outline-none data-[highlighted]:bg-[#eaf5fc] data-[highlighted]:text-[#0069ad]">
-                <SelectPrimitive.ItemText>{option}</SelectPrimitive.ItemText>
+              <SelectPrimitive.Item key={option.value} value={option.value} className="relative flex cursor-pointer select-none items-center rounded-lg py-2.5 pl-3 pr-8 text-xs font-semibold text-[#405762] outline-none data-[highlighted]:bg-[#eaf5fc] data-[highlighted]:text-[#0069ad]">
+                <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
                 <SelectPrimitive.ItemIndicator className="absolute right-2.5"><Check size={14}/></SelectPrimitive.ItemIndicator>
               </SelectPrimitive.Item>
             ))}

@@ -37,6 +37,24 @@ export class ApiError extends Error {
   }
 }
 
+function validationMessage(
+  fallback: string,
+  details: unknown,
+) {
+  if (!details || typeof details !== "object") return fallback
+  const flattened = details as {
+    fieldErrors?: Record<string, string[]>
+    formErrors?: string[]
+  }
+  const messages = [
+    ...(flattened.formErrors ?? []),
+    ...Object.entries(flattened.fieldErrors ?? {}).flatMap(([field, errors]) =>
+      errors.map((message) => `${field}: ${message}`),
+    ),
+  ]
+  return messages.length ? messages.join(" · ") : fallback
+}
+
 export class ApiClient {
   constructor(
     private readonly baseUrl = webEnv.apiUrl,
@@ -74,7 +92,7 @@ export class ApiClient {
         window.location.assign("/login")
       }
       throw new ApiError(
-        body.error?.message ?? "API request failed",
+        validationMessage(body.error?.message ?? "API request failed", body.error?.details),
         response.status,
         body.error?.code,
         body.error?.details,

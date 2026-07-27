@@ -1,12 +1,14 @@
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
 import type { Database } from "../db/client.js";
 import {
   auditEvents,
+  accounts,
   customers,
   documentSequences,
   idempotencyKeys,
   invoiceLines,
   invoices,
+  items,
   resourceRecords,
 } from "../db/schema.js";
 import type { AuditEvent, ListQuery, ResourceRecord, TrashQuery } from "../platform/types.js";
@@ -218,11 +220,21 @@ export class PostgresResourceRepository implements ResourceRepository {
     if (record.module === "sales" && record.resource === "invoices") {
       const sourceLines = Array.isArray(record.data.lines) ? record.data.lines as Array<Record<string, unknown>> : []
       await this.db.transaction(async (transaction) => {
+        const customerReference = String(record.data.customerId)
+        const [customer] = await transaction.select({ id: customers.id }).from(customers).where(and(
+          eq(customers.companyId, record.companyId),
+          or(
+            sql`${customers.id}::text = ${customerReference}`,
+            eq(customers.displayName, customerReference),
+          ),
+          eq(customers.isDeleted, false),
+        )).limit(1)
+        if (!customer) throw new Error(`Customer "${customerReference}" does not exist`)
         await transaction.insert(invoices).values({
           id: record.id,
           companyId: record.companyId,
           branchId: record.branchId,
-          customerId: String(record.data.customerId),
+          customerId: customer.id,
           invoiceNumber: String(record.data.documentNumber),
           invoiceDate: new Date(String(record.data.invoiceDate)),
           dueDate: new Date(String(record.data.dueDate)),
@@ -244,11 +256,25 @@ export class PostgresResourceRepository implements ResourceRepository {
           updatedAt: new Date(record.updatedAt),
         })
         if (sourceLines.length) {
-          await transaction.insert(invoiceLines).values(sourceLines.map((line, index) => ({
+          const resolvedLines = []
+          for (const [index, line] of sourceLines.entries()) {
+            const reference = String(line.itemId ?? line.accountId ?? "")
+            const [item] = await transaction.select({ id: items.id }).from(items).where(and(
+              eq(items.companyId, record.companyId),
+              or(sql`${items.id}::text = ${reference}`, eq(items.sku, reference), eq(items.name, reference)),
+              eq(items.isDeleted, false),
+            )).limit(1)
+            const [account] = item ? [] : await transaction.select({ id: accounts.id }).from(accounts).where(and(
+              eq(accounts.companyId, record.companyId),
+              or(sql`${accounts.id}::text = ${reference}`, eq(accounts.accountNumber, reference), eq(accounts.name, reference)),
+              eq(accounts.active, true),
+            )).limit(1)
+            if (!item && !account) throw new Error(`Item or account "${reference}" does not exist`)
+            resolvedLines.push({
             invoiceId: record.id,
-            itemId: typeof line.itemId === "string" && line.itemId ? line.itemId : null,
-            accountId: typeof line.accountId === "string" && line.accountId ? line.accountId : null,
-            taxCodeId: typeof line.taxCodeId === "string" && line.taxCodeId ? line.taxCodeId : null,
+            itemId: item?.id ?? null,
+            accountId: account?.id ?? null,
+            taxCodeId: null,
             description: String(line.description ?? line.item ?? "Invoice line"),
             quantity: String(line.quantity ?? "1"),
             unitPrice: String(line.unitPrice ?? line.rate ?? "0"),
@@ -256,7 +282,9 @@ export class PostgresResourceRepository implements ResourceRepository {
             taxAmount: String(line.taxAmount ?? "0"),
             lineTotal: String(line.lineTotal ?? line.amount ?? "0"),
             lineNumber: index + 1,
-          })))
+            })
+          }
+          await transaction.insert(invoiceLines).values(resolvedLines)
         }
       })
       return record

@@ -31,7 +31,7 @@ export default function LoginPage() {
           <h1 className="mt-5 text-5xl font-bold leading-[1.08] tracking-[-0.05em]">Run your entire business with clarity.</h1>
           <p className="mt-6 max-w-lg text-base leading-7 text-[#b8c9d5]">Accounting, sales, purchasing, inventory, banking, projects, payroll, and reporting—connected in one secure workspace.</p>
           <div className="mt-10 grid grid-cols-3 gap-3">
-            {[["$842K","Assets"],["1,248","Items"],["96.8%","Reconciled"]].map(([value,label])=>(
+            {[["REST","Live API"],["RBAC","Access control"],["Audit","Tracked changes"]].map(([value,label])=>(
               <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur"><p className="text-xl font-bold">{value}</p><p className="mt-1 text-xs text-[#98afbf]">{label}</p></div>
             ))}
           </div>
