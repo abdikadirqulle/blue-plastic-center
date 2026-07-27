@@ -1,7 +1,7 @@
-"use client";
+"use client"
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
   BarChart3,
   Boxes,
@@ -20,33 +20,83 @@ import {
   Users,
   WalletCards,
   X,
-} from "lucide-react";
-import { cn } from "../../lib/utils";
+} from "lucide-react"
+import { cn } from "../../lib/utils"
 
 export const navigation = [
   { label: "Overview", icon: LayoutDashboard, href: "/", sections: [] },
-  { label: "Sales", icon: ShoppingCart, href: "/sales/invoices", sections: ["sales"] },
-  { label: "Debts", icon: HandCoins, href: "/debts/receivables", sections: ["debts"] },
-  { label: "Purchasing", icon: ReceiptText, href: "/purchasing/bills", sections: ["purchasing"] },
-  { label: "Banking", icon: Landmark, href: "/banking/accounts", sections: ["banking"] },
-  { label: "Items & inventory", icon: Boxes, href: "/inventory/items", sections: ["inventory"] },
-  { label: "Accounting", icon: ClipboardList, href: "/accounting/chart-of-accounts", sections: ["accounting"] },
-  { label: "Projects", icon: BarChart3, href: "/projects/projects", sections: ["projects"] },
-  { label: "Payroll", icon: WalletCards, href: "/payroll/pay-runs", sections: ["payroll"] },
-  { label: "Reports", icon: FileBarChart, href: "/reports/financial", sections: ["reports"] },
-  { label: "Import data", icon: Database, href: "/import", sections: ["import"] },
-];
+  {
+    label: "Sales",
+    icon: ShoppingCart,
+    href: "/sales/invoices",
+    sections: ["sales"],
+  },
+  {
+    label: "Debts",
+    icon: HandCoins,
+    href: "/debts/receivables",
+    sections: ["debts"],
+  },
+  {
+    label: "Purchasing",
+    icon: ReceiptText,
+    href: "/purchasing/bills",
+    sections: ["purchasing"],
+  },
+  {
+    label: "Banking",
+    icon: Landmark,
+    href: "/banking/accounts",
+    sections: ["banking"],
+  },
+  {
+    label: "Items & inventory",
+    icon: Boxes,
+    href: "/inventory/items",
+    sections: ["inventory"],
+  },
+  {
+    label: "Accounting",
+    icon: ClipboardList,
+    href: "/accounting/chart-of-accounts",
+    sections: ["accounting"],
+  },
+  {
+    label: "Projects",
+    icon: BarChart3,
+    href: "/projects/projects",
+    sections: ["projects"],
+  },
+  {
+    label: "Payroll",
+    icon: WalletCards,
+    href: "/payroll/pay-runs",
+    sections: ["payroll"],
+  },
+  {
+    label: "Reports",
+    icon: FileBarChart,
+    href: "/reports/financial",
+    sections: ["reports"],
+  },
+  {
+    label: "Import data",
+    icon: Database,
+    href: "/import",
+    sections: ["import"],
+  },
+]
 
 export function Sidebar({
   open,
   onClose,
   onCompany,
 }: {
-  open: boolean;
-  onClose: () => void;
-  onCompany: () => void;
+  open: boolean
+  onClose: () => void
+  onCompany: () => void
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname()
 
   return (
     <>
@@ -72,7 +122,9 @@ export function Sidebar({
             <CircleDollarSign size={23} strokeWidth={2.2} />
           </div>
           <div className="min-w-0">
-            <div className="text-[17px] font-bold tracking-[-0.02em]">BLUE PLASTIC CENTER</div>
+            <div className="text-[17px] font-bold tracking-[-0.02em]">
+              BLUE PLASTIC CENTER
+            </div>
             <div className="text-[11px] font-medium text-[#93abc0]">
               Business system
             </div>
@@ -82,8 +134,8 @@ export function Sidebar({
             aria-label="Close navigation"
             className="ml-auto rounded-lg p-2 text-[#9bb0c1] hover:bg-white/10 lg:hidden"
             onClick={(event) => {
-              event.preventDefault();
-              onClose();
+              event.preventDefault()
+              onClose()
             }}
           >
             <X size={18} />
@@ -99,8 +151,12 @@ export function Sidebar({
             <Building2 size={18} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-xs font-semibold">BLUE PLASTIC CENTER</div>
-            <div className="mt-0.5 text-[10px] text-[#93abc0]">Main company</div>
+            <div className="truncate text-xs font-semibold">
+              BLUE PLASTIC CENTER
+            </div>
+            <div className="mt-0.5 text-[10px] text-[#93abc0]">
+              Main company
+            </div>
           </div>
           <ChevronDown size={15} className="text-[#93abc0]" />
         </button>
@@ -113,7 +169,9 @@ export function Sidebar({
             const active =
               href === "/"
                 ? pathname === "/"
-                : sections?.some((section) => pathname.startsWith(`/${section}`)) ?? pathname.startsWith(href);
+                : (sections?.some((section) =>
+                    pathname.startsWith(`/${section}`),
+                  ) ?? pathname.startsWith(href))
             return (
               <Link
                 key={label}
@@ -129,7 +187,7 @@ export function Sidebar({
                 <Icon size={18} strokeWidth={active ? 2.3 : 1.8} />
                 {label}
               </Link>
-            );
+            )
           })}
         </nav>
 
@@ -154,7 +212,7 @@ export function Sidebar({
               AK
             </div>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-xs font-semibold">Abdikadir</div>
+              <div className="truncate text-xs font-semibold">Abdisalam</div>
               <div className="truncate text-[10px] text-[#829caf]">
                 Administrator
               </div>
@@ -164,5 +222,5 @@ export function Sidebar({
         </div>
       </aside>
     </>
-  );
+  )
 }
