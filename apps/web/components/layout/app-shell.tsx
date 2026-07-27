@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import {
   Bell,
-  Check,
-  ChevronDown,
   LogOut,
   Menu,
   Plus,
@@ -17,13 +15,22 @@ import {
 } from "lucide-react"
 import { Sidebar } from "./sidebar"
 
+const createGroups = [
+  { module: "Sales", links: [["New invoice", "/sales/invoices/new"], ["Sales receipt", "/sales/sales-receipts/new"], ["Receive payment", "/sales/payments/new"], ["Estimate", "/sales/estimates/new"], ["Sales order", "/sales/sales-orders/new"], ["Credit memo", "/sales/credit-notes/new"]] },
+  { module: "Purchasing", links: [["Vendor bill", "/purchasing/bills/new"], ["Purchase order", "/purchasing/purchase-orders/new"], ["Receive items", "/purchasing/receipts/new"], ["Pay bills", "/purchasing/bill-payments/new"], ["Vendor credit", "/purchasing/vendor-credits/new"]] },
+  { module: "Inventory", links: [["Inventory item", "/inventory/items/new"], ["Stock adjustment", "/inventory/adjustments/new"], ["Pick list", "/inventory/fulfillment/new"], ["Assembly build", "/inventory/assemblies/new"], ["Stock transfer", "/inventory/transfers/new"]] },
+  { module: "Banking", links: [["Bank transaction", "/banking/transactions/new"], ["Bank deposit", "/banking/deposits/new"], ["Transfer funds", "/banking/transfers/new"], ["Reconcile account", "/banking/reconciliation/new"], ["Write check", "/banking/checks/new"]] },
+  { module: "Accounting", links: [["Journal entry", "/accounting/journal-entries/new"], ["Budget", "/accounting/budgets/new"], ["Fixed asset", "/accounting/fixed-assets/new"], ["Month-end close", "/accounting/close-center/new"], ["Account", "/accounting/chart-of-accounts/new"]] },
+  { module: "People & projects", links: [["Project", "/projects/projects/new"], ["Change order", "/projects/change-orders/new"], ["Project time", "/projects/time/new"], ["Pay run", "/payroll/pay-runs/new"], ["Employee", "/payroll/employees/new"], ["Payroll liability", "/payroll/liabilities/new"]] },
+] as const
+
 export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [notifications, setNotifications] = useState(false)
-  const [companyMenu, setCompanyMenu] = useState(false)
   const [createMenu, setCreateMenu] = useState(false)
   const [profileMenu, setProfileMenu] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const [search, setSearch] = useState("")
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -31,11 +38,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     const listener = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault()
-        searchRef.current?.focus()
+        setSearchOpen(true)
+        window.setTimeout(() => searchRef.current?.focus(), 0)
       }
       if (event.key === "Escape") {
         setNotifications(false)
-        setCompanyMenu(false)
+        setSearchOpen(false)
         setCreateMenu(false)
         setProfileMenu(false)
       }
@@ -79,10 +87,68 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        onCompany={() => setCompanyMenu(true)}
+        actions={
+          <>
+            <button
+              type="button"
+              aria-label="Open search"
+              onClick={() => {
+                setSearchOpen(true)
+                setNotifications(false)
+                setCreateMenu(false)
+                setProfileMenu(false)
+                window.setTimeout(() => searchRef.current?.focus(), 0)
+              }}
+              className="grid size-9 place-items-center rounded-full text-[#b8c7d2] transition hover:bg-white/10 hover:text-white"
+            >
+              <Search size={17} />
+            </button>
+            <button
+              type="button"
+              aria-label="Notifications"
+              onClick={() => {
+                setNotifications((value) => !value)
+                setCreateMenu(false)
+                setProfileMenu(false)
+                setSearchOpen(false)
+              }}
+              className="relative grid size-9 place-items-center rounded-full text-[#b8c7d2] transition hover:bg-white/10 hover:text-white"
+            >
+              <Bell size={17} />
+              <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-red-500 ring-2 ring-[#071f33]" />
+            </button>
+            <button
+              type="button"
+              aria-label="Create new"
+              title="Create new"
+              onClick={() => {
+                setCreateMenu((value) => !value)
+                setNotifications(false)
+                setProfileMenu(false)
+                setSearchOpen(false)
+              }}
+              className="grid size-9 place-items-center rounded-full bg-[#007DCC] text-white transition hover:bg-[#1695e3]"
+            >
+              <Plus size={18} />
+            </button>
+            <button
+              type="button"
+              aria-label="Open profile menu"
+              onClick={() => {
+                setProfileMenu((value) => !value)
+                setNotifications(false)
+                setCreateMenu(false)
+                setSearchOpen(false)
+              }}
+              className="grid size-9 place-items-center rounded-full bg-[#dcefff] text-[10px] font-extrabold text-[#0063a3] ring-2 ring-white/10 transition hover:ring-sky-300"
+            >
+              AK
+            </button>
+          </>
+        }
       />
       <div>
-        <header className="sticky top-0 z-20 flex h-[64px] items-center gap-3 border-b border-[#dfe7ed] bg-white/95 px-4 backdrop-blur md:px-7 lg:top-16">
+        <header className="sticky top-0 z-20 flex h-[58px] items-center gap-3 border-b border-[#dfe7ed] bg-white/95 px-4 backdrop-blur lg:hidden">
           <button
             type="button"
             aria-label="Open navigation"
@@ -91,30 +157,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Menu size={20} />
           </button>
-          <form
-            className="relative hidden max-w-[460px] flex-1 sm:block"
-            onSubmit={(event) => {
-              event.preventDefault()
-              runSearch()
-            }}
-          >
-            <Search
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#78909f]"
-              size={17}
-            />
-            <input
-              ref={searchRef}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              aria-label="Search BLUE PLASTIC CENTER"
-              className="h-10 w-full rounded-xl border border-[#dfe7ed] bg-[#f8fafc] pl-10 pr-14 text-[13px] outline-none transition placeholder:text-[#90a1ad] focus:border-[#007DCC] focus:bg-white focus:ring-4 focus:ring-[#007DCC]/10"
-              placeholder="Search invoices, contacts, items, or reports"
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md border border-[#d9e3ea] bg-white px-1.5 py-0.5 text-[10px] font-medium text-[#78909f]">
-              ⌘ K
-            </span>
-          </form>
+          <span className="text-xs font-bold text-[#263f4b]">BLUE PLASTIC CENTER</span>
           <div className="ml-auto flex items-center gap-2">
+            <button type="button" aria-label="Open search" onClick={() => { setSearchOpen(true); window.setTimeout(() => searchRef.current?.focus(), 0) }} className="grid size-9 place-items-center rounded-full border border-[#dfe7ed] text-[#536a78]"><Search size={17}/></button>
             <button
               type="button"
               aria-label="Notifications"
@@ -123,7 +168,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 setCreateMenu(false)
                 setProfileMenu(false)
               }}
-              className="relative grid size-10 place-items-center rounded-xl border border-[#dfe7ed] bg-white text-[#536a78] hover:bg-[#f6f9fb]"
+              className="relative grid size-9 place-items-center rounded-full border border-[#dfe7ed] bg-white text-[#536a78] hover:bg-[#f6f9fb]"
             >
               <Bell size={18} />
               <span className="absolute right-2 top-2 size-2 rounded-full bg-red-500 ring-2 ring-white" />
@@ -136,10 +181,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 setNotifications(false)
                 setProfileMenu(false)
               }}
-              className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-3.5 text-xs font-bold text-white shadow-sm hover:bg-[#0069ad]"
+              className="grid size-9 place-items-center rounded-full bg-[#007DCC] text-white shadow-sm hover:bg-[#0069ad]"
             >
               <Plus size={17} />
-              <span className="hidden sm:inline">Create new</span>
             </button>
             <button
               type="button"
@@ -149,28 +193,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                 setNotifications(false)
                 setCreateMenu(false)
               }}
-              className="flex h-10 items-center gap-2 rounded-xl border border-[#dfe7ed] bg-white p-1.5 pr-2.5 text-left hover:bg-[#f6f9fb]"
+              className="grid size-9 place-items-center rounded-full bg-[#dcefff] text-[10px] font-extrabold text-[#0063a3]"
             >
-              <span className="grid size-7 place-items-center rounded-lg bg-[#dcefff] text-[10px] font-bold text-[#0063a3]">
-                AK
-              </span>
-              <span className="hidden leading-tight xl:block">
-                <span className="block text-[11px] font-bold text-[#314955]">
-                  Abdisalam
-                </span>
-                <span className="block text-[9px] text-[#82949e]">
-                  Administrator
-                </span>
-              </span>
-              <ChevronDown
-                size={13}
-                className="hidden text-[#82949e] xl:block"
-              />
+              AK
             </button>
           </div>
         </header>
 
-        {notifications || createMenu || profileMenu ? (
+        {notifications || createMenu || profileMenu || searchOpen ? (
           <button
             type="button"
             aria-label="Close open menu"
@@ -179,12 +209,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               setNotifications(false)
               setCreateMenu(false)
               setProfileMenu(false)
+              setSearchOpen(false)
             }}
           />
         ) : null}
 
         {notifications ? (
-          <div className="fixed right-4 top-[68px] z-50 w-[330px] rounded-2xl border border-[#dfe7ed] bg-white p-3 shadow-2xl md:right-7 lg:top-[124px]">
+          <div className="fixed right-4 top-[68px] z-50 w-[330px] rounded-2xl border border-[#dfe7ed] bg-white p-3 shadow-2xl md:right-7">
             <div className="flex items-center justify-between px-2 py-1">
               <h3 className="text-sm font-bold">Notifications</h3>
               <button
@@ -225,77 +256,38 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         ) : null}
 
+        {searchOpen ? (
+          <div className="fixed inset-x-4 top-[76px] z-50 mx-auto w-auto max-w-2xl rounded-2xl border border-[#dce6ed] bg-white p-3 shadow-2xl md:top-20">
+            <form onSubmit={(event) => { event.preventDefault(); runSearch(); setSearchOpen(false) }}>
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#007DCC]" size={19}/>
+                <input ref={searchRef} value={search} onChange={(event) => setSearch(event.target.value)} aria-label="Search BLUE PLASTIC CENTER" placeholder="Search invoices, customers, items, accounts, projects or reports…" className="h-14 w-full rounded-xl border border-[#dce6ed] bg-[#f8fafc] pl-12 pr-16 text-sm outline-none focus:border-[#007DCC] focus:bg-white focus:ring-4 focus:ring-[#007DCC]/10"/>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 rounded-md border bg-white px-2 py-1 text-[10px] text-[#78909f]">Enter</span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2 px-1">
+                {["Invoices", "Customers", "Items", "Accounts", "Projects", "Employees", "Reports"].map((term) => <button key={term} type="button" onClick={() => setSearch(term)} className="rounded-full bg-[#eef7fd] px-3 py-1.5 text-[10px] font-bold text-[#007DCC]">{term}</button>)}
+              </div>
+            </form>
+          </div>
+        ) : null}
+
         {createMenu ? (
-          <div className="fixed right-4 top-[68px] z-50 w-[min(520px,calc(100vw-2rem))] rounded-2xl border border-[#dfe7ed] bg-white p-3 shadow-2xl md:right-7 lg:top-[124px]">
-            <div className="mb-2 px-2">
-              <h3 className="text-sm font-bold text-[#263f4b]">Create new</h3>
+          <div className="fixed inset-x-4 top-[68px] z-50 mx-auto max-h-[calc(100vh-5rem)] w-auto max-w-[1180px] overflow-y-auto rounded-2xl border border-[#dfe7ed] bg-white p-4 shadow-2xl md:top-20">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <div><h3 className="text-sm font-bold text-[#263f4b]">Create new</h3>
               <p className="mt-0.5 text-[10px] text-[#82949e]">
-                Start a transaction in any workspace
-              </p>
+                Choose a transaction or master record
+              </p></div>
+              <button aria-label="Close create menu" onClick={() => setCreateMenu(false)} className="grid size-8 place-items-center rounded-full bg-[#f3f6f8] text-[#607681]"><X size={15}/></button>
             </div>
-            <div className="grid gap-1 sm:grid-cols-2">
-              {[
-                ["Sales", "New invoice", "/sales/invoices/new"],
-                ["Sales", "New sales receipt", "/sales/sales-receipts/new"],
-                ["Sales", "Receive payment", "/sales/payments/new"],
-                ["Sales", "New estimate", "/sales/estimates/new"],
-                ["Sales", "New sales order", "/sales/sales-orders/new"],
-                ["Sales", "New credit memo", "/sales/credit-notes/new"],
-                ["Sales", "New refund receipt", "/sales/refund-receipts/new"],
-                ["Sales", "Create statement", "/sales/statements/new"],
-                ["Sales", "Make deposit", "/sales/deposits/new"],
-                ["Debts", "New receivable", "/debts/receivables/new"],
-                ["Purchasing", "New vendor bill", "/purchasing/bills/new"],
-                ["Purchasing", "New purchase order", "/purchasing/purchase-orders/new"],
-                ["Purchasing", "Receive items", "/purchasing/receipts/new"],
-                ["Purchasing", "Pay bills", "/purchasing/bill-payments/new"],
-                ["Purchasing", "New vendor credit", "/purchasing/vendor-credits/new"],
-                ["Banking", "Record transaction", "/banking/transactions/new"],
-                ["Banking", "Make bank deposit", "/banking/deposits/new"],
-                ["Banking", "Transfer funds", "/banking/transfers/new"],
-                ["Banking", "Reconcile account", "/banking/reconciliation/new"],
-                ["Inventory", "Add item", "/inventory/items/new"],
-                ["Inventory", "Adjust inventory", "/inventory/adjustments/new"],
-                ["Inventory", "Create pick list", "/inventory/fulfillment/new"],
-                ["Inventory", "Build assembly", "/inventory/assemblies/new"],
-                [
-                  "Accounting",
-                  "Journal entry",
-                  "/accounting/journal-entries/new",
-                ],
-                ["Accounting", "New budget", "/accounting/budgets/new"],
-                ["Accounting", "Add fixed asset", "/accounting/fixed-assets/new"],
-                ["Accounting", "Start month-end close", "/accounting/close-center/new"],
-                ["Projects", "New project", "/projects/projects/new"],
-                ["Projects", "New change order", "/projects/change-orders/new"],
-                ["Projects", "Enter project time", "/projects/time/new"],
-                ["Payroll", "Start pay run", "/payroll/pay-runs/new"],
-                ["Payroll", "Add employee", "/payroll/employees/new"],
-                ["Payroll", "Pay liabilities", "/payroll/liabilities/new"],
-                ["Reports", "Create custom report", "/reports/custom"],
-                ["Import", "Import business data", "/import"],
-                ["Settings", "Invite user", "/settings/users-roles"],
-              ].map(([module, label, href]) => (
-                <Link
-                  key={label}
-                  href={href}
-                  onClick={() => setCreateMenu(false)}
-                  className="rounded-xl px-3 py-2.5 hover:bg-[#eef7fd]"
-                >
-                  <span className="block text-[9px] font-bold uppercase tracking-wide text-[#8a9aa3]">
-                    {module}
-                  </span>
-                  <span className="mt-0.5 block text-xs font-bold text-[#3e5461]">
-                    {label}
-                  </span>
-                </Link>
-              ))}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              {createGroups.map((group) => <section key={group.module} className="rounded-xl bg-[#f7f9fb] p-2"><h4 className="px-2 py-2 text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#71848f]">{group.module}</h4>{group.links.map(([label,href]) => <Link key={label} href={href} onClick={() => setCreateMenu(false)} className="flex items-center justify-between rounded-lg px-2 py-2 text-[11px] font-bold text-[#3e5461] hover:bg-white hover:text-[#007DCC] hover:shadow-sm">{label}<Plus size={12}/></Link>)}</section>)}
             </div>
           </div>
         ) : null}
 
         {profileMenu ? (
-          <div className="fixed right-4 top-[68px] z-50 w-64 rounded-2xl border border-[#dfe7ed] bg-white p-2.5 shadow-2xl md:right-7 lg:top-[124px]">
+          <div className="fixed right-4 top-[68px] z-50 w-64 rounded-2xl border border-[#dfe7ed] bg-white p-2.5 shadow-2xl md:right-7">
             <div className="flex items-center gap-3 rounded-xl bg-[#f5f9fc] p-3">
               <span className="grid size-10 place-items-center rounded-xl bg-[#dcefff] text-xs font-bold text-[#0063a3]">
                 AK
@@ -329,61 +321,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <LogOut size={15} /> Sign out
             </Link>
-          </div>
-        ) : null}
-
-        {companyMenu ? (
-          <div
-            onMouseDown={() => setCompanyMenu(false)}
-            className="fixed inset-0 z-50 grid place-items-center bg-[#061625]/45 p-4 backdrop-blur-sm"
-          >
-            <div
-              onMouseDown={(event) => event.stopPropagation()}
-              className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold">Switch company</h2>
-                  <p className="mt-1 text-xs text-[#758894]">
-                    Choose the books you want to work in.
-                  </p>
-                </div>
-                <button
-                  aria-label="Close company selector"
-                  onClick={() => setCompanyMenu(false)}
-                >
-                  <X size={19} />
-                </button>
-              </div>
-              {[
-                "BLUE PLASTIC CENTER",
-                "Blue Plastic Logistics",
-                "Blue Plastic Retail",
-              ].map((company, index) => (
-                <button
-                  type="button"
-                  key={company}
-                  onClick={() => setCompanyMenu(false)}
-                  className="mt-3 flex w-full items-center rounded-xl border border-[#dfe7ed] p-3 text-left hover:border-[#007DCC] hover:bg-[#f3f9fd]"
-                >
-                  <span className="grid size-9 place-items-center rounded-lg bg-[#e4f3fc] text-xs font-bold text-[#007DCC]">
-                    BPC
-                  </span>
-                  <span className="ml-3 flex-1 text-sm font-semibold">
-                    {company}
-                  </span>
-                  {index === 0 ? (
-                    <Check size={18} className="text-[#007DCC]" />
-                  ) : null}
-                </button>
-              ))}
-              <Link
-                href="/login"
-                className="mt-4 flex items-center justify-center gap-2 text-xs font-semibold text-red-600"
-              >
-                <LogOut size={15} /> Sign out
-              </Link>
-            </div>
           </div>
         ) : null}
 

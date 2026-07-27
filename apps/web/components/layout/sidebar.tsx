@@ -2,10 +2,10 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import type { ReactNode } from "react"
 import {
   BarChart3,
   Boxes,
-  Building2,
   ChevronDown,
   CircleDollarSign,
   ClipboardList,
@@ -172,11 +172,11 @@ const navigation = [
 export function Sidebar({
   open,
   onClose,
-  onCompany,
+  actions,
 }: {
   open: boolean
   onClose: () => void
-  onCompany: () => void
+  actions?: ReactNode
 }) {
   const pathname = usePathname()
   return (
@@ -233,19 +233,7 @@ export function Sidebar({
               )
             })}
           </nav>
-          <button
-            onClick={onCompany}
-            className="flex shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-left"
-          >
-            <Building2 size={16} className="text-sky-300" />
-            <span className="hidden xl:block">
-              <strong className="block max-w-36 truncate text-[10px]">
-                BLUE PLASTIC CENTER
-              </strong>
-              <span className="text-[9px] text-[#93abc0]">Main company</span>
-            </span>
-            <ChevronDown size={12} />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">{actions}</div>
         </div>
       </div>
 
@@ -273,14 +261,6 @@ export function Sidebar({
             <X size={18} />
           </button>
         </div>
-        <button
-          onClick={onCompany}
-          className="m-3 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.06] p-3 text-left"
-        >
-          <Building2 size={18} />
-          <span className="flex-1 text-xs font-bold">BLUE PLASTIC CENTER</span>
-          <ChevronDown size={14} />
-        </button>
         <nav className="flex-1 overflow-y-auto px-3 pb-5">
           {navigation.map(({ label, icon: Icon, href, sections, links }) => {
             const active =
