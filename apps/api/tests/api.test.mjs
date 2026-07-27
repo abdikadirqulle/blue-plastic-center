@@ -199,6 +199,9 @@ test("CRUD supports pagination, search, optimistic locking, soft deletion, and a
   const removed = await request(app, `/v1/inventory/items/${record.id}`, { method: "DELETE" });
   assert.equal(removed.status, 204);
   assert.equal((await request(app, `/v1/inventory/items/${record.id}`)).status, 404);
+  const retained = repository.records.get(record.id);
+  assert.equal(retained.isDeleted, true);
+  assert.ok(retained.deletedAt);
 
   const audit = await request(app, "/v1/audit-events");
   assert.deepEqual((await audit.json()).data.map((event) => event.action), ["delete", "update", "create"]);

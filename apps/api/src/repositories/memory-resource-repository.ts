@@ -10,7 +10,8 @@ export class MemoryResourceRepository implements ResourceRepository {
   async list(scope: { companyId: string; branchId?: string; module: string; resource: string }, query: ListQuery) {
     const search = query.search?.toLowerCase();
     const filtered = [...this.records.values()].filter((record) =>
-      !record.deletedAt
+      !record.isDeleted
+      && !record.deletedAt
       && record.companyId === scope.companyId
       && (!scope.branchId || record.branchId === scope.branchId)
       && record.module === scope.module
@@ -29,7 +30,7 @@ export class MemoryResourceRepository implements ResourceRepository {
 
   async findById(scope: { companyId: string; module: string; resource: string }, id: string) {
     const record = this.records.get(id);
-    if (!record || record.deletedAt || record.companyId !== scope.companyId || record.module !== scope.module || record.resource !== scope.resource) return undefined;
+    if (!record || record.isDeleted || record.deletedAt || record.companyId !== scope.companyId || record.module !== scope.module || record.resource !== scope.resource) return undefined;
     return record;
   }
 
@@ -41,7 +42,9 @@ export class MemoryResourceRepository implements ResourceRepository {
   async findByIdempotency(companyId: string, key: string) {
     const entry = this.idempotency.get(`${companyId}:${key}`);
     const record = entry ? this.records.get(entry.recordId) : undefined;
-    return entry && record ? { requestHash: entry.requestHash, record } : undefined;
+    return entry && record && !record.isDeleted && !record.deletedAt
+      ? { requestHash: entry.requestHash, record }
+      : undefined;
   }
 
   async createIdempotent(record: ResourceRecord, key: string, requestHash: string) {

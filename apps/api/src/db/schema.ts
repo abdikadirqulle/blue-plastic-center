@@ -391,6 +391,7 @@ export const resourceRecords = pgTable(
     updatedBy: uuid("updated_by")
       .notNull()
       .references(() => users.id),
+    isDeleted: boolean("is_deleted").notNull().default(false),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     ...auditColumns,
   },
@@ -402,6 +403,7 @@ export const resourceRecords = pgTable(
       table.resource,
     ),
     index("resource_records_status_idx").on(table.companyId, table.status),
+    index("resource_records_deleted_idx").on(table.companyId, table.isDeleted),
   ],
 )
 

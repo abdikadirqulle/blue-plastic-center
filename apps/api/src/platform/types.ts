@@ -27,6 +27,7 @@ export interface ResourceRecord {
   createdBy: string;
   updatedAt: string;
   updatedBy: string;
+  isDeleted: boolean;
   deletedAt?: string;
 }
 

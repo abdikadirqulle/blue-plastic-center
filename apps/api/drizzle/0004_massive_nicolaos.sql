@@ -1,0 +1,2 @@
+ALTER TABLE "resource_records" ADD COLUMN "is_deleted" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE INDEX "resource_records_deleted_idx" ON "resource_records" USING btree ("company_id","is_deleted");

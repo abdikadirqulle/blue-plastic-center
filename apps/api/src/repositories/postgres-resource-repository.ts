@@ -17,6 +17,7 @@ const toRecord = (row: typeof resourceRecords.$inferSelect): ResourceRecord => (
   createdBy: row.createdBy,
   updatedAt: row.updatedAt.toISOString(),
   updatedBy: row.updatedBy,
+  isDeleted: row.isDeleted,
   deletedAt: row.deletedAt?.toISOString(),
 });
 
@@ -28,6 +29,7 @@ export class PostgresResourceRepository implements ResourceRepository {
       eq(resourceRecords.companyId, scope.companyId),
       eq(resourceRecords.module, scope.module),
       eq(resourceRecords.resource, scope.resource),
+      eq(resourceRecords.isDeleted, false),
       isNull(resourceRecords.deletedAt),
     ];
     if (scope.branchId) conditions.push(eq(resourceRecords.branchId, scope.branchId));
@@ -46,6 +48,7 @@ export class PostgresResourceRepository implements ResourceRepository {
     const [row] = await this.db.select().from(resourceRecords).where(and(
       eq(resourceRecords.id, id), eq(resourceRecords.companyId, scope.companyId),
       eq(resourceRecords.module, scope.module), eq(resourceRecords.resource, scope.resource),
+      eq(resourceRecords.isDeleted, false),
       isNull(resourceRecords.deletedAt),
     )).limit(1);
     return row ? toRecord(row) : undefined;
@@ -56,6 +59,7 @@ export class PostgresResourceRepository implements ResourceRepository {
       ...record,
       createdAt: new Date(record.createdAt),
       updatedAt: new Date(record.updatedAt),
+      isDeleted: record.isDeleted,
       deletedAt: record.deletedAt ? new Date(record.deletedAt) : null,
     });
     return record;
@@ -67,7 +71,11 @@ export class PostgresResourceRepository implements ResourceRepository {
       eq(idempotencyKeys.key, key),
     )).limit(1);
     if (!entry || entry.expiresAt <= new Date()) return undefined;
-    const [row] = await this.db.select().from(resourceRecords).where(eq(resourceRecords.id, entry.resourceRecordId)).limit(1);
+    const [row] = await this.db.select().from(resourceRecords).where(and(
+      eq(resourceRecords.id, entry.resourceRecordId),
+      eq(resourceRecords.isDeleted, false),
+      isNull(resourceRecords.deletedAt),
+    )).limit(1);
     return row ? { requestHash: entry.requestHash, record: toRecord(row) } : undefined;
   }
 
@@ -77,6 +85,7 @@ export class PostgresResourceRepository implements ResourceRepository {
         ...record,
         createdAt: new Date(record.createdAt),
         updatedAt: new Date(record.updatedAt),
+        isDeleted: false,
         deletedAt: null,
       });
       await transaction.insert(idempotencyKeys).values({
@@ -115,6 +124,7 @@ export class PostgresResourceRepository implements ResourceRepository {
     await this.db.update(resourceRecords).set({
       status: record.status, version: record.version, data: record.data,
       updatedAt: new Date(record.updatedAt), updatedBy: record.updatedBy,
+      isDeleted: record.isDeleted,
       deletedAt: record.deletedAt ? new Date(record.deletedAt) : null,
     }).where(eq(resourceRecords.id, record.id));
     return record;

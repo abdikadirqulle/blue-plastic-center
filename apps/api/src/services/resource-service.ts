@@ -201,6 +201,7 @@ export class ResourceService {
       createdBy: context.principal.userId,
       updatedAt: now,
       updatedBy: context.principal.userId,
+      isDeleted: false,
     }
     if (idempotency) {
       await this.repository.createIdempotent(
@@ -277,6 +278,7 @@ export class ResourceService {
       )
     const deleted = {
       ...current,
+      isDeleted: true,
       deletedAt: new Date().toISOString(),
       updatedBy: context.principal.userId,
       version: current.version + 1,

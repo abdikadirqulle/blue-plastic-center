@@ -137,8 +137,10 @@ Update example:
 ```
 
 The version must match the current record. A stale version returns HTTP `409`.
-Delete is a soft delete. Posted accounting records return `409` and require a
-reversal or adjustment.
+`DELETE` is always a soft delete: the row remains in PostgreSQL with
+`is_deleted = true` and `deleted_at` populated, while ordinary list and detail
+queries hide it. The API has no permanent-delete endpoint. Posted accounting
+records return `409` and require a reversal or adjustment.
 
 ## Registered modules
 
