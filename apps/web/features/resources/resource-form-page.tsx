@@ -13,6 +13,8 @@ import { Select } from "../../components/ui/select";
 import { Toast, type ToastMessage } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
 import type { FormField, ResourceConfig } from "./resource-config";
+import type { SalesResource } from "../sales/domain/sales-record";
+import { salesService } from "../sales/services/sales-service";
 
 interface LineItem {
   id: number;
@@ -79,7 +81,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
   const [deleteLineId, setDeleteLineId] = useState<number | null>(null);
   const listHref = `/${config.module}/${config.slug}`;
 
-  const save = (event: React.FormEvent<HTMLFormElement>) => {
+  const save = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
     const fields = config.formSections.flatMap((section) => section.fields);
@@ -100,6 +102,18 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
     setErrors({});
     const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
     const mode = submitter?.value === "new" ? "new" : "close";
+    if (config.module === "sales") {
+      const dateField = fields.find((field) => field.type === "date");
+      const customer = values.customer ?? values.customerName ?? values.depositTo ?? "Walk-in customer";
+      await salesService.create(config.slug as SalesResource, {
+        customer,
+        amount: values.amount ?? values.currentAmount ?? `$${lineTotal.toLocaleString()}`,
+        date: (dateField && values[dateField.name]) || new Date().toISOString().slice(0, 10),
+        reference: values.reference ?? values.originalSale ?? values.depositReference,
+        paymentMethod: values.paymentMethod ?? values.refundMethod,
+        memo: values.memo ?? values.message,
+      });
+    }
 
     if (mode === "new") {
       form.reset();
@@ -187,9 +201,24 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
               </div>
             </Card>
           ) : null}
+
+          {config.module === "sales" && config.slug === "payments" ? (
+            <Card className="overflow-hidden">
+              <div className="border-b border-[#e5ecf1] p-5"><h2 className="text-sm font-bold text-[#213b48]">Apply payment to open invoices</h2><p className="mt-1 text-xs text-[#7b8e99]">Select invoices and control the exact amount applied to each transaction.</p></div>
+              <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-xs"><thead className="bg-[#f8fafc] text-[10px] uppercase text-[#768994]"><tr>{["Apply","Invoice","Due date","Original amount","Open balance","Payment"].map((heading) => <th key={heading} className="px-5 py-3">{heading}</th>)}</tr></thead><tbody>{[["INV-1047","31 Jul 2026","$6,250.00"],["INV-1046","05 Aug 2026","$3,180.00"],["INV-1044","12 Aug 2026","$2,940.00"]].map(([invoice,date,balance], index) => <tr key={invoice} className="border-t border-[#edf1f4]"><td className="px-5 py-3"><input type="checkbox" defaultChecked={index === 0} className="size-4 accent-[#007DCC]"/></td><td className="px-5 py-3 font-bold text-[#007DCC]">{invoice}</td><td className="px-5 py-3">{date}</td><td className="px-5 py-3">{balance}</td><td className="px-5 py-3 font-bold">{balance}</td><td className="px-5 py-3"><input aria-label={`Payment for ${invoice}`} defaultValue={index === 0 ? "6250.00" : "0.00"} className="h-9 w-28 rounded-lg border border-[#dce6ed] px-2"/></td></tr>)}</tbody></table></div>
+            </Card>
+          ) : null}
+
+          {config.module === "sales" && config.slug === "deposits" ? (
+            <Card className="overflow-hidden">
+              <div className="border-b border-[#e5ecf1] p-5"><h2 className="text-sm font-bold text-[#213b48]">Undeposited payments</h2><p className="mt-1 text-xs text-[#7b8e99]">The selected total must match the physical or electronic bank deposit.</p></div>
+              <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-xs"><thead className="bg-[#f8fafc] text-[10px] uppercase text-[#768994]"><tr>{["Select","Payment","Customer","Method","Reference","Amount"].map((heading) => <th key={heading} className="px-5 py-3">{heading}</th>)}</tr></thead><tbody>{[["PAY-1048","Banaadir Trading Co.","Bank transfer","REF-6842","$8,420.00"],["SR-1047","Walk-in customer","Cash","POS-4821","$1,240.00"],["PAY-1046","Horn Logistics","Cheque","CHQ-0291","$3,180.00"]].map((payment) => <tr key={payment[0]} className="border-t border-[#edf1f4]">{payment.map((value,index) => index === 0 ? <td key={value} className="px-5 py-3"><input type="checkbox" defaultChecked className="size-4 accent-[#007DCC]"/></td> : <td key={value} className={`px-5 py-3 ${index === 1 || index === 5 ? "font-bold" : ""}`}>{value}</td>)}</tr>)}</tbody></table></div>
+              <div className="flex justify-end border-t border-[#e5ecf1] bg-[#f8fafc] p-4"><div className="text-right"><p className="text-[10px] uppercase text-[#7b8e99]">Selected deposit total</p><p className="mt-1 text-xl font-bold text-[#17303d]">$12,840.00</p></div></div>
+            </Card>
+          ) : null}
         </div>
 
-        <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-[#dfe7ed] bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(14,42,61,0.08)] backdrop-blur lg:left-[252px] md:px-7">
+        <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-[#dfe7ed] bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(14,42,61,0.08)] backdrop-blur md:px-7">
           <div className="mx-auto flex max-w-[1500px] justify-end gap-2">
             <Link href={listHref} className="flex h-10 items-center rounded-xl border border-[#dce6ed] px-4 text-xs font-bold text-[#536b78]">Cancel</Link>
             <button type="submit" name="saveMode" value="new" className="flex h-10 items-center gap-2 rounded-xl border border-[#007DCC] px-4 text-xs font-bold text-[#007DCC]"><Save size={15}/> Save & new</button>

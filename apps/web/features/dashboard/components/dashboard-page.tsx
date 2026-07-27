@@ -47,6 +47,18 @@ const quickActions = [
     color: "bg-violet-50 text-violet-700",
   },
   {
+    label: "Cash sale",
+    icon: ShoppingBag,
+    href: "/sales/sales-receipts/new",
+    color: "bg-emerald-50 text-emerald-700",
+  },
+  {
+    label: "Receive payment",
+    icon: Banknote,
+    href: "/sales/payments/new",
+    color: "bg-cyan-50 text-cyan-700",
+  },
+  {
     label: "Add customer",
     icon: Users,
     href: "/sales/customers/new",

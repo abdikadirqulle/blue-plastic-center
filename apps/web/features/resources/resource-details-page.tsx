@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import {
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   Copy,
   Download,
@@ -12,6 +13,7 @@ import {
   Mail,
   Pencil,
   Printer,
+  RefreshCcw,
   Trash2,
 } from "lucide-react"
 import { AppShell } from "../../components/layout/app-shell"
@@ -24,6 +26,9 @@ import {
   type ToastVariant,
 } from "../../components/ui/toast"
 import type { FormField, ResourceConfig, ResourceRow } from "./resource-config"
+import { InvoicePreviewDialog } from "../sales/components/invoice-preview-dialog"
+import type { SalesResource } from "../sales/domain/sales-record"
+import { salesService } from "../sales/services/sales-service"
 
 const statusVariant = (status: string) => {
   if (["Paid", "Posted", "Active", "Approved", "Completed"].includes(status))
@@ -63,6 +68,7 @@ export function ResourceDetailsPage({
   const router = useRouter()
   const [message, setMessage] = useState<ToastMessage | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const listHref = `/${config.module}/${config.slug}`
   const notify = (
     title: string,
@@ -96,10 +102,10 @@ export function ResourceDetailsPage({
           </div>
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => window.print()}
+              onClick={() => config.module === "sales" ? setPreviewOpen(true) : window.print()}
               className="flex h-10 items-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3.5 text-xs font-bold text-[#425966]"
             >
-              <Printer size={15} /> Print
+              <Printer size={15} /> {config.module === "sales" ? "Preview" : "Print"}
             </button>
             <button
               onClick={() =>
@@ -214,6 +220,27 @@ export function ResourceDetailsPage({
             <Card className="p-5">
               <h2 className="text-sm font-bold text-[#263f4b]">Actions</h2>
               <div className="mt-4 space-y-2">
+                {config.module === "sales" && ["estimates", "sales-orders"].includes(config.slug) ? (
+                  <button
+                    onClick={async () => {
+                      const target = config.slug === "estimates" ? "invoices" : "invoices";
+                      await salesService.convert(config.slug as SalesResource, row.id, target);
+                      notify("Invoice created", "success", `${row.id} was converted to a new draft invoice.`);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl bg-[#007DCC] px-3 py-3 text-xs font-bold text-white"
+                  >
+                    <ArrowRight size={15}/> Convert to invoice
+                  </button>
+                ) : null}
+                {config.module === "sales" && config.slug === "invoices" ? (
+                  <>
+                    <Link href={`/sales/payments/new?invoice=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Receive payment</Link>
+                    <button onClick={() => setPreviewOpen(true)} className="flex w-full items-center gap-3 rounded-xl bg-[#eaf5fc] px-3 py-3 text-xs font-bold text-[#007DCC]"><FileText size={15}/> Preview / download PDF</button>
+                  </>
+                ) : null}
+                {config.module === "sales" && config.slug === "credit-notes" ? (
+                  <Link href={`/sales/refund-receipts/new?credit=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-amber-50 px-3 py-3 text-xs font-bold text-amber-700"><RefreshCcw size={15}/> Issue customer refund</Link>
+                ) : null}
                 <Link
                   href={`${listHref}/new?edit=${encodeURIComponent(row.id)}`}
                   className="flex w-full items-center gap-3 rounded-xl bg-[#eaf5fc] px-3 py-3 text-xs font-bold text-[#007DCC]"
@@ -267,7 +294,12 @@ export function ResourceDetailsPage({
             <Card className="p-5">
               <h2 className="text-sm font-bold text-[#263f4b]">Activity</h2>
               <div className="mt-4 space-y-4">
-                {["Record created", "Details verified", "Last updated"].map(
+                {[
+                  config.module === "sales" ? `${config.title.replace(/s$/, "")} created` : "Record created",
+                  config.module === "sales" ? "Customer delivery queued" : "Details verified",
+                  config.module === "sales" ? "Accounting impact recorded" : "Last updated",
+                  config.module === "sales" ? "Audit trail verified" : "Review completed",
+                ].map(
                   (item, index) => (
                     <div key={item} className="flex gap-3">
                       <CheckCircle2
@@ -302,6 +334,18 @@ export function ResourceDetailsPage({
           router.push(`${listHref}?deleted=${encodeURIComponent(row.id)}`)
         }
       />
+      {config.module === "sales" ? (
+        <InvoicePreviewDialog
+          open={previewOpen}
+          row={row}
+          title={config.title}
+          onClose={() => setPreviewOpen(false)}
+          onEmail={() => {
+            setPreviewOpen(false)
+            notify("Email queued", "success", `${row.id} will be delivered to the customer.`)
+          }}
+        />
+      ) : null}
     </AppShell>
   )
 }

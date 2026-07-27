@@ -1,0 +1,124 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowDownToLine, ArrowRight, Banknote, CalendarDays, CheckCircle2, ChevronRight,
+  CircleDollarSign, Download, FileClock, FileText, Filter, Mail, MoreHorizontal,
+  Plus, Printer, Receipt, RefreshCcw, Search, Send, ShoppingBag, Trash2, Users,
+} from "lucide-react";
+import { AppShell } from "../../../components/layout/app-shell";
+import { Badge } from "../../../components/ui/badge";
+import { Card } from "../../../components/ui/card";
+import { ConfirmDeleteDialog } from "../../../components/ui/confirm-delete-dialog";
+import { DatePicker } from "../../../components/ui/date-picker";
+import { Select } from "../../../components/ui/select";
+import { Toast, type ToastMessage } from "../../../components/ui/toast";
+import type { ResourceConfig } from "../../resources/resource-config";
+import type { SalesRecord, SalesResource } from "../domain/sales-record";
+import { useSalesRecords } from "../hooks/use-sales-records";
+
+const salesTabs = [
+  ["invoices", "Invoices"], ["sales-receipts", "Sales receipts"], ["customers", "Customers"],
+  ["estimates", "Estimates"], ["sales-orders", "Sales orders"], ["payments", "Payments"],
+  ["credit-notes", "Credit memos"], ["refund-receipts", "Refunds"], ["statements", "Statements"],
+  ["deposits", "Deposits"], ["recurring-invoices", "Recurring"],
+];
+
+const icons: Record<string, typeof FileText> = {
+  invoices: FileText, "sales-receipts": Receipt, customers: Users, estimates: FileClock,
+  "sales-orders": ShoppingBag, payments: Banknote, "credit-notes": RefreshCcw,
+  "refund-receipts": ArrowDownToLine, statements: Mail, deposits: CircleDollarSign,
+  "recurring-invoices": CalendarDays,
+};
+
+const variants = (status: string) => {
+  if (/paid|active|accepted|deposited|cleared|sent|reconciled|converted|applied/i.test(status)) return "success";
+  if (/overdue|expired|void|hold|inactive/i.test(status)) return "danger";
+  if (/pending|open|undeposited|backorder|partial/i.test(status)) return "warning";
+  return "neutral";
+};
+
+export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
+  const router = useRouter();
+  const resource = config.slug as SalesResource;
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("All statuses");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<SalesRecord | null>(null);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const query = useMemo(() => ({ search, status, from, to }), [search, status, from, to]);
+  const { records, loading, error, remove } = useSalesRecords(resource, query);
+  const Icon = icons[resource] ?? FileText;
+  const statuses = ["All statuses", ...Array.from(new Set(records.map((record) => record.status)))];
+  const isCustomerCenter = resource === "customers";
+  const isDepositCenter = resource === "deposits";
+  const isStatementCenter = resource === "statements";
+
+  const notify = (title: string, description: string) => {
+    setToast({ title, description, variant: "success" });
+    window.setTimeout(() => setToast(null), 3000);
+  };
+
+  return (
+    <AppShell>
+      <div className="mx-auto max-w-[1600px]">
+        <section className="overflow-hidden rounded-2xl bg-[#09263b] text-white shadow-sm">
+          <div className="grid gap-6 px-5 py-6 lg:grid-cols-[1fr_auto] lg:px-7">
+            <div className="flex items-start gap-4">
+              <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#007DCC] shadow-lg shadow-black/20"><Icon size={23}/></span>
+              <div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-sky-300">Sales center · {config.title}</p><h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] md:text-[30px]">{config.title}</h1><p className="mt-1 max-w-2xl text-xs leading-5 text-[#b6c7d3]">{config.description}</p></div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+              <button onClick={() => notify("Export prepared", `${config.title} CSV is ready.`)} className="flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 text-xs font-bold"><Download size={15}/> Export</button>
+              <button onClick={() => window.print()} className="flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 text-xs font-bold"><Printer size={15}/> Print</button>
+              <Link href={`/sales/${resource}/new`} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold"><Plus size={16}/>{config.primaryAction}</Link>
+            </div>
+          </div>
+          <nav className="flex overflow-x-auto border-t border-white/10 bg-black/10 px-3">
+            {salesTabs.map(([slug, label]) => <Link key={slug} href={`/sales/${slug}`} className={`shrink-0 border-b-2 px-3 py-3 text-[11px] font-semibold ${slug === resource ? "border-sky-400 text-white" : "border-transparent text-[#9fb4c3] hover:text-white"}`}>{label}</Link>)}
+          </nav>
+        </section>
+
+        <section className={`mt-4 grid gap-3 ${isCustomerCenter ? "sm:grid-cols-2 xl:grid-cols-4" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
+          {config.stats.map((stat, index) => <Card key={stat.label} className="relative overflow-hidden p-4">
+            <div className={`absolute inset-y-0 left-0 w-1 ${["bg-[#007DCC]","bg-emerald-500","bg-amber-500","bg-violet-500"][index]}`}/>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[#788b96]">{stat.label}</p><p className="mt-2 text-xl font-bold tracking-[-0.03em] text-[#1f3947]">{stat.value}</p><p className="mt-1 text-[10px] text-[#007DCC]">{stat.helper}</p>
+          </Card>)}
+        </section>
+
+        {resource === "invoices" ? <div className="mt-4 grid gap-3 md:grid-cols-4">
+          {[["Draft","8","Prepare & review"],["Sent","24","Awaiting payment"],["Overdue","9","Collection required"],["Paid","64","Closed this month"]].map(([label,count,helper], index) => <Card key={label} className="flex items-center gap-3 p-4"><span className={`grid size-9 place-items-center rounded-full text-xs font-bold ${index === 2 ? "bg-red-50 text-red-600" : "bg-sky-50 text-[#007DCC]"}`}>{count}</span><div><p className="text-xs font-bold">{label}</p><p className="mt-0.5 text-[10px] text-[#82949e]">{helper}</p></div><ArrowRight size={14} className="ml-auto text-[#9aa8b0]"/></Card>)}
+        </div> : null}
+
+        <Card className="mt-4 overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-[#e4ebf0] bg-white p-4 xl:flex-row xl:items-center">
+            <div className="relative min-w-[260px] flex-1"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#82949e]"/><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={config.searchPlaceholder} className="h-10 w-full rounded-xl border border-[#dce6ed] bg-[#f9fbfc] pl-9 pr-3 text-xs outline-none focus:border-[#007DCC] focus:bg-white"/></div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={status} onValueChange={setStatus} options={statuses.length ? statuses : ["All statuses"]} className="h-10 min-w-36 text-xs"/>
+              <DatePicker value={from} onChange={setFrom} placeholder="From" className="h-10 w-[145px]"/>
+              <DatePicker value={to} onChange={setTo} placeholder="To" className="h-10 w-[145px]"/>
+              <button onClick={() => { setSearch(""); setStatus("All statuses"); setFrom(""); setTo(""); }} className="flex h-10 items-center gap-2 rounded-xl border border-[#dce6ed] px-3 text-xs font-bold text-[#526874]"><Filter size={14}/> Reset</button>
+            </div>
+          </div>
+
+          {error ? <div className="p-8 text-center text-sm font-semibold text-red-600">{error}</div> : loading ? <div className="p-12 text-center text-sm font-semibold text-[#71848f]">Loading {config.title.toLowerCase()}…</div> :
+          isCustomerCenter ? (
+            <div className="grid gap-0 md:grid-cols-[320px_1fr]">
+              <div className="border-r border-[#e4ebf0] bg-[#f8fafc] p-3">{records.map((record, index) => <button key={record.id} onClick={() => router.push(`/sales/customers/${record.id}`)} className={`mb-2 flex w-full items-center gap-3 rounded-xl border p-3 text-left ${index === 0 ? "border-[#007DCC] bg-white shadow-sm" : "border-transparent hover:bg-white"}`}><span className="grid size-9 place-items-center rounded-full bg-[#e6f4fc] text-[10px] font-bold text-[#007DCC]">{record.customer.split(" ").map((word) => word[0]).slice(0,2)}</span><span className="min-w-0"><strong className="block truncate text-xs text-[#2c4552]">{record.customer}</strong><span className="text-[10px] text-[#82949e]">{record.id} · {record.status}</span></span><ChevronRight size={14} className="ml-auto"/></button>)}</div>
+              <div className="p-5"><div className="flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase text-[#82949e]">Selected customer</p><h2 className="mt-1 text-xl font-bold">Banaadir Trading Co.</h2><p className="mt-1 text-xs text-[#71848f]">Wholesale · Net 30 · USD</p></div><Link href="/sales/customers/CUS-1048" className="rounded-xl bg-[#007DCC] px-3 py-2 text-xs font-bold text-white">Open customer</Link></div><div className="mt-6 grid gap-3 sm:grid-cols-3">{[["Open balance","$18,420"],["Available credit","$6,580"],["Last payment","25 Jul 2026"]].map(([label,value]) => <div key={label} className="rounded-xl bg-[#f6f9fb] p-4"><p className="text-[10px] text-[#82949e]">{label}</p><p className="mt-1 text-sm font-bold">{value}</p></div>)}</div><h3 className="mt-6 text-xs font-bold">Recent customer activity</h3><div className="mt-2 divide-y divide-[#edf1f4]">{["Invoice INV-1048 posted","Payment PAY-1045 received","Statement STM-1047 sent"].map((activity) => <div key={activity} className="flex items-center gap-3 py-3 text-xs"><CheckCircle2 size={15} className="text-emerald-500"/>{activity}<span className="ml-auto text-[10px] text-[#82949e]">Jul 2026</span></div>)}</div></div>
+            </div>
+          ) : isStatementCenter ? (
+            <div className="grid gap-3 p-4 lg:grid-cols-2">{records.map((record) => <article key={record.id} className="rounded-2xl border border-[#e2eaf0] p-4 hover:border-[#9dcdeb]"><div className="flex items-start justify-between"><div><p className="text-[10px] font-bold text-[#007DCC]">{record.id}</p><h3 className="mt-1 text-sm font-bold">{record.customer}</h3></div><Badge variant={variants(record.status)}>{record.status}</Badge></div><div className="mt-4 flex items-end justify-between"><div><p className="text-[10px] text-[#82949e]">Statement balance</p><p className="mt-1 text-lg font-bold">{record.amount}</p></div><div className="flex gap-2"><button onClick={() => notify("Statement emailed", `${record.id} was sent to ${record.customer}.`)} className="rounded-lg border p-2 text-[#007DCC]"><Send size={15}/></button><Link href={`/sales/statements/${record.id}`} className="rounded-lg bg-[#eef7fd] px-3 py-2 text-[11px] font-bold text-[#007DCC]">Preview</Link></div></div></article>)}</div>
+          ) : (
+            <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead className="bg-[#f8fafc]"><tr>{config.columns.map((column) => <th key={column} className="border-b border-[#e5ecf1] px-5 py-3 text-[9px] font-bold uppercase tracking-wide text-[#788b96]">{column}</th>)}<th className="border-b border-[#e5ecf1] px-5 py-3 text-[9px] font-bold uppercase text-[#788b96]">Status</th><th className="border-b border-[#e5ecf1] px-5 py-3 text-right text-[9px] font-bold uppercase text-[#788b96]">Actions</th></tr></thead><tbody>{records.map((record) => <tr key={record.id} onClick={() => router.push(`/sales/${resource}/${encodeURIComponent(record.id)}`)} className="cursor-pointer border-b border-[#edf1f4] hover:bg-[#f2f9fd]"><td className="px-5 py-4 text-xs font-bold text-[#007DCC]">{record.id}</td><td className="px-5 py-4"><p className="text-xs font-bold text-[#304954]">{isDepositCenter ? record.paymentMethod ?? record.customer : record.customer}</p><p className="mt-1 text-[10px] text-[#82949e]">{record.reference}</p></td><td className="px-5 py-4 text-xs font-bold">{record.amount}</td>{config.columns.slice(3).map((column, index) => <td key={column} className="px-5 py-4 text-xs text-[#526874]">{index === 0 && record.paymentMethod ? record.paymentMethod : record.date}</td>)}<td className="px-5 py-4"><Badge variant={variants(record.status)}>{record.status}</Badge></td><td onClick={(event) => event.stopPropagation()} className="px-5 py-4 text-right"><button aria-label={`Delete ${record.id}`} onClick={() => setDeleteTarget(record)} className="rounded-lg p-2 text-red-500 hover:bg-red-50"><Trash2 size={15}/></button><button aria-label={`More actions for ${record.id}`} className="rounded-lg p-2 text-[#758995]"><MoreHorizontal size={16}/></button></td></tr>)}</tbody></table>{!records.length ? <div className="p-16 text-center text-sm font-semibold text-[#71848f]">No matching {config.title.toLowerCase()} found.</div> : null}</div>
+          )}
+        </Card>
+      </div>
+      <Toast message={toast} onClose={() => setToast(null)}/>
+      <ConfirmDeleteDialog open={Boolean(deleteTarget)} title={`Delete ${deleteTarget?.id}?`} recordName={deleteTarget ? `${deleteTarget.id} · ${deleteTarget.customer}` : undefined} description="The mock repository will remove this record. The same action maps to the API repository when the backend data source is enabled." onClose={() => setDeleteTarget(null)} onConfirm={() => { if (deleteTarget) void remove(deleteTarget.id); setDeleteTarget(null); notify("Record deleted", "The sales workspace has been updated."); }}/>
+    </AppShell>
+  );
+}

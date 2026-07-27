@@ -29,6 +29,11 @@ export const modules: Record<string, ModuleDefinition> = {
       "sales-orders": resource("sales-orders", "Sales orders", ["customerId", "orderDate", "currency", "lines"]),
       payments: resource("payments", "Customer payments", ["customerId", "paymentDate", "amount", "currency"]),
       "credit-notes": resource("credit-notes", "Credit notes", ["customerId", "creditDate", "currency", "lines"]),
+      "sales-receipts": resource("sales-receipts", "Sales receipts", ["customerId", "saleDate", "currency", "lines"]),
+      "refund-receipts": resource("refund-receipts", "Refund receipts", ["customerId", "refundDate", "currency", "lines"]),
+      statements: resource("statements", "Customer statements", ["customerId", "statementDate", "toDate"]),
+      deposits: resource("deposits", "Customer deposits", ["depositTo", "depositDate", "amount"]),
+      "recurring-invoices": resource("recurring-invoices", "Recurring invoices", ["templateName", "customerId", "frequency", "startDate"]),
     },
   },
   debts: {

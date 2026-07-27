@@ -3,6 +3,7 @@ import { ReportsPage } from "../../../features/reports/reports-page";
 import { ResourcePage } from "../../../features/resources/resource-page";
 import { resourceConfigs } from "../../../features/resources/resource-config";
 import { SettingsPage } from "../../../features/settings/settings-page";
+import { SalesWorkspacePage } from "../../../features/sales/components/sales-workspace-page";
 
 export default async function ResourceRoute({
   params,
@@ -23,6 +24,10 @@ export default async function ResourceRoute({
 
   if (!config) {
     notFound();
+  }
+
+  if (section === "sales") {
+    return <SalesWorkspacePage key={`${section}/${resource}`} config={config} />;
   }
 
   return <ResourcePage key={`${section}/${resource}`} config={config} />;

@@ -121,6 +121,11 @@ export const moduleDefinitions: Record<string, ModuleDefinition> = {
       { slug: "sales-orders", label: "Sales orders" },
       { slug: "payments", label: "Payments" },
       { slug: "credit-notes", label: "Credit notes" },
+      { slug: "sales-receipts", label: "Sales receipts" },
+      { slug: "refund-receipts", label: "Refund receipts" },
+      { slug: "statements", label: "Statements" },
+      { slug: "deposits", label: "Deposits" },
+      { slug: "recurring-invoices", label: "Recurring invoices" },
     ],
   },
   debts: {
@@ -365,6 +370,75 @@ const salesResources: ResourceConfig[] = [
     ],
   },
 ];
+
+const phaseOneSalesResources: ResourceConfig[] = [
+  {
+    module:"sales",moduleTitle:"Sales & receivables",slug:"sales-receipts",title:"Sales receipts",
+    description:"Record cash sales paid in full at the point of sale and group funds for deposit.",primaryAction:"New sales receipt",
+    searchPlaceholder:"Search receipt, customer, payment method, item, or reference",columns:["Receipt","Customer","Amount","Payment method","Sale date"],
+    stats:[{label:"Cash sales today",value:"$18,640",helper:"22 receipts"},{label:"Undeposited",value:"$7,820",helper:"9 receipts"},{label:"Average sale",value:"$847",helper:"+5.2% this month"},{label:"Refund rate",value:"1.4%",helper:"Below target"}],
+    rows:sampleRows("SR",["Bakaaro Walk-in","Hodan Supermarket","Dayax Retail","Amaan Services","Sahal Distributors"],["$1,240","$3,850","$680","$2,760","$940"]),hasLineItems:true,
+    formSections:[
+      {title:"Cash sale details",description:"Use a sales receipt when the customer pays at the time of sale.",fields:[
+        {name:"customer",label:"Customer:Job",type:"select",options:["Walk-in customer","Banaadir Trading Co.","Sahal Distributors","Add new customer"],required:true,width:"third"},
+        {name:"receiptNumber",label:"Sales receipt no.",type:"text",required:true,width:"third"},{name:"saleDate",label:"Sale date",type:"date",required:true,width:"third"},
+        {name:"paymentMethod",label:"Payment method",type:"select",options:["Cash","EVC Plus","eDahab","Card","Cheque","Bank transfer"],required:true,width:"third"},
+        {name:"reference",label:"Payment reference",type:"text",width:"third"},{name:"depositTo",label:"Deposit to",type:"select",options:["Undeposited funds","Cash on hand","Salaam Bank USD","EVC Plus merchant"],required:true,width:"third"},
+        {name:"salesRep",label:"Sales rep",type:"select",options:["Abdi","Amina","Hassan"],width:"third"},{name:"class",label:"Class",type:"select",options:["Retail","Wholesale","Projects"],width:"third"},{name:"location",label:"Sales location",type:"select",options:["Main showroom","Bakaaro","Hodan","Wadajir"],width:"third"},
+      ]},transactionTotals,
+    ],
+  },
+  {
+    module:"sales",moduleTitle:"Sales & receivables",slug:"refund-receipts",title:"Refund receipts",
+    description:"Return customer funds, restore inventory, and preserve the original sale trail.",primaryAction:"New refund receipt",
+    searchPlaceholder:"Search refund, customer, original receipt, item, or reason",columns:["Refund","Customer","Amount","Method","Refund date"],
+    stats:[{label:"Refunded MTD",value:"$7,180",helper:"18 refunds"},{label:"Pending approval",value:"$1,260",helper:"4 refunds"},{label:"Returned stock",value:"42 units",helper:"$4,860 value"},{label:"Average refund",value:"$399",helper:"-8.2%"}],
+    rows:sampleRows("RF",["Banaadir Trading Co.","Walk-in customer","Dayax Retail","Amaan Services","Sahal Distributors"],["$420","$85","$680","$760","$240"]),hasLineItems:true,
+    formSections:[
+      {title:"Refund details",fields:[
+        {name:"customer",label:"Customer:Job",type:"select",options:["Walk-in customer","Banaadir Trading Co.","Dayax Retail"],required:true,width:"third"},{name:"refundNumber",label:"Refund no.",type:"text",required:true,width:"third"},{name:"refundDate",label:"Refund date",type:"date",required:true,width:"third"},
+        {name:"originalSale",label:"Original invoice / receipt",type:"select",options:["SR-1048","INV-1047","SR-1046","No linked sale"],width:"third"},{name:"refundMethod",label:"Refund method",type:"select",options:["Cash","EVC Plus","Card reversal","Cheque","Bank transfer"],required:true,width:"third"},{name:"refundFrom",label:"Refund from account",type:"select",options:["Cash on hand","Salaam Bank USD","EVC Plus merchant"],required:true,width:"third"},
+        {name:"reason",label:"Reason",type:"select",options:["Returned goods","Damaged item","Duplicate payment","Price correction","Customer cancellation"],required:true,width:"third"},{name:"returnToStock",label:"Return sellable items to stock",type:"checkbox",width:"third"},{name:"approvalReference",label:"Approval reference",type:"text",width:"third"},
+      ]},transactionTotals,
+    ],
+  },
+  {
+    module:"sales",moduleTitle:"Sales & receivables",slug:"statements",title:"Customer statements",
+    description:"Prepare balance-forward, open-item, and transaction statements for customer accounts.",primaryAction:"Create statement",
+    searchPlaceholder:"Search statement, customer, period, delivery, or balance",columns:["Statement","Customer","Balance","Period","Delivery"],
+    stats:[{label:"Outstanding shown",value:"$92,750",helper:"46 customers"},{label:"Statements sent",value:"128",helper:"This month"},{label:"Viewed",value:"74%",helper:"+6.5%"},{label:"Promises to pay",value:"$18,400",helper:"12 customers"}],
+    rows:sampleRows("STM",["Banaadir Trading Co.","Sahal Distributors","Horn Logistics","Dayax Retail","Amaan Services"],["$8,420","$6,250","$3,180","$12,760","$2,940"]),
+    formSections:[{title:"Statement run",fields:[
+      {name:"statementType",label:"Statement type",type:"select",options:["Balance forward","Open item","Transaction statement"],required:true,width:"third"},{name:"statementDate",label:"Statement date",type:"date",required:true,width:"third"},{name:"customer",label:"Customer or group",type:"select",options:["All customers","Banaadir Trading Co.","Sahal Distributors","Overdue customers"],required:true,width:"third"},
+      {name:"fromDate",label:"From date",type:"date",width:"third"},{name:"toDate",label:"To date",type:"date",required:true,width:"third"},{name:"minimumBalance",label:"Minimum balance",type:"number",width:"third"},
+      {name:"includeZero",label:"Include zero-balance accounts",type:"checkbox",width:"third"},{name:"includeAging",label:"Include aging summary",type:"checkbox",width:"third"},{name:"delivery",label:"Delivery method",type:"select",options:["Email","Print","Email and print"],width:"third"},{name:"message",label:"Statement message",type:"textarea",width:"full"},
+    ]}],
+  },
+  {
+    module:"sales",moduleTitle:"Sales & receivables",slug:"deposits",title:"Customer deposits",
+    description:"Group undeposited customer funds and record the exact bank deposit.",primaryAction:"Make deposit",
+    searchPlaceholder:"Search deposit, bank account, payment, reference, or date",columns:["Deposit","Bank account","Amount","Payments","Deposit date"],
+    stats:[{label:"Undeposited funds",value:"$14,520",helper:"18 payments"},{label:"Deposited today",value:"$22,840",helper:"3 batches"},{label:"In transit",value:"$6,200",helper:"1 batch"},{label:"Cleared MTD",value:"$126,840",helper:"64 payments"}],
+    rows:sampleRows("DEP",["Salaam Bank USD","Premier Bank USD","EVC Plus Merchant","Cash on hand","Dahabshiil Bank"],["$8,420","$6,250","$3,180","$12,760","$2,940"]),
+    formSections:[
+      {title:"Deposit header",fields:[{name:"depositTo",label:"Deposit to account",type:"select",options:["Salaam Bank USD","Premier Bank USD","EVC Plus Merchant","Cash on hand"],required:true,width:"third"},{name:"depositDate",label:"Deposit date",type:"date",required:true,width:"third"},{name:"depositReference",label:"Deposit slip / reference",type:"text",width:"third"},{name:"currency",label:"Currency",type:"select",options:["USD","SOS","EUR"],required:true,width:"third"},{name:"class",label:"Class",type:"select",options:["Retail","Wholesale","Projects"],width:"third"},{name:"memo",label:"Deposit memo",type:"textarea",width:"third"}]},
+      {title:"Select payments to deposit",description:"Choose payments currently held in Undeposited Funds.",fields:[{name:"selectAll",label:"Select all eligible payments",type:"checkbox",width:"third"},{name:"cashBackAmount",label:"Cash back amount",type:"number",width:"third"},{name:"cashBackAccount",label:"Cash back account",type:"select",options:["Cash on hand","Petty cash","Bank fees"],width:"third"}]},
+    ],
+  },
+  {
+    module:"sales",moduleTitle:"Sales & receivables",slug:"recurring-invoices",title:"Recurring invoices",
+    description:"Schedule repeat invoices and review each automatic transaction before delivery.",primaryAction:"New recurring invoice",
+    searchPlaceholder:"Search template, customer, schedule, next date, or status",columns:["Template","Customer","Amount","Frequency","Next date"],
+    stats:[{label:"Active templates",value:"24",helper:"$42,680 next cycle"},{label:"Due this week",value:"7",helper:"$12,450"},{label:"Paused",value:"3",helper:"Awaiting review"},{label:"Created MTD",value:"18",helper:"100% delivered"}],
+    rows:sampleRows("REC",["Hodan Supermarket","Sahal Distributors","Amaan Services","Dayax Retail","Horn Logistics"],["$2,420","$1,850","$680","$2,760","$940"]),hasLineItems:true,
+    formSections:[
+      {title:"Schedule",fields:[{name:"templateName",label:"Template name",type:"text",required:true,width:"third"},{name:"customer",label:"Customer:Job",type:"select",options:["Hodan Supermarket","Sahal Distributors","Amaan Services","Add new customer"],required:true,width:"third"},{name:"frequency",label:"Frequency",type:"select",options:["Weekly","Monthly","Quarterly","Yearly","Custom"],required:true,width:"third"},{name:"startDate",label:"Start date",type:"date",required:true,width:"third"},{name:"endDate",label:"End date",type:"date",width:"third"},{name:"createDaysEarly",label:"Create days in advance",type:"number",width:"third"},{name:"delivery",label:"Delivery",type:"select",options:["Create and email","Create as draft","Create, print later"],required:true,width:"third"},{name:"paymentTerms",label:"Payment terms",type:"select",options:["Due on receipt","Net 15","Net 30","Net 60"],width:"third"},{name:"active",label:"Template is active",type:"checkbox",width:"third"}]},
+      transactionTotals,
+    ],
+  },
+];
+
+salesResources.push(...phaseOneSalesResources);
 
 const commonResourceSpecs: Array<{
   module: string;

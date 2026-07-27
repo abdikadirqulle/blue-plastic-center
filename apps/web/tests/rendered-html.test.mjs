@@ -79,6 +79,11 @@ test("server-renders every primary workspace and dedicated sales page", async ()
     "/sales/sales-orders": "Sales orders",
     "/sales/payments": "Payments",
     "/sales/credit-notes": "Credit notes",
+    "/sales/sales-receipts": "Sales receipts",
+    "/sales/refund-receipts": "Refund receipts",
+    "/sales/statements": "Customer statements",
+    "/sales/deposits": "Customer deposits",
+    "/sales/recurring-invoices": "Recurring invoices",
     "/debts/receivables": "Receivables",
     "/debts/payables": "Payables",
     "/debts/payments": "Debt payments",
@@ -244,10 +249,10 @@ test("renders the dashboard period control and complete header menus", async () 
   assert.match(dashboardHtml, /Dashboard period/)
   assert.match(dashboardHtml, /Apply period/)
 
-  const shell = await readFile(
-    new URL("../components/layout/app-shell.tsx", import.meta.url),
-    "utf8",
-  )
+  const [shell, navigation] = await Promise.all([
+    readFile(new URL("../components/layout/app-shell.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/layout/sidebar.tsx", import.meta.url), "utf8"),
+  ])
   for (const workspaceName of [
     "Sales",
     "Debts",
@@ -261,11 +266,35 @@ test("renders the dashboard period control and complete header menus", async () 
     "Import",
     "Settings",
   ]) {
-    assert.match(shell, new RegExp(`\\[\"${workspaceName}\"`), workspaceName)
+    assert.match(`${shell}\n${navigation}`, new RegExp(workspaceName), workspaceName)
   }
   assert.match(shell, /View all notifications/)
   assert.match(shell, /My profile/)
   assert.match(shell, /Close open menu/)
+  assert.match(navigation, /sticky top-0/)
+  assert.match(navigation, /Sales receipts/)
+})
+
+test("phase one sales uses swappable repositories and complete document workflows", async () => {
+  const [domain, mockRepository, apiRepository, service, salesPage, details, preview] = await Promise.all([
+    readFile(new URL("../features/sales/domain/sales-record.ts", import.meta.url), "utf8"),
+    readFile(new URL("../features/sales/data/mock-sales-repository.ts", import.meta.url), "utf8"),
+    readFile(new URL("../features/sales/data/api-sales-repository.ts", import.meta.url), "utf8"),
+    readFile(new URL("../features/sales/services/sales-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../features/sales/components/sales-workspace-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../features/resources/resource-details-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../features/sales/components/invoice-preview-dialog.tsx", import.meta.url), "utf8"),
+  ])
+  assert.match(domain, /interface SalesRepository/)
+  assert.match(mockRepository, /class MockSalesRepository/)
+  assert.match(apiRepository, /class ApiSalesRepository/)
+  assert.match(service, /NEXT_PUBLIC_DATA_SOURCE/)
+  assert.match(service, /convert:/)
+  assert.match(salesPage, /isStatementCenter/)
+  assert.match(salesPage, /isCustomerCenter/)
+  assert.match(details, /Convert to invoice/)
+  assert.match(preview, /Download PDF/)
+  assert.match(preview, /jspdf/)
 })
 
 test("supports modal quick-add for entity dropdowns without leaving the form", async () => {

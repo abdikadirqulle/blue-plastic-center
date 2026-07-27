@@ -13,6 +13,10 @@ being built with the functional breadth of enterprise accounting software.
 - Login, sales, purchasing, banking, inventory, accounting, projects, payroll,
   reports, and settings pages
 - Working search, filters, forms, record details, editing, exports, and menus
+- Responsive top navigation and a dedicated QuickBooks-style Sales Center
+- Cash sales, refunds, statements, deposits, recurring invoices, allocations,
+  transaction conversions, document preview, print, and invoice PDF download
+- Swappable mock/API sales repositories with service and query-state boundaries
 - Typed API client boundaries and realistic frontend mock data
 - Multi-tenant Hono REST API with Zod validation and RBAC
 - PostgreSQL/Drizzle schema, migrations, seed data, audit events, and optimistic locking

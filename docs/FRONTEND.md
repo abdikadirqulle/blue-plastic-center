@@ -20,6 +20,12 @@ components/
   ui/                Reusable low-level components
 features/
   dashboard/         Overview widgets and activity feeds
+  sales/
+    domain/           Sales entities and repository contracts
+    data/             Mock and REST repository adapters
+    services/         Workflow-oriented sales use cases
+    hooks/            Loading, error, query, and mutation state
+    components/       Sales centers, transaction views, and PDF preview
   resources/         Typed module registry, tables, forms, and CRUD interactions
 lib/                 Utilities, formatters, constants, and data adapters
 types/               Shared domain and API types
@@ -29,7 +35,8 @@ tests/               Automated validation
 
 ## Navigation
 
-- Overview
+- Responsive top navigation with module dropdowns
+- Dashboard
 - Sales
 - Expenses & Purchasing
 - Banking
@@ -46,7 +53,9 @@ Import Data, and Settings.
 
 Every operational resource has a dedicated nested route. For example, Sales uses
 `/sales/invoices`, `/sales/customers`, `/sales/estimates`,
-`/sales/sales-orders`, `/sales/payments`, and `/sales/credit-notes`.
+`/sales/sales-orders`, `/sales/payments`, `/sales/credit-notes`,
+`/sales/sales-receipts`, `/sales/refund-receipts`, `/sales/statements`,
+`/sales/deposits`, and `/sales/recurring-invoices`.
 Purchasing, banking, inventory, accounting, projects, payroll, reports, and
 settings follow the same `/:section/:resource` convention.
 
@@ -77,8 +86,16 @@ settings follow the same `/:section/:resource` convention.
 - Shared toasts use semantic success, error, warning, and information variants
   with matching colors, icons, descriptions, dismiss controls, and live-region
   announcements.
-- Frontend changes are session-local until the API and database layer is
-  connected.
+- Sales screens consume a `SalesRepository` contract through `salesService`.
+  `MockSalesRepository` is the default; set `NEXT_PUBLIC_DATA_SOURCE=api` to use
+  `ApiSalesRepository` without changing page components.
+- Query hooks own loading, error, filter, refresh, and mutation state. Storage
+  and HTTP concerns never enter UI components.
+- Invoice-style documents include an on-screen preview plus working PDF
+  download, print, and email-queue actions.
+- Estimate and sales-order details can create draft invoices. Credit memos can
+  start refund receipts, payments expose invoice allocation, and deposits expose
+  undeposited-payment selection.
 
 ## Purpose-built workspaces
 

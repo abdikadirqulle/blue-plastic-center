@@ -48,6 +48,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     const value = search.trim().toLowerCase()
     const routes: Record<string, string> = {
       invoice: "/sales/invoices",
+      receipt: "/sales/sales-receipts",
+      refund: "/sales/refund-receipts",
+      statement: "/sales/statements",
+      deposit: "/sales/deposits",
+      estimate: "/sales/estimates",
+      "sales order": "/sales/sales-orders",
       customer: "/sales/customers",
       vendor: "/purchasing/vendors",
       bill: "/purchasing/bills",
@@ -75,8 +81,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         onClose={() => setSidebarOpen(false)}
         onCompany={() => setCompanyMenu(true)}
       />
-      <div className="lg:pl-[252px]">
-        <header className="sticky top-0 z-20 flex h-[74px] items-center gap-3 border-b border-[#dfe7ed] bg-white/95 px-4 backdrop-blur md:px-7">
+      <div>
+        <header className="sticky top-0 z-20 flex h-[64px] items-center gap-3 border-b border-[#dfe7ed] bg-white/95 px-4 backdrop-blur md:px-7 lg:top-16">
           <button
             type="button"
             aria-label="Open navigation"
@@ -178,7 +184,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         ) : null}
 
         {notifications ? (
-          <div className="fixed right-4 top-[68px] z-50 w-[330px] rounded-2xl border border-[#dfe7ed] bg-white p-3 shadow-2xl md:right-7">
+          <div className="fixed right-4 top-[68px] z-50 w-[330px] rounded-2xl border border-[#dfe7ed] bg-white p-3 shadow-2xl md:right-7 lg:top-[124px]">
             <div className="flex items-center justify-between px-2 py-1">
               <h3 className="text-sm font-bold">Notifications</h3>
               <button
@@ -220,7 +226,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         ) : null}
 
         {createMenu ? (
-          <div className="fixed right-4 top-[68px] z-50 w-[min(430px,calc(100vw-2rem))] rounded-2xl border border-[#dfe7ed] bg-white p-3 shadow-2xl md:right-7">
+          <div className="fixed right-4 top-[68px] z-50 w-[min(520px,calc(100vw-2rem))] rounded-2xl border border-[#dfe7ed] bg-white p-3 shadow-2xl md:right-7 lg:top-[124px]">
             <div className="mb-2 px-2">
               <h3 className="text-sm font-bold text-[#263f4b]">Create new</h3>
               <p className="mt-0.5 text-[10px] text-[#82949e]">
@@ -230,6 +236,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="grid gap-1 sm:grid-cols-2">
               {[
                 ["Sales", "New invoice", "/sales/invoices/new"],
+                ["Sales", "New sales receipt", "/sales/sales-receipts/new"],
+                ["Sales", "Receive payment", "/sales/payments/new"],
+                ["Sales", "New estimate", "/sales/estimates/new"],
+                ["Sales", "New sales order", "/sales/sales-orders/new"],
+                ["Sales", "New credit memo", "/sales/credit-notes/new"],
+                ["Sales", "New refund receipt", "/sales/refund-receipts/new"],
+                ["Sales", "Create statement", "/sales/statements/new"],
+                ["Sales", "Make deposit", "/sales/deposits/new"],
                 ["Debts", "New receivable", "/debts/receivables/new"],
                 ["Purchasing", "New vendor bill", "/purchasing/bills/new"],
                 ["Banking", "Record transaction", "/banking/transactions/new"],
@@ -264,7 +278,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         ) : null}
 
         {profileMenu ? (
-          <div className="fixed right-4 top-[68px] z-50 w-64 rounded-2xl border border-[#dfe7ed] bg-white p-2.5 shadow-2xl md:right-7">
+          <div className="fixed right-4 top-[68px] z-50 w-64 rounded-2xl border border-[#dfe7ed] bg-white p-2.5 shadow-2xl md:right-7 lg:top-[124px]">
             <div className="flex items-center gap-3 rounded-xl bg-[#f5f9fc] p-3">
               <span className="grid size-10 place-items-center rounded-xl bg-[#dcefff] text-xs font-bold text-[#0063a3]">
                 AK
