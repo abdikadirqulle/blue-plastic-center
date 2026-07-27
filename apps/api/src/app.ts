@@ -23,6 +23,7 @@ import { importRoutes } from "./modules/imports/import.routes.js"
 import { reportRoutes } from "./modules/reports/report.routes.js"
 import { resourceRoutes } from "./modules/resources/resource.routes.js"
 import { systemRoutes } from "./modules/system/system.routes.js"
+import { trashRoutes } from "./modules/trash/trash.routes.js"
 import { registerErrorHandler } from "./plugins/error-handler.js"
 import { createRequestContextPlugin } from "./plugins/request-context.js"
 import { MemoryResourceRepository } from "./repositories/memory-resource-repository.js"
@@ -120,6 +121,9 @@ export function createApp(
         async (documents) => documentRoutes(documents, service),
         { prefix: "/documents" },
       )
+      await v1.register(async (trash) => trashRoutes(trash, service), {
+        prefix: "/trash",
+      })
       await systemRoutes(v1, repository)
       await reportRoutes(v1, ledger, service, repository)
       await importRoutes(v1)

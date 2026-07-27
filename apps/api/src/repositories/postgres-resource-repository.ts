@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import type { Database } from "../db/client.js";
 import { auditEvents, documentSequences, idempotencyKeys, resourceRecords } from "../db/schema.js";
-import type { AuditEvent, ListQuery, ResourceRecord } from "../platform/types.js";
+import type { AuditEvent, ListQuery, ResourceRecord, TrashQuery } from "../platform/types.js";
 import type { ResourceRepository } from "./resource-repository.js";
 
 const toRecord = (row: typeof resourceRecords.$inferSelect): ResourceRecord => ({
@@ -132,6 +132,60 @@ export class PostgresResourceRepository implements ResourceRepository {
 
   async softDelete(record: ResourceRecord) {
     await this.update(record);
+  }
+
+  async listDeleted(
+    scope: { companyId: string; branchId?: string },
+    query: TrashQuery,
+  ) {
+    const conditions = [
+      eq(resourceRecords.companyId, scope.companyId),
+      eq(resourceRecords.isDeleted, true),
+    ];
+    if (scope.branchId) conditions.push(eq(resourceRecords.branchId, scope.branchId));
+    if (query.module) conditions.push(eq(resourceRecords.module, query.module));
+    if (query.resource) conditions.push(eq(resourceRecords.resource, query.resource));
+    if (query.status) conditions.push(eq(resourceRecords.status, query.status));
+    if (query.search)
+      conditions.push(sql`${resourceRecords.data}::text ILIKE ${`%${query.search}%`}`);
+    const where = and(...conditions);
+    const [{ count }] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(resourceRecords)
+      .where(where);
+    const orderColumn =
+      query.sort === "createdAt" ? resourceRecords.createdAt : resourceRecords.updatedAt;
+    const rows = await this.db
+      .select()
+      .from(resourceRecords)
+      .where(where)
+      .orderBy(query.order === "asc" ? asc(orderColumn) : desc(orderColumn))
+      .limit(query.pageSize)
+      .offset((query.page - 1) * query.pageSize);
+    return { data: rows.map(toRecord), total: count };
+  }
+
+  async findDeletedById(
+    scope: { companyId: string; branchId?: string },
+    id: string,
+  ) {
+    const conditions = [
+      eq(resourceRecords.id, id),
+      eq(resourceRecords.companyId, scope.companyId),
+      eq(resourceRecords.isDeleted, true),
+    ];
+    if (scope.branchId) conditions.push(eq(resourceRecords.branchId, scope.branchId));
+    const [row] = await this.db
+      .select()
+      .from(resourceRecords)
+      .where(and(...conditions))
+      .limit(1);
+    return row ? toRecord(row) : undefined;
+  }
+
+  async restore(record: ResourceRecord) {
+    await this.update(record);
+    return record;
   }
 
   async appendAudit(event: AuditEvent) {

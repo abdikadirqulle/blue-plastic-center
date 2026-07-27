@@ -52,3 +52,8 @@ export interface ListQuery {
   sort?: "createdAt" | "updatedAt";
   order?: "asc" | "desc";
 }
+
+export interface TrashQuery extends ListQuery {
+  module?: string;
+  resource?: string;
+}

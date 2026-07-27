@@ -62,5 +62,5 @@ are rehearsed.
 
 ## Recommended next work
 
-Connect the React query/services layer to the completed API contracts, then run
-the production-readiness checklist with accountant-approved opening balances.
+Implement the file/background-worker phase, then run the production-readiness
+checklist with accountant-approved opening balances.

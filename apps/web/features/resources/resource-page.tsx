@@ -2,7 +2,7 @@
 
 import { Link } from "@/components/routing";
 import { useRouter } from "@/components/routing";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -29,6 +29,13 @@ import {
   moduleDefinitions,
   type ResourceConfig,
 } from "./resource-config";
+import {
+  recordAmount,
+  recordDate,
+  recordTitle,
+  useResourceList,
+  useResourceMutations,
+} from "./resource-api";
 
 const badgeVariant = (status: string) => {
   if (["Paid", "Posted", "Active", "Approved", "Completed"].includes(status)) return "success";
@@ -51,6 +58,22 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
   const [menuRow, setMenuRow] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<(typeof config.rows)[number] | null>(null);
+  const apiRows = useResourceList(config.module, config.slug, {
+    page: 1,
+    pageSize: 100,
+    search,
+    status: status === "All statuses" ? undefined : status,
+  });
+  const mutations = useResourceMutations(config.module, config.slug);
+
+  useEffect(() => {
+    if (!apiRows.data) return;
+    setRows(apiRows.data.data.map((record) => ({
+      id: record.id,
+      status: record.status,
+      cells: [recordTitle(record), recordAmount(record), recordDate(record)],
+    })));
+  }, [apiRows.data]);
   const statusOptions = useMemo(
     () => ["All statuses", ...Array.from(new Set(rows.map((row) => row.status)))],
     [rows],
@@ -261,11 +284,12 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
         open={Boolean(deleteTarget)}
         title={`Delete ${config.columns[0].toLowerCase()}?`}
         recordName={deleteTarget ? `${deleteTarget.id} · ${deleteTarget.cells[0] ?? config.title}` : undefined}
-        description={`This will permanently remove the selected ${config.title.toLowerCase()} record and its visible workspace history.`}
+        description={`This moves the selected ${config.title.toLowerCase()} record to Trash. It can be restored later.`}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (!deleteTarget) return;
           const deletedId = deleteTarget.id;
+          await mutations.remove.mutateAsync(deletedId);
           setRows((current) => current.filter((item) => item.id !== deletedId));
           setDeleteTarget(null);
           notify("Record deleted", "success", `${deletedId} was removed successfully.`);

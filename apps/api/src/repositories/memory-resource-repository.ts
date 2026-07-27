@@ -1,4 +1,4 @@
-import type { AuditEvent, ListQuery, ResourceRecord } from "../platform/types.js";
+import type { AuditEvent, ListQuery, ResourceRecord, TrashQuery } from "../platform/types.js";
 import type { ResourceRepository } from "./resource-repository.js";
 
 export class MemoryResourceRepository implements ResourceRepository {
@@ -67,6 +67,47 @@ export class MemoryResourceRepository implements ResourceRepository {
 
   async softDelete(record: ResourceRecord) {
     this.records.set(record.id, record);
+  }
+
+  async listDeleted(
+    scope: { companyId: string; branchId?: string },
+    query: TrashQuery,
+  ) {
+    const search = query.search?.toLowerCase();
+    const records = [...this.records.values()]
+      .filter((record) =>
+        record.isDeleted &&
+        record.companyId === scope.companyId &&
+        (!scope.branchId || record.branchId === scope.branchId) &&
+        (!query.module || record.module === query.module) &&
+        (!query.resource || record.resource === query.resource) &&
+        (!query.status || record.status === query.status) &&
+        (!search || JSON.stringify(record.data).toLowerCase().includes(search)),
+      )
+      .sort((a, b) => {
+        const field = query.sort ?? "updatedAt";
+        const comparison = a[field].localeCompare(b[field]);
+        return query.order === "asc" ? comparison : -comparison;
+      });
+    const start = (query.page - 1) * query.pageSize;
+    return { data: records.slice(start, start + query.pageSize), total: records.length };
+  }
+
+  async findDeletedById(
+    scope: { companyId: string; branchId?: string },
+    id: string,
+  ) {
+    const record = this.records.get(id);
+    return record?.isDeleted &&
+      record.companyId === scope.companyId &&
+      (!scope.branchId || record.branchId === scope.branchId)
+      ? record
+      : undefined;
+  }
+
+  async restore(record: ResourceRecord) {
+    this.records.set(record.id, record);
+    return record;
   }
 
   async appendAudit(event: AuditEvent) {

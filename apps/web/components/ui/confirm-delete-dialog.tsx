@@ -8,7 +8,7 @@ export function ConfirmDeleteDialog({
   title = "Delete this record?",
   recordName,
   description = "This action removes the record from the current workspace. This cannot be undone.",
-  confirmLabel = "Delete permanently",
+  confirmLabel = "Move to Trash",
   onClose,
   onConfirm,
 }: {

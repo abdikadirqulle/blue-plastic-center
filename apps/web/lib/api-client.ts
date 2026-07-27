@@ -22,6 +22,19 @@ export interface ApiRecord<TData extends Record<string, unknown> = Record<string
   data: TData;
   createdAt: string;
   updatedAt: string;
+  isDeleted: boolean;
+  deletedAt?: string;
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string,
+    readonly details?: unknown,
+  ) {
+    super(message)
+  }
 }
 
 export class ApiClient {
@@ -42,8 +55,21 @@ export class ApiClient {
       },
     });
     if (!response.ok) {
-      const body = await response.json().catch(() => ({ error: { message: response.statusText } })) as { error?: { message?: string } };
-      throw new Error(body.error?.message ?? "API request failed");
+      const body = await response.json().catch(() => ({
+        error: { message: response.statusText },
+      })) as {
+        error?: { message?: string; code?: string; details?: unknown }
+      };
+      if (response.status === 401 && window.location.pathname !== "/login") {
+        authService.clear()
+        window.location.assign("/login")
+      }
+      throw new ApiError(
+        body.error?.message ?? "API request failed",
+        response.status,
+        body.error?.code,
+        body.error?.details,
+      );
     }
     if (response.status === 204) return undefined as T;
     return response.json() as Promise<T>;
@@ -64,15 +90,46 @@ export class ApiClient {
     });
   }
 
-  update<TData extends Record<string, unknown>>(moduleName: string, resource: string, id: string, data: Partial<TData>, version: number) {
+  update<TData extends Record<string, unknown>>(
+    moduleName: string,
+    resource: string,
+    id: string,
+    data: Partial<TData>,
+    version: number,
+    status?: string,
+  ) {
     return this.request<ApiEnvelope<ApiRecord<TData>>>(`/v1/${moduleName}/${resource}/${id}`, {
       method: "PATCH",
-      body: JSON.stringify({ data, version }),
+      body: JSON.stringify({ data, version, ...(status ? { status } : {}) }),
     });
   }
 
   remove(moduleName: string, resource: string, id: string) {
     return this.request<void>(`/v1/${moduleName}/${resource}/${id}`, { method: "DELETE" });
+  }
+
+  action<T>(
+    path: string,
+    body?: Record<string, unknown>,
+    method = "POST",
+  ) {
+    return this.request<ApiEnvelope<T>>(path, {
+      method,
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    })
+  }
+
+  listTrash(query = "") {
+    return this.request<ApiEnvelope<ApiRecord[]>>(
+      `/v1/trash${query ? `?${query}` : ""}`,
+    )
+  }
+
+  restore(id: string) {
+    return this.request<ApiEnvelope<ApiRecord>>(
+      `/v1/trash/${encodeURIComponent(id)}/restore`,
+      { method: "POST" },
+    )
   }
 }
 

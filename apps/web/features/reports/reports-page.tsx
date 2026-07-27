@@ -18,6 +18,7 @@ import { DatePicker } from "../../components/ui/date-picker";
 import { Select } from "../../components/ui/select";
 import { Toast, type ToastMessage } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
+import { apiClient } from "../../lib/api-client";
 
 const tabs = [
   ["financial", "Financial"],
@@ -80,13 +81,43 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
   const [basis, setBasis] = useState("Accrual");
   const [favorites, setFavorites] = useState<string[]>(["Profit and Loss", "Balance Sheet"]);
   const [message, setMessage] = useState<ToastMessage | null>(null);
+  const [lastReport, setLastReport] = useState<{ name: string; rows: unknown[] } | null>(null);
 
   const groups = reportGroups[currentTab]
     .map((group) => ({ ...group, reports: group.reports.filter((report) => report.toLowerCase().includes(query.toLowerCase())) }))
     .filter((group) => group.reports.length);
 
-  const run = (report: string) => {
-    setMessage({ title: "Report generated", description: `${report} · ${from} to ${to} · ${basis} basis`, variant: "success" });
+  const run = async (report: string) => {
+    const kinds: Record<string, string> = {
+      "Profit and Loss": "profit-and-loss",
+      "Balance Sheet": "balance-sheet",
+      "Statement of Cash Flows": "cash-flow",
+      "Trial Balance": "trial-balance",
+      "General Ledger": "general-ledger",
+      "Audit Trail": "audit-trail",
+      "A/R Aging Summary": "receivables-aging",
+      "A/R Aging Detail": "receivables-aging",
+      "A/P Aging Summary": "payables-aging",
+      "A/P Aging Detail": "payables-aging",
+      "Inventory Valuation Summary": "inventory-valuation",
+      "Inventory Valuation Detail": "inventory-valuation",
+      "Sales Tax Liability": "tax-summary",
+    };
+    const kind = kinds[report];
+    if (!kind) {
+      setMessage({ title: "Report not connected yet", description: `${report} requires a specialized backend report contract.`, variant: "info" });
+      return;
+    }
+    try {
+      const response = await apiClient.action<{ rows?: unknown[] }>(
+        `/v1/reports/${kind}/run`,
+        { from, to, basis: basis.toLowerCase(), currency: "USD" },
+      );
+      setLastReport({ name: report, rows: response.data.rows ?? [] });
+      setMessage({ title: "Report generated", description: `${report} · ${from} to ${to} · ${basis} basis`, variant: "success" });
+    } catch (error) {
+      setMessage({ title: "Report failed", description: error instanceof Error ? error.message : "Unable to generate report.", variant: "error" });
+    }
     window.setTimeout(() => setMessage(null), 3200);
   };
 
@@ -138,10 +169,10 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
                   return (
                     <div key={report} className="flex items-center gap-3 px-5 py-3 hover:bg-[#f8fbfd]">
                       <BarChart3 size={16} className="text-[#738894]"/>
-                      <button onClick={() => run(report)} className="flex-1 text-left text-xs font-bold text-[#304954]">{report}</button>
+                      <button onClick={() => void run(report)} className="flex-1 text-left text-xs font-bold text-[#304954]">{report}</button>
                       <button aria-label={`${favorite ? "Remove" : "Add"} ${report} favorite`} onClick={() => setFavorites((current) => favorite ? current.filter((item) => item !== report) : [...current, report])} className={favorite ? "text-amber-500" : "text-[#a0adb5]"}><Heart size={15} fill={favorite ? "currentColor" : "none"}/></button>
                       <button aria-label={`Export ${report}`} onClick={() => setMessage({ title: "Export prepared", description: `${report} is ready to download.`, variant: "success" })} className="rounded-lg p-2 text-[#758995] hover:bg-[#eaf5fc] hover:text-[#007DCC]"><Download size={15}/></button>
-                      <button onClick={() => run(report)} className="flex items-center gap-1 rounded-lg bg-[#eaf5fc] px-2.5 py-2 text-[11px] font-bold text-[#007DCC]"><Play size={13}/> Run</button>
+                      <button onClick={() => void run(report)} className="flex items-center gap-1 rounded-lg bg-[#eaf5fc] px-2.5 py-2 text-[11px] font-bold text-[#007DCC]"><Play size={13}/> Run</button>
                       <ChevronRight size={14} className="text-[#a0adb5]"/>
                     </div>
                   );
@@ -150,6 +181,15 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
             </Card>
           ))}
         </div>
+        {lastReport ? (
+          <Card className="mt-4 p-5">
+            <h2 className="text-sm font-bold text-[#223b48]">{lastReport.name}</h2>
+            <p className="mt-1 text-xs text-[#71848f]">{lastReport.rows.length} rows returned by the accounting API.</p>
+            <pre className="mt-4 max-h-80 overflow-auto rounded-xl bg-[#0b2638] p-4 text-[11px] text-sky-100">
+              {JSON.stringify(lastReport.rows, null, 2)}
+            </pre>
+          </Card>
+        ) : null}
       </div>
     </AppShell>
   );

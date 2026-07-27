@@ -17,6 +17,7 @@ import {
   ReceiptText,
   Settings,
   ShoppingCart,
+  Trash2,
   WalletCards,
   X,
 } from "lucide-react"
@@ -166,6 +167,13 @@ const navigation = [
       ["Payroll", "/reports/payroll"],
       ["Custom", "/reports/custom"],
     ],
+  },
+  {
+    label: "Trash",
+    icon: Trash2,
+    href: "/trash",
+    sections: ["trash"],
+    links: [],
   },
 ]
 

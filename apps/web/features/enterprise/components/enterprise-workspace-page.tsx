@@ -17,6 +17,9 @@ import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
 import type { EnterpriseModule, EnterpriseRecord } from "../domain/enterprise-record";
 import { useEnterpriseRecords } from "../hooks/use-enterprise-records";
+import { apiClient } from "@/lib/api-client";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-client";
 
 const tabs = {
   accounting: [["chart-of-accounts","Accounts"],["journal-entries","Journals"],["registers","Registers"],["recurring","Recurring"],["fiscal-periods","Periods"],["close-center","Close center"],["budgets","Budgets"],["fixed-assets","Fixed assets"],["classes","Classes"],["audit-log","Audit log"]],
@@ -45,6 +48,7 @@ const badgeVariant = (status: string) => {
 
 export function EnterpriseWorkspacePage({ config }: { config: ResourceConfig }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const enterpriseModule = config.module as EnterpriseModule;
   const resource = config.slug;
   const moduleMeta = meta[enterpriseModule];
@@ -78,14 +82,23 @@ export function EnterpriseWorkspacePage({ config }: { config: ResourceConfig }) 
           resource === "budgets" ? <BudgetCenter records={records} onOpen={(id) => router.push(`/accounting/budgets/${id}`)}/> :
           resource === "fixed-assets" ? <FixedAssetCenter records={records} onDepreciate={(record) => notify("Depreciation posted", `${record.name} was included in JE-3094.`)}/> :
           resource === "projects" || resource === "profitability" ? <ProjectCenter records={records} onOpen={(id) => router.push(`/${enterpriseModule}/${resource}/${id}`)}/> :
-          resource === "pay-runs" ? <PayRunCenter records={records} onApprove={(record) => { void updateStatus(record.id, "Approved"); notify("Payroll approved", `${record.name} is ready for payment.`); }}/> :
+          resource === "pay-runs" ? <PayRunCenter records={records} onApprove={(record) => {
+            void apiClient.action(`/v1/payroll/pay-runs/${encodeURIComponent(record.id)}/approve`)
+              .then(() => {
+                void queryClient.invalidateQueries({
+                  queryKey: queryKeys.resource("payroll", "pay-runs"),
+                });
+                notify("Payroll approved", `${record.name} is ready for payment.`);
+              })
+              .catch((error: unknown) => notify("Approval failed", error instanceof Error ? error.message : "Unable to approve payroll."));
+          }}/> :
           resource === "employees" ? <EmployeeCenter records={records} onOpen={(id) => router.push(`/payroll/employees/${id}`)}/> :
           resource === "audit-log" ? <AuditTimeline records={records}/> :
           <EnterpriseTable config={config} records={records} onOpen={(id) => router.push(`/${enterpriseModule}/${resource}/${id}`)} onDelete={setDeleteTarget}/>}
       </Card>
     </div>
     <Toast message={message} onClose={() => setMessage(null)}/>
-    <ConfirmDeleteDialog open={Boolean(deleteTarget)} title={`Delete ${deleteTarget?.id}?`} recordName={deleteTarget?.name} description="This record will be removed through the enterprise repository contract." onClose={() => setDeleteTarget(null)} onConfirm={() => { if (deleteTarget) void remove(deleteTarget.id); setDeleteTarget(null); notify("Record deleted", "The workspace was updated."); }}/>
+    <ConfirmDeleteDialog open={Boolean(deleteTarget)} title={`Move ${deleteTarget?.id} to Trash?`} recordName={deleteTarget?.name} description="The record remains stored and can be restored from Trash." onClose={() => setDeleteTarget(null)} onConfirm={() => { if (deleteTarget) void remove(deleteTarget.id); setDeleteTarget(null); notify("Moved to Trash", "The workspace was updated."); }}/>
   </AppShell>;
 }
 

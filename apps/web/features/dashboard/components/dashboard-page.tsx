@@ -33,6 +33,7 @@ import { DatePicker } from "../../../components/ui/date-picker"
 import { Toast, type ToastMessage } from "../../../components/ui/toast"
 import { cn, formatCurrency } from "../../../lib/utils"
 import { activities, cashFlow, metrics } from "../data"
+import { useResourceList } from "../../resources/resource-api"
 
 const quickActions = [
   {
@@ -307,6 +308,28 @@ export function DashboardPage() {
   const [toDate, setToDate] = useState("2026-07-25")
   const [appliedRange, setAppliedRange] = useState("01 Jul – 25 Jul 2026")
   const [toast, setToast] = useState<ToastMessage | null>(null)
+  const invoices = useResourceList("sales", "invoices", { page: 1, pageSize: 1 })
+  const bills = useResourceList("purchasing", "bills", { page: 1, pageSize: 1 })
+  const bankAccounts = useResourceList("banking", "accounts", { page: 1, pageSize: 1 })
+  const items = useResourceList("inventory", "items", { page: 1, pageSize: 1 })
+  const journals = useResourceList("accounting", "journal-entries", { page: 1, pageSize: 1 })
+  const projects = useResourceList("projects", "projects", { page: 1, pageSize: 1 })
+  const employees = useResourceList("payroll", "employees", { page: 1, pageSize: 1 })
+  const liveCounts: Record<string, number | undefined> = {
+    "Sales & receivables": invoices.data?.meta?.total,
+    "Purchasing & expenses": bills.data?.meta?.total,
+    "Banking & treasury": bankAccounts.data?.meta?.total,
+    "Items & inventory": items.data?.meta?.total,
+    Accounting: journals.data?.meta?.total,
+    "Projects & job costing": projects.data?.meta?.total,
+    "Payroll & people": employees.data?.meta?.total,
+  }
+  const liveModuleHighlights = moduleHighlights.map((item) => {
+    const count = liveCounts[item.title]
+    return count === undefined
+      ? item
+      : { ...item, value: String(count), helper: "Live records from the API" }
+  })
 
   const applyDateRange = () => {
     if (!fromDate || !toDate || fromDate > toDate) {
@@ -985,7 +1008,7 @@ export function DashboardPage() {
             </Link>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {moduleHighlights.map(
+            {liveModuleHighlights.map(
               ({ title, value, helper, href, icon: Icon, tone }) => (
                 <Card
                   key={title}

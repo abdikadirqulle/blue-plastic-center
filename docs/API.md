@@ -91,6 +91,8 @@ Error:
 | GET | `/v1/projects/projects/:id/profitability` | Calculate project revenue, cost, and profit |
 | POST | `/v1/payroll/pay-runs/:id/approve` | Approve a pay run and create its draft journal |
 | POST | `/v1/payroll/pay-runs/:id/mark-paid` | Mark an approved pay run paid |
+| GET | `/v1/trash` | List soft-deleted records (Administrator/Finance Manager) |
+| POST | `/v1/trash/:id/restore` | Restore a soft-deleted record |
 
 ## Resource CRUD
 

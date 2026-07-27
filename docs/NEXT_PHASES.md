@@ -3,7 +3,7 @@
 The core backend domain phases are complete. The following work connects the
 React application and prepares the system for real company use.
 
-## Phase 4 — Frontend and API integration
+## Phase 4 — Frontend and API integration (completed)
 
 - Shared authenticated API client with cookies and CSRF headers
 - React Query query keys, caching, mutations, invalidation, and error mapping
@@ -30,4 +30,3 @@ React application and prepares the system for real company use.
 - Security review, dependency audit, rate-limit tuning, and session review
 - Accountant approval for the chart of accounts, tax setup, opening balances,
   close procedure, and financial reports
-

@@ -1,4 +1,4 @@
-import type { AuditEvent, ListQuery, ResourceRecord } from "../platform/types.js";
+import type { AuditEvent, ListQuery, ResourceRecord, TrashQuery } from "../platform/types.js";
 
 export interface ResourceRepository {
   list(scope: { companyId: string; branchId?: string; module: string; resource: string }, query: ListQuery): Promise<{ data: ResourceRecord[]; total: number }>;
@@ -9,6 +9,9 @@ export interface ResourceRepository {
   nextDocumentNumber(companyId: string, documentType: string, prefix: string): Promise<string>;
   update(record: ResourceRecord): Promise<ResourceRecord>;
   softDelete(record: ResourceRecord): Promise<void>;
+  listDeleted(scope: { companyId: string; branchId?: string }, query: TrashQuery): Promise<{ data: ResourceRecord[]; total: number }>;
+  findDeletedById(scope: { companyId: string; branchId?: string }, id: string): Promise<ResourceRecord | undefined>;
+  restore(record: ResourceRecord): Promise<ResourceRecord>;
   appendAudit(event: AuditEvent): Promise<void>;
   listAudit(companyId: string, limit?: number): Promise<AuditEvent[]>;
 }

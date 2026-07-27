@@ -1,5 +1,10 @@
-import { webEnv } from "@/lib/env";
-import { apiFetch } from "@/lib/api-fetch";
+import { apiClient, type ApiRecord } from "@/lib/api-client"
+import {
+  firstValue,
+  recordAmount,
+  recordDate,
+  recordTitle,
+} from "../../resources/resource-api"
 import type {
   OperationRecord,
   OperationRecordInput,
@@ -7,43 +12,85 @@ import type {
   OperationsQuery,
   OperationsRepository,
   OperationsResource,
-} from "../domain/operation-record";
+} from "../domain/operation-record"
+
+function toDomain(
+  module: OperationsModule,
+  resource: OperationsResource,
+  record: ApiRecord,
+): OperationRecord {
+  return {
+    id: record.id,
+    module,
+    resource,
+    name: recordTitle(record),
+    secondary: firstValue(record, ["description", "vendorId", "warehouseId", "type"]),
+    amount: recordAmount(record),
+    date: recordDate(record),
+    status: record.status,
+    reference: firstValue(record, ["documentNumber", "reference"], ""),
+    version: record.version,
+    data: record.data,
+    meta: Object.fromEntries(
+      Object.entries(record.data)
+        .filter(([, value]) => ["string", "number", "boolean"].includes(typeof value))
+        .map(([key, value]) => [key, String(value)]),
+    ),
+  }
+}
 
 export class ApiOperationsRepository implements OperationsRepository {
-  constructor(private readonly baseUrl = `${webEnv.apiUrl}/v1`) {}
-
-  private url(module: OperationsModule, resource: OperationsResource, id?: string) {
-    return `${this.baseUrl}/${module}/${resource}${id ? `/${encodeURIComponent(id)}` : ""}`;
-  }
-
-  async list(module: OperationsModule, resource: OperationsResource, query: OperationsQuery = {}) {
-    const params = new URLSearchParams(Object.entries(query).filter((entry): entry is [string, string] => Boolean(entry[1])));
-    const response = await apiFetch(`${this.url(module, resource)}?${params}`);
-    if (!response.ok) throw new Error(`Unable to load ${resource}`);
-    return response.json() as Promise<OperationRecord[]>;
+  async list(
+    module: OperationsModule,
+    resource: OperationsResource,
+    query: OperationsQuery = {},
+  ) {
+    const params = new URLSearchParams()
+    if (query.search) params.set("search", query.search)
+    if (query.status && query.status !== "All statuses")
+      params.set("status", query.status)
+    const response = await apiClient.list(module, resource, params.toString())
+    return response.data.map((record) => toDomain(module, resource, record))
   }
 
   async get(module: OperationsModule, resource: OperationsResource, id: string) {
-    const response = await apiFetch(this.url(module, resource, id));
-    if (response.status === 404) return null;
-    if (!response.ok) throw new Error(`Unable to load ${id}`);
-    return response.json() as Promise<OperationRecord>;
+    return toDomain(module, resource, (await apiClient.get(module, resource, id)).data)
   }
 
-  async create(module: OperationsModule, resource: OperationsResource, input: OperationRecordInput) {
-    const response = await apiFetch(this.url(module, resource), { method: "POST", body: JSON.stringify(input) });
-    if (!response.ok) throw new Error(`Unable to create ${resource}`);
-    return response.json() as Promise<OperationRecord>;
+  async create(
+    module: OperationsModule,
+    resource: OperationsResource,
+    input: OperationRecordInput,
+  ) {
+    return toDomain(
+      module,
+      resource,
+      (await apiClient.create(module, resource, input, input.status)).data,
+    )
   }
 
-  async update(module: OperationsModule, resource: OperationsResource, id: string, input: Partial<OperationRecordInput>) {
-    const response = await apiFetch(this.url(module, resource, id), { method: "PATCH", body: JSON.stringify(input) });
-    if (!response.ok) throw new Error(`Unable to update ${id}`);
-    return response.json() as Promise<OperationRecord>;
+  async update(
+    module: OperationsModule,
+    resource: OperationsResource,
+    id: string,
+    input: Partial<OperationRecordInput>,
+  ) {
+    const current = (await apiClient.get(module, resource, id)).data
+    return toDomain(
+      module,
+      resource,
+      (await apiClient.update(
+        module,
+        resource,
+        id,
+        input,
+        current.version,
+        input.status,
+      )).data,
+    )
   }
 
   async remove(module: OperationsModule, resource: OperationsResource, id: string) {
-    const response = await apiFetch(this.url(module, resource, id), { method: "DELETE" });
-    if (!response.ok) throw new Error(`Unable to delete ${id}`);
+    await apiClient.remove(module, resource, id)
   }
 }

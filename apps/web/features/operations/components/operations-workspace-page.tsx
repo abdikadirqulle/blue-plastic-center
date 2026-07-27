@@ -138,7 +138,7 @@ export function OperationsWorkspacePage({ config }: { config: ResourceConfig }) 
         </Card>
       </div>
       <Toast message={toast} onClose={() => setToast(null)}/>
-      <ConfirmDeleteDialog open={Boolean(deleteTarget)} title={`Delete ${deleteTarget?.id}?`} recordName={deleteTarget ? `${deleteTarget.id} · ${deleteTarget.name}` : undefined} description="This removes the record from the current data repository and keeps the same contract when the API data source is enabled." onClose={() => setDeleteTarget(null)} onConfirm={() => { if (deleteTarget) void remove(deleteTarget.id); setDeleteTarget(null); notify("Record deleted", "The operations workspace has been updated."); }}/>
+      <ConfirmDeleteDialog open={Boolean(deleteTarget)} title={`Move ${deleteTarget?.id} to Trash?`} recordName={deleteTarget ? `${deleteTarget.id} · ${deleteTarget.name}` : undefined} description="The record remains in the database and can be restored from Trash." onClose={() => setDeleteTarget(null)} onConfirm={() => { if (deleteTarget) void remove(deleteTarget.id); setDeleteTarget(null); notify("Moved to Trash", "The operations workspace has been updated."); }}/>
     </AppShell>
   );
 }

@@ -23,6 +23,7 @@ export interface SalesRecord {
   balance?: string;
   memo?: string;
   version?: number;
+  data?: Record<string, unknown>;
 }
 
 export interface SalesRecordInput {
@@ -33,6 +34,7 @@ export interface SalesRecordInput {
   reference?: string;
   paymentMethod?: string;
   memo?: string;
+  [key: string]: unknown;
 }
 
 export interface SalesQuery {

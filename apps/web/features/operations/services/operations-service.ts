@@ -1,4 +1,3 @@
-import { webEnv } from "@/lib/env";
 import type {
   OperationRecordInput,
   OperationsModule,
@@ -7,11 +6,8 @@ import type {
   OperationsResource,
 } from "../domain/operation-record";
 import { ApiOperationsRepository } from "../data/api-operations-repository";
-import { MockOperationsRepository } from "../data/mock-operations-repository";
 
-const repository: OperationsRepository = webEnv.dataSource === "api"
-  ? new ApiOperationsRepository()
-  : new MockOperationsRepository();
+const repository: OperationsRepository = new ApiOperationsRepository();
 
 export const operationsService = {
   list: (module: OperationsModule, resource: OperationsResource, query?: OperationsQuery) =>

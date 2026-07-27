@@ -1,6 +1,6 @@
 "use client"
 
-import { Link } from "@/components/routing";
+import { Link } from "@/components/routing"
 import { useState } from "react"
 import { z } from "zod"
 import {
@@ -247,7 +247,8 @@ const details: Record<
   },
   "accounting-controls": {
     title: "Accounting controls",
-    description: "Protect the general ledger with closing and posting policies.",
+    description:
+      "Protect the general ledger with closing and posting policies.",
     groups: [
       {
         title: "Closing controls",

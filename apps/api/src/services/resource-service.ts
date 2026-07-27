@@ -5,6 +5,7 @@ import type {
   ListQuery,
   RequestContext,
   ResourceRecord,
+  TrashQuery,
 } from "../platform/types.js"
 import type { ResourceRepository } from "../repositories/resource-repository.js"
 import { validateOperationalData } from "../modules/operations/operational-validation.js"
@@ -165,7 +166,7 @@ export class ResourceService {
     }
     if (
       input.status &&
-      protectedWorkflowStatuses.has(input.status) &&
+      protectedWorkflowStatuses.has(input.status.toLowerCase()) &&
       !options.allowWorkflowStatus
     ) {
       throw conflict(
@@ -234,7 +235,7 @@ export class ResourceService {
     if (
       input.status &&
       input.status !== current.status &&
-      protectedWorkflowStatuses.has(input.status) &&
+      protectedWorkflowStatuses.has(input.status.toLowerCase()) &&
       !options.allowWorkflowTransition
     ) {
       throw conflict(
@@ -285,6 +286,32 @@ export class ResourceService {
     }
     await this.repository.softDelete(deleted)
     await this.audit(context, "delete", deleted, { before: current.data })
+  }
+
+  async listTrash(context: RequestContext, query: TrashQuery) {
+    return this.repository.listDeleted(
+      { companyId: context.companyId, branchId: context.branchId },
+      query,
+    )
+  }
+
+  async restore(context: RequestContext, id: string) {
+    const current = await this.repository.findDeletedById(
+      { companyId: context.companyId, branchId: context.branchId },
+      id,
+    )
+    if (!current) throw notFound("Deleted record not found")
+    const restored: ResourceRecord = {
+      ...current,
+      isDeleted: false,
+      deletedAt: undefined,
+      version: current.version + 1,
+      updatedAt: new Date().toISOString(),
+      updatedBy: context.principal.userId,
+    }
+    await this.repository.restore(restored)
+    await this.audit(context, "restore", restored, { after: restored.data })
+    return restored
   }
 
   private async audit(

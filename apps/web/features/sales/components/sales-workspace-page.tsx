@@ -118,7 +118,7 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
         </Card>
       </div>
       <Toast message={toast} onClose={() => setToast(null)}/>
-      <ConfirmDeleteDialog open={Boolean(deleteTarget)} title={`Delete ${deleteTarget?.id}?`} recordName={deleteTarget ? `${deleteTarget.id} · ${deleteTarget.customer}` : undefined} description="The mock repository will remove this record. The same action maps to the API repository when the backend data source is enabled." onClose={() => setDeleteTarget(null)} onConfirm={() => { if (deleteTarget) void remove(deleteTarget.id); setDeleteTarget(null); notify("Record deleted", "The sales workspace has been updated."); }}/>
+      <ConfirmDeleteDialog open={Boolean(deleteTarget)} title={`Move ${deleteTarget?.id} to Trash?`} recordName={deleteTarget ? `${deleteTarget.id} · ${deleteTarget.customer}` : undefined} description="The record will be hidden from Sales and can be restored from Trash." onClose={() => setDeleteTarget(null)} onConfirm={() => { if (deleteTarget) void remove(deleteTarget.id); setDeleteTarget(null); notify("Moved to Trash", "The sales workspace has been updated."); }}/>
     </AppShell>
   );
 }

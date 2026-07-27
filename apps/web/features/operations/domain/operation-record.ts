@@ -40,6 +40,8 @@ export interface OperationRecord {
   status: string;
   reference: string;
   meta: Record<string, string>;
+  version?: number;
+  data?: Record<string, unknown>;
 }
 
 export interface OperationsQuery {
@@ -57,6 +59,7 @@ export interface OperationRecordInput {
   status?: string;
   reference?: string;
   meta?: Record<string, string>;
+  [key: string]: unknown;
 }
 
 export interface OperationsRepository {

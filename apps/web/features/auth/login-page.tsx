@@ -6,9 +6,12 @@ import { CircleDollarSign, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { z } from "zod";
 import { Select } from "../../components/ui/select";
 import { authService } from "./auth-service";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../../lib/query-client";
 
 export default function LoginPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [company, setCompany] = useState("BLUE PLASTIC CENTER");
@@ -58,6 +61,7 @@ export default function LoginPage() {
               setLoading(true);
               try {
                 await authService.login(result.data.email, result.data.password);
+                await queryClient.invalidateQueries({ queryKey: queryKeys.session });
                 router.push("/");
               } catch (signInError) {
                 setError(signInError instanceof Error ? signInError.message : "Unable to sign in");

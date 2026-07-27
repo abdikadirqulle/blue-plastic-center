@@ -1,54 +1,73 @@
+import { apiClient, type ApiRecord } from "@/lib/api-client"
+import {
+  firstValue,
+  recordAmount,
+  recordDate,
+  recordTitle,
+} from "../../resources/resource-api"
 import type {
   EnterpriseModule,
   EnterpriseQuery,
   EnterpriseRecord,
   EnterpriseRepository,
 } from "../domain/enterprise-record"
-import { webEnv } from "@/lib/env"
-import { apiFetch } from "@/lib/api-fetch"
+
+function toDomain(record: ApiRecord): EnterpriseRecord {
+  return {
+    id: record.id,
+    module: record.module as EnterpriseModule,
+    resource: record.resource,
+    name: recordTitle(record),
+    detail: firstValue(record, ["memo", "description", "accountType", "customerId"]),
+    value: recordAmount(record),
+    date: recordDate(record),
+    status: record.status,
+    version: record.version,
+    data: record.data,
+    metrics: {
+      progress: firstValue(record, ["progress"], "0%"),
+      variance: firstValue(record, ["variance"], "$0"),
+    },
+  }
+}
 
 export class ApiEnterpriseRepository implements EnterpriseRepository {
-  constructor(private readonly baseUrl = `${webEnv.apiUrl}/v1`) {}
-  private url(module: EnterpriseModule, resource: string, id?: string) {
-    return `${this.baseUrl}/${module}/${resource}${id ? `/${encodeURIComponent(id)}` : ""}`
-  }
   async list(
     module: EnterpriseModule,
     resource: string,
     query: EnterpriseQuery = {},
   ) {
-    const params = new URLSearchParams(
-      Object.entries(query).filter((entry): entry is [string, string] =>
-        Boolean(entry[1]),
-      ),
-    )
-    const response = await apiFetch(`${this.url(module, resource)}?${params}`)
-    if (!response.ok) throw new Error(`Unable to load ${resource}`)
-    return response.json() as Promise<EnterpriseRecord[]>
+    const params = new URLSearchParams()
+    if (query.search) params.set("search", query.search)
+    if (query.status && query.status !== "All statuses")
+      params.set("status", query.status)
+    const response = await apiClient.list(module, resource, params.toString())
+    return response.data.map(toDomain)
   }
+
   async get(module: EnterpriseModule, resource: string, id: string) {
-    const response = await apiFetch(this.url(module, resource, id))
-    if (response.status === 404) return null
-    if (!response.ok) throw new Error(`Unable to load ${id}`)
-    return response.json() as Promise<EnterpriseRecord>
+    return toDomain((await apiClient.get(module, resource, id)).data)
   }
+
   async update(
     module: EnterpriseModule,
     resource: string,
     id: string,
     values: Partial<EnterpriseRecord>,
   ) {
-    const response = await apiFetch(this.url(module, resource, id), {
-      method: "PATCH",
-      body: JSON.stringify(values),
-    })
-    if (!response.ok) throw new Error(`Unable to update ${id}`)
-    return response.json() as Promise<EnterpriseRecord>
+    const current = (await apiClient.get(module, resource, id)).data
+    const response = await apiClient.update(
+      module,
+      resource,
+      id,
+      values.data ?? {},
+      current.version,
+      values.status,
+    )
+    return toDomain(response.data)
   }
+
   async remove(module: EnterpriseModule, resource: string, id: string) {
-    const response = await apiFetch(this.url(module, resource, id), {
-      method: "DELETE",
-    })
-    if (!response.ok) throw new Error(`Unable to delete ${id}`)
+    await apiClient.remove(module, resource, id)
   }
 }

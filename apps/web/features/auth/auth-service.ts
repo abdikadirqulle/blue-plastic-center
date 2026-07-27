@@ -17,6 +17,27 @@ export const authService = {
     if (!response.ok || !payload.data) throw new Error(payload.error?.message ?? "Unable to sign in")
     sessionStorage.setItem(csrfKey, payload.data.csrfToken)
   },
+  async me() {
+    const response = await fetch(`${webEnv.apiUrl}/v1/auth/me`, {
+      credentials: "include",
+    })
+    if (!response.ok) throw new Error("Session expired")
+    return response.json() as Promise<{
+      data: {
+        user: { id: string; displayName: string; email: string; role: string }
+        company: { id: string; legalName: string }
+        branch: { id: string; name: string }
+      }
+    }>
+  },
+  async logout() {
+    await fetch(`${webEnv.apiUrl}/v1/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "X-CSRF-Token": sessionStorage.getItem(csrfKey) ?? "" },
+    })
+    sessionStorage.removeItem(csrfKey)
+  },
   csrfToken: () => sessionStorage.getItem(csrfKey),
   clear: () => sessionStorage.removeItem(csrfKey),
 }

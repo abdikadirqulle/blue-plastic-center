@@ -9,6 +9,8 @@ export interface EnterpriseRecord {
   value: string;
   date: string;
   status: string;
+  version?: number;
+  data?: Record<string, unknown>;
   metrics: Record<string, string>;
 }
 

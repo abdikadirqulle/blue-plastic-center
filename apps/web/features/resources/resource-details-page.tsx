@@ -29,6 +29,8 @@ import type { FormField, ResourceConfig, ResourceRow } from "./resource-config"
 import { InvoicePreviewDialog } from "../sales/components/invoice-preview-dialog"
 import type { SalesResource } from "../sales/domain/sales-record"
 import { salesService } from "../sales/services/sales-service"
+import { useResourceDetail, useResourceMutations, recordTitle } from "./resource-api"
+import { apiClient } from "@/lib/api-client"
 
 const statusVariant = (status: string) => {
   if (["Paid", "Posted", "Active", "Approved", "Completed"].includes(status))
@@ -38,7 +40,18 @@ const statusVariant = (status: string) => {
   return "neutral"
 }
 
-function displayValue(field: FormField, index: number, row: ResourceRow) {
+function displayValue(
+  field: FormField,
+  index: number,
+  row: ResourceRow,
+  data: Record<string, unknown>,
+) {
+  const actual = data[field.name]
+  if (actual !== undefined && actual !== null) {
+    if (typeof actual === "boolean") return actual ? "Yes" : "No"
+    if (typeof actual === "object") return JSON.stringify(actual)
+    return String(actual)
+  }
   if (index === 0) return row.cells[0] ?? row.id
   if (
     /amount|price|balance|total|budget|value|cost|principal|rate/i.test(
@@ -60,12 +73,29 @@ function displayValue(field: FormField, index: number, row: ResourceRow) {
 
 export function ResourceDetailsPage({
   config,
-  row,
+  id,
 }: {
   config: ResourceConfig
-  row: ResourceRow
+  id: string
 }) {
   const router = useRouter()
+  const detail = useResourceDetail(config.module, config.slug, id)
+  const mutations = useResourceMutations(config.module, config.slug)
+  const record = detail.data?.data
+  const row: ResourceRow = record
+    ? {
+        id: record.id,
+        status: record.status,
+        cells: [
+          recordTitle(record),
+          String(record.data.amount ?? record.data.outstanding ?? record.data.cost ?? "—"),
+          String(
+            Object.entries(record.data).find(([key]) => /date/i.test(key))?.[1] ??
+              record.createdAt.slice(0, 10),
+          ),
+        ],
+      }
+    : { id, status: "Loading", cells: ["Loading…", "—", "—"] }
   const [message, setMessage] = useState<ToastMessage | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -78,6 +108,29 @@ export function ResourceDetailsPage({
     setMessage({ title, variant, description })
     window.setTimeout(() => setMessage(null), 3200)
   }
+  const runAction = async (
+    path: string,
+    body: Record<string, unknown> | undefined,
+    successTitle: string,
+    description: string,
+  ) => {
+    try {
+      await apiClient.action(path, body)
+      await detail.refetch()
+      notify(successTitle, "success", description)
+    } catch (caught) {
+      notify(
+        "Action failed",
+        "error",
+        caught instanceof Error ? caught.message : "The API rejected this action.",
+      )
+    }
+  }
+
+  if (detail.isLoading)
+    return <AppShell><div className="p-12 text-center text-sm font-semibold text-[#71848f]">Loading record…</div></AppShell>
+  if (detail.isError || !record)
+    return <AppShell><div className="p-12 text-center text-sm font-semibold text-red-600">{detail.error instanceof Error ? detail.error.message : "Record not found"}</div></AppShell>
 
   return (
     <AppShell>
@@ -167,7 +220,7 @@ export function ResourceDetailsPage({
                         {field.label}
                       </dt>
                       <dd className="mt-1.5 text-sm font-semibold leading-6 text-[#304954]">
-                        {displayValue(field, index, row)}
+                        {displayValue(field, index, row, record.data)}
                       </dd>
                     </div>
                   ))}
@@ -201,14 +254,20 @@ export function ResourceDetailsPage({
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="border-t border-[#edf1f4]">
-                        <td className="px-5 py-4 font-bold">{row.cells[0]}</td>
-                        <td className="px-5 py-4">Primary transaction line</td>
-                        <td className="px-5 py-4">1</td>
-                        <td className="px-5 py-4">{row.cells[1]}</td>
-                        <td className="px-5 py-4">Standard</td>
-                        <td className="px-5 py-4 font-bold">{row.cells[1]}</td>
-                      </tr>
+                      {((record.data.lines as Array<Record<string, unknown>> | undefined) ?? []).map((line, index) => {
+                        const quantity = Number(line.quantity ?? 1)
+                        const rate = Number(line.unitPrice ?? line.rate ?? line.debit ?? line.credit ?? 0)
+                        return (
+                          <tr key={index} className="border-t border-[#edf1f4]">
+                            <td className="px-5 py-4 font-bold">{String(line.itemId ?? line.accountId ?? "—")}</td>
+                            <td className="px-5 py-4">{String(line.description ?? "—")}</td>
+                            <td className="px-5 py-4">{quantity}</td>
+                            <td className="px-5 py-4">{rate.toLocaleString()}</td>
+                            <td className="px-5 py-4">{String(line.taxCodeId ?? "—")}</td>
+                            <td className="px-5 py-4 font-bold">${(quantity * rate).toLocaleString()}</td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -257,14 +316,17 @@ export function ResourceDetailsPage({
                   <Link href={`/purchasing/bill-payments/new?credit=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-amber-50 px-3 py-3 text-xs font-bold text-amber-700"><RefreshCcw size={15}/> Apply to open bills</Link>
                 ) : null}
                 {config.module === "inventory" && config.slug === "fulfillment" ? (
-                  <button onClick={() => notify("Fulfillment advanced", "success", `${row.id} moved to the next pick-pack-ship stage.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><ArrowRight size={15}/> Advance fulfillment stage</button>
+                  <button onClick={() => {
+                    const action = ({ draft: "allocate", allocated: "pick", picked: "pack", packed: "ship" } as Record<string, string>)[row.status.toLowerCase()] ?? "allocate";
+                    void runAction(`/v1/inventory/fulfillment/${encodeURIComponent(row.id)}/action`, { action }, "Fulfillment advanced", `${row.id} moved to ${action}.`);
+                  }} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><ArrowRight size={15}/> Advance fulfillment stage</button>
                 ) : null}
                 {config.module === "banking" && config.slug === "bank-feeds" ? (
-                  <button onClick={() => notify("Transaction matched", "success", `${row.id} was matched and is ready to post.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Match transaction</button>
+                  <button onClick={() => void runAction(`/v1/banking/bank-feeds/${encodeURIComponent(row.id)}/action`, { action: "add", accountId: "1000" }, "Transaction added", `${row.id} was added to account 1000.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Add transaction</button>
                 ) : null}
                 {config.module === "accounting" && config.slug === "journal-entries" ? (
                   <>
-                    <button onClick={() => notify("Journal posted", "success", `${row.id} passed balance validation and was posted.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Validate and post journal</button>
+                    <button onClick={() => void runAction(`/v1/accounting/journal-entries/${encodeURIComponent(row.id)}/post`, undefined, "Journal posted", `${row.id} passed balance validation and was posted.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Validate and post journal</button>
                     <Link href={`/accounting/journal-entries/new?reverse=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-amber-50 px-3 py-3 text-xs font-bold text-amber-700"><RefreshCcw size={15}/> Create reversing entry</Link>
                   </>
                 ) : null}
@@ -278,7 +340,7 @@ export function ResourceDetailsPage({
                   <Link href={`/sales/invoices/new?projectBilling=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-[#eaf5fc] px-3 py-3 text-xs font-bold text-[#007DCC]"><ArrowRight size={15}/> Create progress invoice</Link>
                 ) : null}
                 {config.module === "payroll" && config.slug === "pay-runs" ? (
-                  <button onClick={() => notify("Payroll approved", "success", `${row.id} is ready for payment and liability posting.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Approve payroll</button>
+                  <button onClick={() => void runAction(`/v1/payroll/pay-runs/${encodeURIComponent(row.id)}/approve`, undefined, "Payroll approved", `${row.id} is ready for payment and liability posting.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Approve payroll</button>
                 ) : null}
                 <Link
                   href={`${listHref}/new?edit=${encodeURIComponent(row.id)}`}
@@ -367,11 +429,12 @@ export function ResourceDetailsPage({
         open={deleteOpen}
         title={`Delete ${row.id}?`}
         recordName={`${row.id} · ${row.cells[0] ?? config.title}`}
-        description={`This ${config.title.toLowerCase()} record will be permanently removed. Related audit references remain available to administrators.`}
+        description={`This ${config.title.toLowerCase()} record will move to Trash. It can be restored later and will never be permanently removed.`}
         onClose={() => setDeleteOpen(false)}
-        onConfirm={() =>
+        onConfirm={async () => {
+          await mutations.remove.mutateAsync(row.id)
           router.push(`${listHref}?deleted=${encodeURIComponent(row.id)}`)
-        }
+        }}
       />
       {config.module === "sales" ? (
         <InvoicePreviewDialog

@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes, useParams } from "react-router-dom"
+import { Navigate, Outlet, Route, Routes, useParams } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
 import LoginPage from "../features/auth/login-page"
 import { DashboardPage } from "../features/dashboard/components/dashboard-page"
 import { EnterpriseWorkspacePage } from "../features/enterprise/components/enterprise-workspace-page"
@@ -16,6 +17,20 @@ import {
 } from "../features/resources/resource-config"
 import { SalesWorkspacePage } from "../features/sales/components/sales-workspace-page"
 import { SettingsPage } from "../features/settings/settings-page"
+import { TrashPage } from "../features/trash/trash-page"
+import { authService } from "../features/auth/auth-service"
+import { queryKeys } from "../lib/query-client"
+
+function ProtectedRoute() {
+  const session = useQuery({
+    queryKey: queryKeys.session,
+    queryFn: () => authService.me(),
+    retry: false,
+  })
+  if (session.isLoading)
+    return <main className="grid min-h-screen place-items-center bg-[#f4f7fa] text-sm font-semibold text-[#607681]">Loading secure workspace…</main>
+  return session.isError ? <Navigate to="/login" replace /> : <Outlet />
+}
 
 function NotFoundPage() {
   return (
@@ -70,9 +85,8 @@ function ResourceRoute() {
 function ResourceDetailsRoute() {
   const { section = "", resource = "", id = "" } = useParams()
   const config = resourceConfigs[`${section}/${resource}`]
-  const row = config?.rows.find((item) => item.id === decodeURIComponent(id))
-  return config && row ? (
-    <ResourceDetailsPage config={config} row={row} />
+  return config ? (
+    <ResourceDetailsPage config={config} id={decodeURIComponent(id)} />
   ) : (
     <NotFoundPage />
   )
@@ -87,19 +101,22 @@ function ResourceFormRoute() {
 export function App() {
   return (
     <Routes>
-      <Route path="/" element={<DashboardPage />} />
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/import" element={<ImportPage />} />
-      <Route path="/notifications" element={<NotificationsPage />} />
-      <Route path="/profile" element={<ProfilePage />} />
-      <Route path="/:section/:resource/new" element={<ResourceFormRoute />} />
-      <Route
-        path="/:section/:resource/:id"
-        element={<ResourceDetailsRoute />}
-      />
-      <Route path="/:section/:resource" element={<ResourceRoute />} />
-      <Route path="/:section" element={<SectionRedirect />} />
-      <Route path="*" element={<NotFoundPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/import" element={<ImportPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/trash" element={<TrashPage />} />
+        <Route path="/:section/:resource/new" element={<ResourceFormRoute />} />
+        <Route
+          path="/:section/:resource/:id"
+          element={<ResourceDetailsRoute />}
+        />
+        <Route path="/:section/:resource" element={<ResourceRoute />} />
+        <Route path="/:section" element={<SectionRedirect />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
     </Routes>
   )
 }

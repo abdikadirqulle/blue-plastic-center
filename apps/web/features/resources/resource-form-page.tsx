@@ -2,7 +2,8 @@
 
 import { Link } from "@/components/routing";
 import { useRouter } from "@/components/routing";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import { z } from "zod";
 import { AppShell } from "../../components/layout/app-shell";
@@ -13,8 +14,7 @@ import { Select } from "../../components/ui/select";
 import { Toast, type ToastMessage } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
 import type { FormField, ResourceConfig } from "./resource-config";
-import type { SalesResource } from "../sales/domain/sales-record";
-import { salesService } from "../sales/services/sales-service";
+import { useResourceDetail, useResourceMutations } from "./resource-api";
 
 interface LineItem {
   id: number;
@@ -74,12 +74,48 @@ const blankLine = (): LineItem => ({
 
 export function ResourceFormPage({ config }: { config: ResourceConfig }) {
   const router = useRouter();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit") ?? "";
+  const detail = useResourceDetail(config.module, config.slug, editId);
+  const mutations = useResourceMutations(config.module, config.slug);
   const [lineItems, setLineItems] = useState<LineItem[]>([blankLine()]);
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [deleteLineId, setDeleteLineId] = useState<number | null>(null);
   const listHref = `/${config.module}/${config.slug}`;
+
+  useEffect(() => {
+    if (!detail.data?.data) return;
+    const loaded = Object.fromEntries(
+      Object.entries(detail.data.data.data).map(([key, value]) => [
+        key,
+        typeof value === "object" ? JSON.stringify(value) : String(value ?? ""),
+      ]),
+    );
+    const source = detail.data.data.data;
+    loaded.customer ??= String(source.customerId ?? "");
+    loaded.vendor ??= String(source.vendorId ?? "");
+    loaded.project ??= String(source.projectId ?? "");
+    loaded.employee ??= String(source.employeeId ?? "");
+    loaded.warehouse ??= String(source.warehouseId ?? "");
+    loaded.account ??= String(source.accountId ?? "");
+    setValues(loaded);
+    if (Array.isArray(source.lines) && source.lines.length) {
+      setLineItems(source.lines.map((entry, index) => {
+        const line = entry as Record<string, unknown>;
+        return {
+          id: Date.now() + index,
+          item: String(line.itemId ?? line.accountId ?? ""),
+          description: String(line.description ?? ""),
+          quantity: String(line.quantity ?? "1"),
+          unit: String(line.unit ?? "Each"),
+          rate: String(line.unitPrice ?? line.rate ?? ""),
+          tax: String(line.taxCodeId ?? "Standard tax"),
+        };
+      }));
+    }
+  }, [detail.data]);
 
   const save = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -102,17 +138,54 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
     setErrors({});
     const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
     const mode = submitter?.value === "new" ? "new" : "close";
-    if (config.module === "sales") {
-      const dateField = fields.find((field) => field.type === "date");
-      const customer = values.customer ?? values.customerName ?? values.depositTo ?? "Walk-in customer";
-      await salesService.create(config.slug as SalesResource, {
-        customer,
-        amount: values.amount ?? values.currentAmount ?? `$${lineTotal.toLocaleString()}`,
-        date: (dateField && values[dateField.name]) || new Date().toISOString().slice(0, 10),
-        reference: values.reference ?? values.originalSale ?? values.depositReference,
-        paymentMethod: values.paymentMethod ?? values.refundMethod,
-        memo: values.memo ?? values.message,
+    const data: Record<string, unknown> = { ...values };
+    for (const field of fields) {
+      if (field.type === "number" && values[field.name] !== "")
+        data[field.name] = Number(values[field.name]);
+      if (field.type === "checkbox")
+        data[field.name] = values[field.name] === "true";
+    }
+    const aliases: Record<string, string[]> = {
+      customerId: ["customer", "customerName"],
+      vendorId: ["vendor", "vendorName"],
+      projectId: ["project"],
+      employeeId: ["employee"],
+      warehouseId: ["warehouse"],
+      accountId: ["account"],
+      displayName: ["customer", "vendor", "name"],
+    };
+    for (const [target, sources] of Object.entries(aliases)) {
+      if (data[target]) continue;
+      const source = sources.find((key) => values[key]);
+      if (source) data[target] = values[source];
+    }
+    if (config.hasLineItems) {
+      data.lines = lineItems.map((line) => ({
+        accountId: line.item || "4000",
+        description: line.description || line.item || "Transaction line",
+        quantity: line.quantity || "1",
+        unitPrice: line.rate || "0",
+        taxCodeId: line.tax,
+      }));
+    }
+    if (!data.currency) data.currency = "USD";
+    try {
+      if (editId && detail.data?.data) {
+        await mutations.update.mutateAsync({
+          id: editId,
+          data,
+          version: detail.data.data.version,
+        });
+      } else {
+        await mutations.create.mutateAsync({ data, status: "draft" });
+      }
+    } catch (caught) {
+      setMessage({
+        title: "Unable to save",
+        description: caught instanceof Error ? caught.message : "The API rejected this record.",
+        variant: "error",
       });
+      return;
     }
 
     if (mode === "new") {

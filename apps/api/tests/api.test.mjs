@@ -202,9 +202,19 @@ test("CRUD supports pagination, search, optimistic locking, soft deletion, and a
   const retained = repository.records.get(record.id);
   assert.equal(retained.isDeleted, true);
   assert.ok(retained.deletedAt);
+  const trash = await request(app, "/v1/trash?module=inventory&resource=items");
+  assert.equal(trash.status, 200);
+  assert.equal(trash.json().data[0].id, record.id);
+  assert.equal(trash.json().data[0].isDeleted, true);
+  const restored = await request(app, `/v1/trash/${record.id}/restore`, {
+    method: "POST",
+  });
+  assert.equal(restored.status, 200);
+  assert.equal(restored.json().data.isDeleted, false);
+  assert.equal((await request(app, `/v1/inventory/items/${record.id}`)).status, 200);
 
   const audit = await request(app, "/v1/audit-events");
-  assert.deepEqual((await audit.json()).data.map((event) => event.action), ["delete", "update", "create"]);
+  assert.deepEqual((await audit.json()).data.map((event) => event.action), ["restore", "delete", "update", "create"]);
 });
 
 test("journal entries must balance before creation and posting", async () => {
@@ -276,6 +286,11 @@ test("Phase 2 CRUD validates operational documents, numbers them, and honors ide
     body: JSON.stringify({ ...invoiceInput, status: "posted" }),
   });
   assert.equal(forgedPosted.status, 409);
+  const forgedPostedCase = await request(app, "/v1/sales/invoices", {
+    method: "POST",
+    body: JSON.stringify({ ...invoiceInput, status: "Posted" }),
+  });
+  assert.equal(forgedPostedCase.status, 409);
 
   const duplicate = await request(app, "/v1/sales/invoices", {
     method: "POST",

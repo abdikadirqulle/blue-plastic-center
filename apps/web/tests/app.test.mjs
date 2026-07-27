@@ -15,6 +15,7 @@ test("uses a React and Vite browser entry point", async () => {
 
   assert.equal(manifest.scripts.build, "vite build");
   assert.ok(manifest.dependencies["react-router-dom"]);
+  assert.ok(manifest.dependencies["@tanstack/react-query"]);
   assert.equal(manifest.dependencies.next, undefined);
   assert.equal(manifest.dependencies.vinext, undefined);
   assert.match(index, /<div id="root"><\/div>/);
@@ -29,6 +30,7 @@ test("declares every application route in one router", async () => {
     "/import",
     "/notifications",
     "/profile",
+    "/trash",
     "/:section/:resource/new",
     "/:section/:resource/:id",
     "/:section/:resource",
@@ -38,14 +40,18 @@ test("declares every application route in one router", async () => {
   }
 });
 
-test("uses Vite-safe environment configuration", async () => {
-  const [env, example, sales] = await Promise.all([
+test("uses the live REST API and React Query integration", async () => {
+  const [env, example, sales, main, trash] = await Promise.all([
     read("../lib/env.ts"),
     read("../.env.example"),
     read("../features/sales/services/sales-service.ts"),
+    read("../src/main.tsx"),
+    read("../features/trash/trash-page.tsx"),
   ]);
   assert.match(env, /import\.meta\.env\.VITE_API_URL/);
-  assert.match(example, /VITE_DATA_SOURCE=mock/);
-  assert.match(sales, /webEnv\.dataSource/);
+  assert.match(example, /VITE_DATA_SOURCE=api/);
+  assert.match(sales, /ApiSalesRepository/);
+  assert.match(main, /QueryClientProvider/);
+  assert.match(trash, /apiClient\.restore/);
   assert.doesNotMatch(`${env}\n${sales}`, /NEXT_PUBLIC|process\.env/);
 });
