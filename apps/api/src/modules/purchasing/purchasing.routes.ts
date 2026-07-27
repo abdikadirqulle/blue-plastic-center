@@ -44,8 +44,8 @@ export async function purchasingRoutes(
         bill.id,
         String(bill.data.billDate),
         bill.data.lines as Array<Record<string, unknown>>,
-        "purchases-expense",
-        "accounts-payable",
+        "6000",
+        "2000",
       )
     }
     return {

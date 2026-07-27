@@ -8,6 +8,7 @@ import type {
 } from "../platform/types.js"
 import type { ResourceRepository } from "../repositories/resource-repository.js"
 import { validateOperationalData } from "../modules/operations/operational-validation.js"
+import { assertBalanced } from "../modules/accounting/ledger-math.js"
 
 interface WriteInput {
   status?: string
@@ -91,22 +92,10 @@ function validateJournalBalance(
   const lines = data.lines
   if (!Array.isArray(lines) || lines.length < 2)
     throw validation("A journal entry requires at least two lines")
-  const totals = lines.reduce(
-    (sum, value) => {
-      const line = value as Record<string, unknown>
-      return {
-        debit: sum.debit + Number(line.debit ?? 0),
-        credit: sum.credit + Number(line.credit ?? 0),
-      }
-    },
-    { debit: 0, credit: 0 },
-  )
-  if (
-    !Number.isFinite(totals.debit) ||
-    !Number.isFinite(totals.credit) ||
-    Math.abs(totals.debit - totals.credit) > 0.000001
-  ) {
-    throw validation("Journal entry is not balanced", totals)
+  try {
+    assertBalanced(lines as Array<Record<string, unknown>>)
+  } catch (error) {
+    throw validation(error instanceof Error ? error.message : "Journal entry is not balanced")
   }
 }
 
@@ -158,6 +147,8 @@ export class ResourceService {
     idempotency?: IdempotencyInput,
     options: { allowWorkflowStatus?: boolean } = {},
   ) {
+    if (moduleName === "accounting" && resourceName === "audit-log")
+      throw conflict("Audit records are read-only")
     if (idempotency) {
       const previous = await this.repository.findByIdempotency(
         context.companyId,
@@ -232,6 +223,8 @@ export class ResourceService {
     input: WriteInput,
     options: { allowWorkflowTransition?: boolean } = {},
   ) {
+    if (moduleName === "accounting" && resourceName === "audit-log")
+      throw conflict("Audit records are read-only")
     const current = await this.get(context, moduleName, resourceName, id)
     if (input.version !== undefined && input.version !== current.version)
       throw conflict(
@@ -275,6 +268,8 @@ export class ResourceService {
     resourceName: string,
     id: string,
   ) {
+    if (moduleName === "accounting" && resourceName === "audit-log")
+      throw conflict("Audit records are read-only")
     const current = await this.get(context, moduleName, resourceName, id)
     if (current.status === "posted")
       throw conflict(
@@ -288,23 +283,6 @@ export class ResourceService {
     }
     await this.repository.softDelete(deleted)
     await this.audit(context, "delete", deleted, { before: current.data })
-  }
-
-  async postJournal(context: RequestContext, id: string) {
-    const current = await this.get(context, "accounting", "journal-entries", id)
-    if (current.status === "posted")
-      throw conflict("Journal entry is already posted")
-    validateJournalBalance("accounting", "journal-entries", current.data)
-    const posted = {
-      ...current,
-      status: "posted",
-      version: current.version + 1,
-      updatedAt: new Date().toISOString(),
-      updatedBy: context.principal.userId,
-    }
-    await this.repository.update(posted)
-    await this.audit(context, "post", posted)
-    return posted
   }
 
   private async audit(

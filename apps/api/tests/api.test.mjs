@@ -6,6 +6,9 @@ import { salesSchemas } from "../dist/modules/sales/sales.schemas.js";
 import { purchasingSchemas } from "../dist/modules/purchasing/purchasing.schemas.js";
 import { inventorySchemas } from "../dist/modules/inventory/inventory.schemas.js";
 import { bankingSchemas } from "../dist/modules/banking/banking.schemas.js";
+import { accountingSchemas } from "../dist/modules/accounting/accounting.schemas.js";
+import { projectSchemas } from "../dist/modules/projects/project.schemas.js";
+import { payrollSchemas } from "../dist/modules/payroll/payroll.schemas.js";
 
 async function inject(app, path, init = {}, auth = {}) {
   const response = await app.inject({
@@ -469,6 +472,199 @@ test("every Phase 2 CRUD resource has a dedicated validation contract", async ()
     banking: bankingSchemas,
   };
   for (const [moduleName, schemas] of Object.entries(schemaSets)) {
+    assert.deepEqual(
+      Object.keys(schemas).sort(),
+      Object.keys(moduleMetadata[moduleName].resources).sort(),
+      moduleName,
+    );
+  }
+});
+
+test("Phase 3 ledger posting, exact reports, reversal, and fiscal locks are enforced", async () => {
+  const app = createApp();
+  const createJournal = async (date, amount = "100.1234") =>
+    request(app, "/v1/accounting/journal-entries", {
+      method: "POST",
+      body: JSON.stringify({
+        data: {
+          journalDate: date,
+          currency: "USD",
+          lines: [
+            { accountId: "1000", debit: amount, credit: "0" },
+            { accountId: "4000", debit: "0", credit: amount },
+          ],
+        },
+      }),
+    });
+
+  const journal = (await (await createJournal("2026-07-28")).json()).data;
+  const posted = await request(app, `/v1/accounting/journal-entries/${journal.id}/post`, {
+    method: "POST",
+  });
+  assert.equal(posted.status, 200);
+
+  const report = await request(app, "/v1/reports/trial-balance/run", {
+    method: "POST",
+    body: JSON.stringify({ from: "2026-07-01", to: "2026-07-31" }),
+  });
+  assert.deepEqual(report.json().data.controlTotals, {
+    debit: "100.1234",
+    credit: "100.1234",
+    balanced: true,
+  });
+
+  const reversed = await request(app, `/v1/accounting/journal-entries/${journal.id}/reverse`, {
+    method: "POST",
+    body: JSON.stringify({ reversalDate: "2026-07-29", memo: "Correcting reversal" }),
+  });
+  assert.equal(reversed.status, 201);
+  assert.equal(reversed.json().data.status, "posted");
+
+  assert.equal((await request(app, "/v1/accounting/periods/close", {
+    method: "POST",
+    body: JSON.stringify({
+      name: "July 2026",
+      startDate: "2026-07-01",
+      endDate: "2026-07-31",
+    }),
+  })).status, 204);
+  const locked = (await (await createJournal("2026-07-30", "20.0000")).json()).data;
+  assert.equal((await request(app, `/v1/accounting/journal-entries/${locked.id}/post`, {
+    method: "POST",
+  })).status, 409);
+  assert.equal((await request(app, "/v1/accounting/periods/July%202026/reopen", {
+    method: "POST",
+  })).status, 204);
+  assert.equal((await request(app, `/v1/accounting/journal-entries/${locked.id}/post`, {
+    method: "POST",
+  })).status, 200);
+  const reconciliation = await request(app, "/v1/accounting/reconciliation/control-accounts", {
+    method: "POST",
+    body: JSON.stringify({ from: "2026-07-01", to: "2026-07-31" }),
+  });
+  assert.equal(reconciliation.status, 200);
+  assert.equal(reconciliation.json().data.controls.length, 2);
+});
+
+test("Phase 3 operational reports include aging and audit trails", async () => {
+  const app = createApp();
+  await request(app, "/v1/debts/receivables", {
+    method: "POST",
+    body: JSON.stringify({ status: "open", data: {
+      customerId: "customer-1",
+      originalAmount: "100",
+      outstanding: "75",
+      dueDate: "2026-06-15",
+    } }),
+  });
+  const aging = await request(app, "/v1/reports/receivables-aging/run", {
+    method: "POST",
+    body: JSON.stringify({ from: "2026-01-01", to: "2026-07-31" }),
+  });
+  assert.equal(aging.status, 201);
+  assert.equal(aging.json().data.rows[0].agingBucket, "31-60");
+
+  const audit = await request(app, "/v1/reports/audit-trail/run", {
+    method: "POST",
+    body: JSON.stringify({ from: "2026-01-01", to: "2030-12-31" }),
+  });
+  assert.equal(audit.status, 201);
+  assert.ok(audit.json().data.rows.some((row) => row.action === "create"));
+});
+
+test("Phase 3 project billing and profitability use exact financial values", async () => {
+  const app = createApp();
+  const project = (await request(app, "/v1/projects/projects", {
+    method: "POST",
+    body: JSON.stringify({
+      status: "active",
+      data: {
+        projectName: "Factory expansion",
+        customerId: "customer-1",
+        startDate: "2026-07-01",
+        contractAmount: "5000",
+      },
+    }),
+  })).json().data;
+  await request(app, "/v1/projects/time", {
+    method: "POST",
+    body: JSON.stringify({ data: {
+      employeeId: "employee-1", projectId: project.id, date: "2026-07-28",
+      hours: "8", hourlyCost: "10", billable: true,
+    } }),
+  });
+  await request(app, "/v1/projects/expenses", {
+    method: "POST",
+    body: JSON.stringify({ data: {
+      projectId: project.id, date: "2026-07-28", amount: "20",
+      accountId: "6000", billable: true,
+    } }),
+  });
+  const billing = (await request(app, "/v1/projects/progress-billing", {
+    method: "POST",
+    body: JSON.stringify({ data: {
+      projectId: project.id, customerId: "customer-1", invoiceDate: "2026-07-28",
+      amount: "250", revenueAccountId: "4000", description: "Milestone 1",
+    } }),
+  })).json().data;
+  const invoice = await request(app, `/v1/projects/progress-billing/${billing.id}/create-invoice`, {
+    method: "POST",
+    body: JSON.stringify({ dueDate: "2026-08-27", receivableAccountId: "1100" }),
+  });
+  assert.equal(invoice.status, 201);
+  assert.equal(invoice.json().data.data.sourceDocumentId, billing.id);
+
+  const profitability = await request(app, `/v1/projects/projects/${project.id}/profitability`);
+  assert.deepEqual(
+    Object.fromEntries(["revenue", "labourCost", "expenseCost", "totalCost", "profit"].map(
+      (key) => [key, profitability.json().data[key]],
+    )),
+    {
+      revenue: "250.0000",
+      labourCost: "80.0000",
+      expenseCost: "20.0000",
+      totalCost: "100.0000",
+      profit: "150.0000",
+    },
+  );
+});
+
+test("Phase 3 payroll validates calculations and protects approval workflows", async () => {
+  const app = createApp();
+  const invalid = await request(app, "/v1/payroll/pay-runs", {
+    method: "POST",
+    body: JSON.stringify({ data: {
+      periodStart: "2026-07-01", periodEnd: "2026-07-31", paymentDate: "2026-07-31",
+      wageExpenseAccountId: "6000", payrollPayableAccountId: "2100",
+      lines: [{ employeeId: "employee-1", grossPay: "1000", deductions: "100", netPay: "950" }],
+    } }),
+  });
+  assert.equal(invalid.status, 422);
+
+  const payRun = (await request(app, "/v1/payroll/pay-runs", {
+    method: "POST",
+    body: JSON.stringify({ data: {
+      periodStart: "2026-07-01", periodEnd: "2026-07-31", paymentDate: "2026-07-31",
+      wageExpenseAccountId: "6000", payrollPayableAccountId: "2100",
+      lines: [{ employeeId: "employee-1", grossPay: "1000", deductions: "100", netPay: "900" }],
+    } }),
+  })).json().data;
+  assert.equal((await request(app, `/v1/payroll/pay-runs/${payRun.id}/approve`, {
+    method: "POST",
+  })).json().data.status, "approved");
+  assert.equal((await request(app, `/v1/payroll/pay-runs/${payRun.id}/mark-paid`, {
+    method: "POST",
+  })).json().data.status, "paid");
+});
+
+test("every Phase 3 CRUD resource has a dedicated validation contract", async () => {
+  const app = createApp();
+  const moduleMetadata = (await request(app, "/v1/meta/modules")).json().data;
+  for (const [moduleName, schemas] of Object.entries({
+    accounting: accountingSchemas,
+    projects: projectSchemas,
+    payroll: payrollSchemas,
+  })) {
     assert.deepEqual(
       Object.keys(schemas).sort(),
       Object.keys(moduleMetadata[moduleName].resources).sort(),

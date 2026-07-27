@@ -83,6 +83,14 @@ Error:
 | POST | `/v1/imports` | Validate or queue up to 5,000 import rows |
 | POST | `/v1/reports/:kind/run` | Generate a parameterized financial/operational report |
 | POST | `/v1/accounting/journal-entries/:id/post` | Validate and post a balanced journal |
+| POST | `/v1/accounting/journal-entries/:id/reverse` | Post an equal-and-opposite reversal |
+| POST | `/v1/accounting/periods/close` | Close a fiscal date range |
+| POST | `/v1/accounting/periods/:name/reopen` | Reopen a period (Administrator only) |
+| POST | `/v1/accounting/reconciliation/control-accounts` | Reconcile AR/AP subledgers to control accounts |
+| POST | `/v1/projects/progress-billing/:id/create-invoice` | Convert progress billing into an invoice |
+| GET | `/v1/projects/projects/:id/profitability` | Calculate project revenue, cost, and profit |
+| POST | `/v1/payroll/pay-runs/:id/approve` | Approve a pay run and create its draft journal |
+| POST | `/v1/payroll/pay-runs/:id/mark-paid` | Mark an approved pay run paid |
 
 ## Resource CRUD
 
@@ -147,6 +155,9 @@ reversal or adjustment.
 
 Detailed Phase 2 resource contracts, workflows, and permission boundaries are in
 `docs/PHASE2_OPERATIONS.md`.
+
+Ledger, period close, financial reports, project costing, and payroll workflows
+are documented in `docs/PHASE3_FINANCE.md`.
 
 ## Database commands
 

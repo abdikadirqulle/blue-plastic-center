@@ -1,15 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { createHash } from "node:crypto";
-import { authorize, authorizeResource } from "../../platform/auth.js";
+import { authorizeResource } from "../../platform/auth.js";
 import type { ResourceService } from "../../services/resource-service.js";
 import { listQuerySchema, type ResourceParams, writeSchema } from "./resource.schemas.js";
 
 export async function resourceRoutes(app: FastifyInstance, service: ResourceService) {
-  app.post<{ Params: Pick<ResourceParams, "id"> }>("/accounting/journal-entries/:id/post", async (request) => {
-    authorize(request.requestContext.principal, "post");
-    return { data: await service.postJournal(request.requestContext, request.params.id) };
-  });
-
   app.get<{ Params: Omit<ResourceParams, "id"> }>("/:module/:resource", async (request) => {
     authorizeResource(request.requestContext.principal, "read", request.params.module);
     const query = listQuerySchema.parse(request.query);

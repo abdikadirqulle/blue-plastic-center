@@ -69,7 +69,7 @@ export async function salesRoutes(
                 credit: "0.0000",
               },
               {
-                accountId: "accounts-receivable",
+                accountId: "1100",
                 debit: "0.0000",
                 credit: amount,
               },

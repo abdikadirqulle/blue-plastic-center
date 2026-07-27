@@ -293,6 +293,25 @@ export const accounts = pgTable(
   ],
 )
 
+export const fiscalPeriods = pgTable(
+  "fiscal_periods",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    name: text("name").notNull(),
+    startDate: timestamp("start_date", { withTimezone: true }).notNull(),
+    endDate: timestamp("end_date", { withTimezone: true }).notNull(),
+    status: text("status").notNull().default("open"),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    closedBy: uuid("closed_by").references(() => users.id),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("fiscal_periods_company_name_uq").on(table.companyId, table.name),
+    index("fiscal_periods_company_dates_idx").on(table.companyId, table.startDate, table.endDate),
+  ],
+)
+
 export const accountingTransactions = pgTable(
   "accounting_transactions",
   {
@@ -309,6 +328,8 @@ export const accountingTransactions = pgTable(
     }).notNull(),
     sourceModule: text("source_module").notNull(),
     sourceId: uuid("source_id"),
+    fiscalPeriodId: uuid("fiscal_period_id").references(() => fiscalPeriods.id),
+    reversalOfId: uuid("reversal_of_id"),
     status: text("status").notNull().default("draft"),
     currency: text("currency").notNull(),
     exchangeRate: numeric("exchange_rate", { precision: 20, scale: 8 })

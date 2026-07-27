@@ -9,11 +9,16 @@ import { AuthService } from "./modules/auth/auth-service.js"
 import type { IdentityRepository } from "./modules/auth/identity-repository.js"
 import { MemoryIdentityRepository } from "./modules/auth/memory-identity-repository.js"
 import { bankingRoutes } from "./modules/banking/banking.routes.js"
+import { accountingRoutes } from "./modules/accounting/accounting.routes.js"
+import type { LedgerRepository } from "./modules/accounting/ledger-repository.js"
+import { MemoryLedgerRepository } from "./modules/accounting/memory-ledger-repository.js"
 import { documentRoutes } from "./modules/documents/document.routes.js"
 import { inventoryRoutes } from "./modules/inventory/inventory.routes.js"
 import { OperationalWorkflowService } from "./modules/operations/operational-workflow.service.js"
 import { purchasingRoutes } from "./modules/purchasing/purchasing.routes.js"
 import { salesRoutes } from "./modules/sales/sales.routes.js"
+import { projectRoutes } from "./modules/projects/project.routes.js"
+import { payrollRoutes } from "./modules/payroll/payroll.routes.js"
 import { importRoutes } from "./modules/imports/import.routes.js"
 import { reportRoutes } from "./modules/reports/report.routes.js"
 import { resourceRoutes } from "./modules/resources/resource.routes.js"
@@ -38,6 +43,7 @@ export function createApp(
   repository: ResourceRepository = new MemoryResourceRepository(),
   env: AppEnv = defaultEnv,
   identityRepository: IdentityRepository = new MemoryIdentityRepository(),
+  ledgerRepository?: LedgerRepository,
 ) {
   const app = Fastify({
     logger: env.LOG_LEVEL === "silent" ? false : { level: env.LOG_LEVEL },
@@ -46,6 +52,7 @@ export function createApp(
   const service = new ResourceService(repository)
   const authService = new AuthService(identityRepository, env.SESSION_TTL_HOURS)
   const workflows = new OperationalWorkflowService(service)
+  const ledger = ledgerRepository ?? new MemoryLedgerRepository(repository)
 
   registerErrorHandler(app)
   app.register(helmet)
@@ -86,6 +93,18 @@ export function createApp(
         { prefix: "/sales" },
       )
       await v1.register(
+        async (accounting) => accountingRoutes(accounting, service, ledger),
+        { prefix: "/accounting" },
+      )
+      await v1.register(
+        async (projects) => projectRoutes(projects, service),
+        { prefix: "/projects" },
+      )
+      await v1.register(
+        async (payroll) => payrollRoutes(payroll, service),
+        { prefix: "/payroll" },
+      )
+      await v1.register(
         async (purchasing) => purchasingRoutes(purchasing, workflows, service),
         { prefix: "/purchasing" },
       )
@@ -102,7 +121,7 @@ export function createApp(
         { prefix: "/documents" },
       )
       await systemRoutes(v1, repository)
-      await reportRoutes(v1)
+      await reportRoutes(v1, ledger, service, repository)
       await importRoutes(v1)
       await resourceRoutes(v1, service)
     },

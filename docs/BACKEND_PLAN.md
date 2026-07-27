@@ -46,7 +46,7 @@ Exit criteria: operational frontend screens use real APIs; each approved
 transaction creates balanced draft ledger entries atomically; critical
 workflows have integration and rollback tests.
 
-## Phase 3 — Ledger, close, reports, projects, and payroll
+## Phase 3 — Ledger, close, reports, projects, and payroll (completed)
 
 - Double-entry posting engine and subledger reconciliation
 - Period locks, reversals, recurring journals, budgets, classes, and fixed assets
@@ -62,5 +62,5 @@ are rehearsed.
 
 ## Recommended next work
 
-Begin Phase 3 with the double-entry posting engine, fiscal-period controls, and
-subledger reconciliation before expanding financial reports.
+Connect the React query/services layer to the completed API contracts, then run
+the production-readiness checklist with accountant-approved opening balances.

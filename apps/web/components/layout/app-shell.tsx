@@ -1,7 +1,7 @@
 "use client"
 
-import { Link } from "@/components/routing";
-import { useRouter } from "@/components/routing";
+import { Link } from "@/components/routing"
+import { useRouter } from "@/components/routing"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import {
   Bell,
@@ -16,12 +16,68 @@ import {
 import { Sidebar } from "./sidebar"
 
 const createGroups = [
-  { module: "Sales", links: [["New invoice", "/sales/invoices/new"], ["Sales receipt", "/sales/sales-receipts/new"], ["Receive payment", "/sales/payments/new"], ["Estimate", "/sales/estimates/new"], ["Sales order", "/sales/sales-orders/new"], ["Credit memo", "/sales/credit-notes/new"]] },
-  { module: "Purchasing", links: [["Vendor bill", "/purchasing/bills/new"], ["Purchase order", "/purchasing/purchase-orders/new"], ["Receive items", "/purchasing/receipts/new"], ["Pay bills", "/purchasing/bill-payments/new"], ["Vendor credit", "/purchasing/vendor-credits/new"]] },
-  { module: "Inventory", links: [["Inventory item", "/inventory/items/new"], ["Stock adjustment", "/inventory/adjustments/new"], ["Pick list", "/inventory/fulfillment/new"], ["Assembly build", "/inventory/assemblies/new"], ["Stock transfer", "/inventory/transfers/new"]] },
-  { module: "Banking", links: [["Bank transaction", "/banking/transactions/new"], ["Bank deposit", "/banking/deposits/new"], ["Transfer funds", "/banking/transfers/new"], ["Reconcile account", "/banking/reconciliation/new"], ["Write check", "/banking/checks/new"]] },
-  { module: "Accounting", links: [["Journal entry", "/accounting/journal-entries/new"], ["Budget", "/accounting/budgets/new"], ["Fixed asset", "/accounting/fixed-assets/new"], ["Month-end close", "/accounting/close-center/new"], ["Account", "/accounting/chart-of-accounts/new"]] },
-  { module: "People & projects", links: [["Project", "/projects/projects/new"], ["Change order", "/projects/change-orders/new"], ["Project time", "/projects/time/new"], ["Pay run", "/payroll/pay-runs/new"], ["Employee", "/payroll/employees/new"], ["Payroll liability", "/payroll/liabilities/new"]] },
+  {
+    module: "Sales",
+    links: [
+      ["New invoice", "/sales/invoices/new"],
+      ["Sales receipt", "/sales/sales-receipts/new"],
+      ["Receive payment", "/sales/payments/new"],
+      ["Estimate", "/sales/estimates/new"],
+      ["Sales order", "/sales/sales-orders/new"],
+      ["Credit memo", "/sales/credit-notes/new"],
+    ],
+  },
+  {
+    module: "Purchasing",
+    links: [
+      ["Vendor bill", "/purchasing/bills/new"],
+      ["Purchase order", "/purchasing/purchase-orders/new"],
+      ["Receive items", "/purchasing/receipts/new"],
+      ["Pay bills", "/purchasing/bill-payments/new"],
+      ["Vendor credit", "/purchasing/vendor-credits/new"],
+    ],
+  },
+  {
+    module: "Inventory",
+    links: [
+      ["Inventory item", "/inventory/items/new"],
+      ["Stock adjustment", "/inventory/adjustments/new"],
+      ["Pick list", "/inventory/fulfillment/new"],
+      ["Assembly build", "/inventory/assemblies/new"],
+      ["Stock transfer", "/inventory/transfers/new"],
+    ],
+  },
+  {
+    module: "Banking",
+    links: [
+      ["Bank transaction", "/banking/transactions/new"],
+      ["Bank deposit", "/banking/deposits/new"],
+      ["Transfer funds", "/banking/transfers/new"],
+      ["Reconcile account", "/banking/reconciliation/new"],
+      ["Write check", "/banking/checks/new"],
+    ],
+  },
+  {
+    module: "Accounting",
+    links: [
+      ["Journal entry", "/accounting/journal-entries/new"],
+      ["Budget", "/accounting/budgets/new"],
+      ["Fixed asset", "/accounting/fixed-assets/new"],
+      ["Month-end close", "/accounting/close-center/new"],
+      ["Account", "/accounting/chart-of-accounts/new"],
+    ],
+  },
+  {
+    module: "People & projects",
+    links: [
+      ["Project", "/projects/projects/new"],
+      ["Change order", "/projects/change-orders/new"],
+      ["Project time", "/projects/time/new"],
+      ["Pay run", "/payroll/pay-runs/new"],
+      ["Employee", "/payroll/employees/new"],
+      ["Payroll liability", "/payroll/liabilities/new"],
+    ],
+  },
 ] as const
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -157,9 +213,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Menu size={20} />
           </button>
-          <span className="text-xs font-bold text-[#263f4b]">BLUE PLASTIC CENTER</span>
+          <span className="text-xs font-bold text-[#263f4b]">
+            BLUE PLASTIC CENTER
+          </span>
           <div className="ml-auto flex items-center gap-2">
-            <button type="button" aria-label="Open search" onClick={() => { setSearchOpen(true); window.setTimeout(() => searchRef.current?.focus(), 0) }} className="grid size-9 place-items-center rounded-full border border-[#dfe7ed] text-[#536a78]"><Search size={17}/></button>
+            <button
+              type="button"
+              aria-label="Open search"
+              onClick={() => {
+                setSearchOpen(true)
+                window.setTimeout(() => searchRef.current?.focus(), 0)
+              }}
+              className="grid size-9 place-items-center rounded-full border border-[#dfe7ed] text-[#536a78]"
+            >
+              <Search size={17} />
+            </button>
             <button
               type="button"
               aria-label="Notifications"
@@ -258,14 +326,49 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {searchOpen ? (
           <div className="fixed inset-x-4 top-[76px] z-50 mx-auto w-auto max-w-2xl rounded-2xl border border-[#dce6ed] bg-white p-3 shadow-2xl md:top-20">
-            <form onSubmit={(event) => { event.preventDefault(); runSearch(); setSearchOpen(false) }}>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                runSearch()
+                setSearchOpen(false)
+              }}
+            >
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#007DCC]" size={19}/>
-                <input ref={searchRef} value={search} onChange={(event) => setSearch(event.target.value)} aria-label="Search BLUE PLASTIC CENTER" placeholder="Search invoices, customers, items, accounts, projects or reports…" className="h-14 w-full rounded-xl border border-[#dce6ed] bg-[#f8fafc] pl-12 pr-16 text-sm outline-none focus:border-[#007DCC] focus:bg-white focus:ring-4 focus:ring-[#007DCC]/10"/>
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 rounded-md border bg-white px-2 py-1 text-[10px] text-[#78909f]">Enter</span>
+                <Search
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-[#007DCC]"
+                  size={19}
+                />
+                <input
+                  ref={searchRef}
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  aria-label="Search BLUE PLASTIC CENTER"
+                  placeholder="Search invoices, customers, items, accounts, projects or reports…"
+                  className="h-14 w-full rounded-xl border border-[#dce6ed] bg-[#f8fafc] pl-12 pr-16 text-sm outline-none focus:border-[#007DCC] focus:bg-white focus:ring-4 focus:ring-[#007DCC]/10"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 rounded-md border bg-white px-2 py-1 text-[10px] text-[#78909f]">
+                  Enter
+                </span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2 px-1">
-                {["Invoices", "Customers", "Items", "Accounts", "Projects", "Employees", "Reports"].map((term) => <button key={term} type="button" onClick={() => setSearch(term)} className="rounded-full bg-[#eef7fd] px-3 py-1.5 text-[10px] font-bold text-[#007DCC]">{term}</button>)}
+                {[
+                  "Invoices",
+                  "Customers",
+                  "Items",
+                  "Accounts",
+                  "Projects",
+                  "Employees",
+                  "Reports",
+                ].map((term) => (
+                  <button
+                    key={term}
+                    type="button"
+                    onClick={() => setSearch(term)}
+                    className="rounded-full bg-[#eef7fd] px-3 py-1.5 text-[10px] font-bold text-[#007DCC]"
+                  >
+                    {term}
+                  </button>
+                ))}
               </div>
             </form>
           </div>
@@ -274,14 +377,42 @@ export function AppShell({ children }: { children: ReactNode }) {
         {createMenu ? (
           <div className="fixed inset-x-4 top-[68px] z-50 mx-auto max-h-[calc(100vh-5rem)] w-auto max-w-[1180px] overflow-y-auto rounded-2xl border border-[#dfe7ed] bg-white p-4 shadow-2xl md:top-20">
             <div className="mb-3 flex items-center justify-between px-1">
-              <div><h3 className="text-sm font-bold text-[#263f4b]">Create new</h3>
-              <p className="mt-0.5 text-[10px] text-[#82949e]">
-                Choose a transaction or master record
-              </p></div>
-              <button aria-label="Close create menu" onClick={() => setCreateMenu(false)} className="grid size-8 place-items-center rounded-full bg-[#f3f6f8] text-[#607681]"><X size={15}/></button>
+              <div>
+                <h3 className="text-sm font-bold text-[#263f4b]">Create new</h3>
+                <p className="mt-0.5 text-[10px] text-[#82949e]">
+                  Choose a transaction or master record
+                </p>
+              </div>
+              <button
+                aria-label="Close create menu"
+                onClick={() => setCreateMenu(false)}
+                className="grid size-8 place-items-center rounded-full bg-[#f3f6f8] text-[#607681]"
+              >
+                <X size={15} />
+              </button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-              {createGroups.map((group) => <section key={group.module} className="rounded-xl bg-[#f7f9fb] p-2"><h4 className="px-2 py-2 text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#71848f]">{group.module}</h4>{group.links.map(([label,href]) => <Link key={label} href={href} onClick={() => setCreateMenu(false)} className="flex items-center justify-between rounded-lg px-2 py-2 text-[11px] font-bold text-[#3e5461] hover:bg-white hover:text-[#007DCC] hover:shadow-sm">{label}<Plus size={12}/></Link>)}</section>)}
+              {createGroups.map((group) => (
+                <section
+                  key={group.module}
+                  className="rounded-xl bg-[#f7f9fb] p-2"
+                >
+                  <h4 className="px-2 py-2 text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#71848f]">
+                    {group.module}
+                  </h4>
+                  {group.links.map(([label, href]) => (
+                    <Link
+                      key={label}
+                      href={href}
+                      onClick={() => setCreateMenu(false)}
+                      className="flex items-center justify-between rounded-lg px-2 py-2 text-[11px] font-bold text-[#3e5461] hover:bg-white hover:text-[#007DCC] hover:shadow-sm"
+                    >
+                      {label}
+                      <Plus size={12} />
+                    </Link>
+                  ))}
+                </section>
+              ))}
             </div>
           </div>
         ) : null}

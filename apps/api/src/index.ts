@@ -4,6 +4,8 @@ import { loadEnv } from "./config/env.js";
 import { createDatabase } from "./db/client.js";
 import { MemoryIdentityRepository } from "./modules/auth/memory-identity-repository.js";
 import { PostgresIdentityRepository } from "./modules/auth/postgres-identity-repository.js";
+import { MemoryLedgerRepository } from "./modules/accounting/memory-ledger-repository.js";
+import { PostgresLedgerRepository } from "./modules/accounting/postgres-ledger-repository.js";
 import { MemoryResourceRepository } from "./repositories/memory-resource-repository.js";
 import { PostgresResourceRepository } from "./repositories/postgres-resource-repository.js";
 
@@ -14,7 +16,10 @@ const repository = database ? new PostgresResourceRepository(database.db) : new 
 const identityRepository = database
   ? new PostgresIdentityRepository(database.db)
   : new MemoryIdentityRepository();
-const app = createApp(repository, env, identityRepository);
+const ledgerRepository = database
+  ? new PostgresLedgerRepository(database.db)
+  : new MemoryLedgerRepository(repository);
+const app = createApp(repository, env, identityRepository, ledgerRepository);
 
 await app.listen({ host: env.HOST, port: env.PORT });
 app.log.info({ persistence: database ? "postgresql" : "memory" }, "BLUE PLASTIC CENTER API started");

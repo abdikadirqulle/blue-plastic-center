@@ -22,6 +22,13 @@
       "when": 1785188306564,
       "tag": "0002_bored_sumo",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785189409408,
+      "tag": "0003_neat_blazing_skull",
+      "breakpoints": true
     }
   ]
 }
