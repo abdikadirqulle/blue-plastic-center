@@ -33,7 +33,8 @@ Web client
 - Drizzle ORM
 - Zod request and domain validation
 - Repository interfaces with PostgreSQL and in-memory test adapters
-- Bearer authentication, role-based access control, tenant and branch context
+- Cookie-session authentication, CSRF protection, role-based access control,
+  and database-derived company and branch context
 - Optimistic locking, soft deletion, and immutable audit events
 - Redis-backed jobs and S3-compatible object storage remain planned for asynchronous imports, report generation, and attachments
 

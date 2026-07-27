@@ -18,7 +18,7 @@ rules must remain production-grade.
 Exit criteria: monorepo typecheck, lint, tests, and build pass; the API supports
 memory storage for tests and PostgreSQL when `DATABASE_URL` is configured.
 
-## Phase 1 — Identity, company setup, and core masters
+## Phase 1 — Identity, company setup, and core masters (completed)
 
 - Database users, roles, sessions, password reset, and logout
 - Password hashing, secure cookies, CSRF protection, and login throttling
@@ -62,6 +62,5 @@ are rehearsed.
 
 ## Recommended next work
 
-Start Phase 1 with authentication and company/accounting preferences. Then build
-master data in this order: chart of accounts, taxes/currencies, customers and
-vendors, items and warehouses.
+Begin Phase 2 with the sales document lifecycle and transactional document
+number allocation, then connect purchasing and inventory posting dependencies.

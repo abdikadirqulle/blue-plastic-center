@@ -102,6 +102,7 @@ Migration workflow:
 The generic service and in-memory repository support frontend integration and
 tests. PostgreSQL is selected whenever `DATABASE_URL` exists.
 
-Demo bearer tokens are development scaffolding only. Phase 1 replaces them with
-database users, password hashing, secure sessions, login throttling, and role
-assignments before real company data is stored.
+Authentication uses database users, scrypt password hashes, hashed session
+tokens, HTTP-only cookies, CSRF tokens, login throttling, account lockout, and
+role assignments. Seed credentials are development-only and must be changed
+before real company data is stored.

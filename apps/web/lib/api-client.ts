@@ -1,4 +1,5 @@
 import { webEnv } from "@/lib/env";
+import { authService } from "@/features/auth/auth-service";
 
 export interface ApiEnvelope<T> {
   data: T;
@@ -26,16 +27,17 @@ export interface ApiRecord<TData extends Record<string, unknown> = Record<string
 export class ApiClient {
   constructor(
     private readonly baseUrl = webEnv.apiUrl,
-    private readonly getAccessToken: () => string | undefined = () => undefined,
   ) {}
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
-    const token = this.getAccessToken();
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
+      credentials: "include",
       headers: {
         ...(init?.body ? { "Content-Type": "application/json" } : {}),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init?.method && !["GET", "HEAD"].includes(init.method)
+          ? { "X-CSRF-Token": authService.csrfToken() ?? "" }
+          : {}),
         ...init?.headers,
       },
     });

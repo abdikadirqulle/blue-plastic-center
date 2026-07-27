@@ -47,12 +47,180 @@ export const branches = pgTable(
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
+  companyId: uuid("company_id").references(() => companies.id),
   email: text("email").notNull().unique(),
   displayName: text("display_name").notNull(),
   role: text("role").notNull(),
+  passwordHash: text("password_hash"),
+  failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   active: boolean("active").notNull().default(true),
   ...auditColumns,
 })
+
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    csrfTokenHash: text("csrf_token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    userAgent: text("user_agent"),
+    ipAddress: text("ip_address"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("sessions_token_hash_uq").on(table.tokenHash),
+    index("sessions_user_expiry_idx").on(table.userId, table.expiresAt),
+  ],
+)
+
+export const companySettings = pgTable("company_settings", {
+  companyId: uuid("company_id").primaryKey().references(() => companies.id, { onDelete: "cascade" }),
+  tradingName: text("trading_name"),
+  taxRegistrationNumber: text("tax_registration_number"),
+  fiscalYearStartMonth: integer("fiscal_year_start_month").notNull().default(1),
+  accountingBasis: text("accounting_basis").notNull().default("accrual"),
+  timezone: text("timezone").notNull().default("Africa/Mogadishu"),
+  dateFormat: text("date_format").notNull().default("dd/MM/yyyy"),
+  ...auditColumns,
+})
+
+export const currencies = pgTable(
+  "currencies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    symbol: text("symbol").notNull(),
+    decimalPlaces: integer("decimal_places").notNull().default(2),
+    exchangeRate: numeric("exchange_rate", { precision: 20, scale: 8 }).notNull().default("1"),
+    active: boolean("active").notNull().default(true),
+    ...auditColumns,
+  },
+  (table) => [uniqueIndex("currencies_company_code_uq").on(table.companyId, table.code)],
+)
+
+export const taxCodes = pgTable(
+  "tax_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    rate: numeric("rate", { precision: 9, scale: 6 }).notNull(),
+    salesAccountId: uuid("sales_account_id").references(() => accounts.id),
+    purchaseAccountId: uuid("purchase_account_id").references(() => accounts.id),
+    active: boolean("active").notNull().default(true),
+    ...auditColumns,
+  },
+  (table) => [uniqueIndex("tax_codes_company_code_uq").on(table.companyId, table.code)],
+)
+
+export const paymentTerms = pgTable(
+  "payment_terms",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    name: text("name").notNull(),
+    dueDays: integer("due_days").notNull().default(0),
+    discountDays: integer("discount_days"),
+    discountRate: numeric("discount_rate", { precision: 9, scale: 6 }),
+    active: boolean("active").notNull().default(true),
+    ...auditColumns,
+  },
+  (table) => [uniqueIndex("payment_terms_company_name_uq").on(table.companyId, table.name)],
+)
+
+export const documentSequences = pgTable(
+  "document_sequences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    documentType: text("document_type").notNull(),
+    prefix: text("prefix").notNull().default(""),
+    nextNumber: integer("next_number").notNull().default(1),
+    padding: integer("padding").notNull().default(5),
+    ...auditColumns,
+  },
+  (table) => [uniqueIndex("document_sequences_company_type_uq").on(table.companyId, table.documentType)],
+)
+
+export const customers = pgTable(
+  "customers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    displayName: text("display_name").notNull(),
+    companyName: text("company_name"),
+    email: text("email"),
+    phone: text("phone"),
+    currency: text("currency").notNull().default("USD"),
+    paymentTermId: uuid("payment_term_id").references(() => paymentTerms.id),
+    receivableAccountId: uuid("receivable_account_id").references(() => accounts.id),
+    openingBalance: numeric("opening_balance", { precision: 20, scale: 4 }).notNull().default("0"),
+    active: boolean("active").notNull().default(true),
+    ...auditColumns,
+  },
+  (table) => [index("customers_company_name_idx").on(table.companyId, table.displayName)],
+)
+
+export const vendors = pgTable(
+  "vendors",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    displayName: text("display_name").notNull(),
+    companyName: text("company_name"),
+    email: text("email"),
+    phone: text("phone"),
+    currency: text("currency").notNull().default("USD"),
+    paymentTermId: uuid("payment_term_id").references(() => paymentTerms.id),
+    payableAccountId: uuid("payable_account_id").references(() => accounts.id),
+    openingBalance: numeric("opening_balance", { precision: 20, scale: 4 }).notNull().default("0"),
+    active: boolean("active").notNull().default(true),
+    ...auditColumns,
+  },
+  (table) => [index("vendors_company_name_idx").on(table.companyId, table.displayName)],
+)
+
+export const warehouses = pgTable(
+  "warehouses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    branchId: uuid("branch_id").references(() => branches.id),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    active: boolean("active").notNull().default(true),
+    ...auditColumns,
+  },
+  (table) => [uniqueIndex("warehouses_company_code_uq").on(table.companyId, table.code)],
+)
+
+export const items = pgTable(
+  "items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    sku: text("sku").notNull(),
+    name: text("name").notNull(),
+    type: text("type").notNull(),
+    salesPrice: numeric("sales_price", { precision: 20, scale: 4 }).notNull().default("0"),
+    purchaseCost: numeric("purchase_cost", { precision: 20, scale: 4 }).notNull().default("0"),
+    incomeAccountId: uuid("income_account_id").references(() => accounts.id),
+    expenseAccountId: uuid("expense_account_id").references(() => accounts.id),
+    inventoryAccountId: uuid("inventory_account_id").references(() => accounts.id),
+    taxCodeId: uuid("tax_code_id").references(() => taxCodes.id),
+    active: boolean("active").notNull().default(true),
+    ...auditColumns,
+  },
+  (table) => [uniqueIndex("items_company_sku_uq").on(table.companyId, table.sku)],
+)
 
 export const accounts = pgTable(
   "accounts",

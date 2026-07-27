@@ -19,6 +19,43 @@ const resource = (
 ): ResourceDefinition => ({ name, label, requiredFields, searchableFields })
 
 export const modules: Record<string, ModuleDefinition> = {
+  setup: {
+    name: "setup",
+    label: "Company setup",
+    resources: {
+      "company-settings": resource("company-settings", "Company settings", [
+        "legalName",
+        "functionalCurrency",
+        "fiscalYearStartMonth",
+        "accountingBasis",
+        "timezone",
+      ]),
+      branches: resource("branches", "Branches", ["name", "code"]),
+      currencies: resource("currencies", "Currencies", [
+        "code",
+        "name",
+        "symbol",
+        "exchangeRate",
+      ]),
+      "tax-codes": resource("tax-codes", "Tax codes", ["code", "name", "rate"]),
+      "payment-terms": resource("payment-terms", "Payment terms", [
+        "name",
+        "dueDays",
+      ]),
+      "document-sequences": resource("document-sequences", "Document sequences", [
+        "documentType",
+        "prefix",
+        "nextNumber",
+        "padding",
+      ]),
+      "opening-balances": resource("opening-balances", "Opening balances", [
+        "accountId",
+        "asOfDate",
+        "debit",
+        "credit",
+      ]),
+    },
+  },
   sales: {
     name: "sales",
     label: "Sales & receivables",

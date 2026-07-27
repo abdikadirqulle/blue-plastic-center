@@ -1,13 +1,19 @@
 import cors from "@fastify/cors"
+import cookie from "@fastify/cookie"
 import helmet from "@fastify/helmet"
+import rateLimit from "@fastify/rate-limit"
 import Fastify from "fastify"
 import type { AppEnv } from "./config/env.js"
+import { authRoutes } from "./modules/auth/auth.routes.js"
+import { AuthService } from "./modules/auth/auth-service.js"
+import type { IdentityRepository } from "./modules/auth/identity-repository.js"
+import { MemoryIdentityRepository } from "./modules/auth/memory-identity-repository.js"
 import { importRoutes } from "./modules/imports/import.routes.js"
 import { reportRoutes } from "./modules/reports/report.routes.js"
 import { resourceRoutes } from "./modules/resources/resource.routes.js"
 import { systemRoutes } from "./modules/system/system.routes.js"
 import { registerErrorHandler } from "./plugins/error-handler.js"
-import { requestContextPlugin } from "./plugins/request-context.js"
+import { createRequestContextPlugin } from "./plugins/request-context.js"
 import { MemoryResourceRepository } from "./repositories/memory-resource-repository.js"
 import type { ResourceRepository } from "./repositories/resource-repository.js"
 import { ResourceService } from "./services/resource-service.js"
@@ -18,32 +24,40 @@ const defaultEnv: AppEnv = {
   PORT: 4000,
   WEB_ORIGIN: "http://localhost:5173",
   LOG_LEVEL: "silent",
+  SESSION_TTL_HOURS: 12,
+  COOKIE_SECURE: false,
 }
 
 export function createApp(
   repository: ResourceRepository = new MemoryResourceRepository(),
   env: AppEnv = defaultEnv,
+  identityRepository: IdentityRepository = new MemoryIdentityRepository(),
 ) {
   const app = Fastify({
     logger: env.LOG_LEVEL === "silent" ? false : { level: env.LOG_LEVEL },
     requestIdHeader: "x-request-id",
   })
   const service = new ResourceService(repository)
+  const authService = new AuthService(identityRepository, env.SESSION_TTL_HOURS)
 
   registerErrorHandler(app)
   app.register(helmet)
+  app.register(cookie)
+  app.register(rateLimit)
   app.register(cors, {
     origin: env.WEB_ORIGIN,
+    credentials: true,
     allowedHeaders: [
       "Authorization",
       "Content-Type",
       "X-Company-Id",
       "X-Branch-Id",
       "X-Request-Id",
+      "X-CSRF-Token",
     ],
     exposedHeaders: ["X-Request-Id"],
   })
-  app.register(requestContextPlugin)
+  app.register(createRequestContextPlugin(authService))
 
   app.get("/health", async () => ({
     data: {
@@ -56,6 +70,10 @@ export function createApp(
 
   app.register(
     async (v1) => {
+      await v1.register(
+        async (auth) => authRoutes(auth, authService, env),
+        { prefix: "/auth" },
+      )
       await systemRoutes(v1, repository)
       await reportRoutes(v1)
       await importRoutes(v1)

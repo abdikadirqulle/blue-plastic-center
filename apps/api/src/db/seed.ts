@@ -1,6 +1,7 @@
 import "dotenv/config"
 import { createDatabase } from "./client.js"
 import { branches, companies, users } from "./schema.js"
+import { hashPassword } from "../modules/auth/password.js"
 
 async function seed() {
   const databaseUrl = process.env.DATABASE_URL
@@ -33,34 +34,46 @@ async function seed() {
   const seedUsers = [
     {
       id: "00000000-0000-4000-8000-000000000001",
-      email: "abdisalam@blueplastic.example",
+      email: "admin@blueplastic.local",
       displayName: "Abdisalam Abdulahi",
       role: "administrator",
+      password: "Admin123!",
     },
     {
       id: "00000000-0000-4000-8000-000000000002",
-      email: "amina@blueplastic.example",
+      email: "accountant@blueplastic.local",
       displayName: "Amina Yusuf",
       role: "accountant",
+      password: "Accountant123!",
     },
     {
       id: "00000000-0000-4000-8000-000000000003",
-      email: "viewer@blueplastic.example",
+      email: "viewer@blueplastic.local",
       displayName: "Read Only User",
       role: "viewer",
+      password: "Viewer123!",
     },
   ] as const
 
   for (const user of seedUsers) {
     await db
       .insert(users)
-      .values(user)
+      .values({
+        id: user.id,
+        companyId: "00000000-0000-4000-8000-000000000001",
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        passwordHash: hashPassword(user.password),
+      })
       .onConflictDoUpdate({
         target: users.id,
         set: {
           email: user.email,
           displayName: user.displayName,
           role: user.role,
+          companyId: "00000000-0000-4000-8000-000000000001",
+          passwordHash: hashPassword(user.password),
         },
       })
   }

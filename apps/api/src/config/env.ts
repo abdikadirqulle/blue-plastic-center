@@ -11,6 +11,8 @@ const envSchema = z.object({
   LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
     .default("info"),
+  SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(12),
+  COOKIE_SECURE: z.coerce.boolean().optional(),
 })
 
 export type AppEnv = z.infer<typeof envSchema>

@@ -1,5 +1,6 @@
 import type { SalesQuery, SalesRecord, SalesRecordInput, SalesRepository, SalesResource } from "../domain/sales-record";
 import { webEnv } from "@/lib/env";
+import { apiFetch } from "@/lib/api-fetch";
 
 interface ApiResourceRecord {
   id: string;
@@ -12,16 +13,12 @@ interface ApiResourceRecord {
 export class ApiSalesRepository implements SalesRepository {
   constructor(
     private readonly baseUrl = `${webEnv.apiUrl}/v1`,
-    private readonly token = webEnv.apiToken,
   ) {}
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
+    const response = await apiFetch(`${this.baseUrl}${path}`, {
       ...init,
       headers: {
-        Authorization: `Bearer ${this.token}`,
-        "Content-Type": "application/json",
-        "x-company-id": "00000000-0000-4000-8000-000000000001",
         ...init?.headers,
       },
     });
