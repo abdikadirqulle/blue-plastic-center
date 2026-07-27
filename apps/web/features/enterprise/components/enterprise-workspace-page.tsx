@@ -25,9 +25,9 @@ const tabs = {
 } satisfies Record<EnterpriseModule, string[][]>;
 
 const meta = {
-  accounting: { label: "General ledger & controls", icon: Calculator, gradient: "from-[#143c5a] to-[#08263a]" },
-  projects: { label: "Projects & job costing", icon: BriefcaseBusiness, gradient: "from-[#4c326d] to-[#25233f]" },
-  payroll: { label: "Payroll & workforce", icon: WalletCards, gradient: "from-[#265648] to-[#173830]" },
+  accounting: { label: "General ledger & controls", icon: Calculator, gradient: "linear-gradient(120deg, #143c5a 0%, #08263a 100%)" },
+  projects: { label: "Projects & job costing", icon: BriefcaseBusiness, gradient: "linear-gradient(120deg, #4c326d 0%, #25233f 100%)" },
+  payroll: { label: "Payroll & workforce", icon: WalletCards, gradient: "linear-gradient(120deg, #265648 0%, #173830 100%)" },
 };
 
 const stats: Record<EnterpriseModule, ResourceConfig["stats"]> = {
@@ -62,7 +62,7 @@ export function EnterpriseWorkspacePage({ config }: { config: ResourceConfig }) 
 
   return <AppShell>
     <div className="mx-auto max-w-[1600px]">
-      <section className={`overflow-hidden rounded-2xl bg-gradient-to-r ${moduleMeta.gradient} text-white`}>
+      <section className="overflow-hidden rounded-2xl text-white shadow-sm" style={{ background: moduleMeta.gradient }}>
         <div className="grid gap-5 px-5 py-6 lg:grid-cols-[1fr_auto] lg:px-7">
           <div className="flex gap-4"><span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/15"><Icon size={23}/></span><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky-200">{moduleMeta.label}</p><h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] md:text-[30px]">{config.title}</h1><p className="mt-1 max-w-2xl text-xs text-white/65">{config.description}</p></div></div>
           <div className="flex flex-wrap items-center gap-2"><button onClick={() => notify("Export prepared", `${records.length} records are ready.`)} className="flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 text-xs font-bold"><Download size={15}/>Export</button><button onClick={() => window.print()} className="flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 text-xs font-bold"><Printer size={15}/>Print</button><Link href={`/${enterpriseModule}/${resource}/new`} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold"><Plus size={15}/>{config.primaryAction}</Link></div>
