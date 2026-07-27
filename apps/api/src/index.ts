@@ -1,17 +1,23 @@
 import "dotenv/config";
-import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
+import { loadEnv } from "./config/env.js";
 import { createDatabase } from "./db/client.js";
 import { MemoryResourceRepository } from "./repositories/memory-resource-repository.js";
 import { PostgresResourceRepository } from "./repositories/postgres-resource-repository.js";
 
-const port = Number(process.env.PORT ?? 4000);
-const databaseUrl = process.env.DATABASE_URL;
+const env = loadEnv();
+const databaseUrl = env.DATABASE_URL;
 const database = databaseUrl ? createDatabase(databaseUrl) : undefined;
 const repository = database ? new PostgresResourceRepository(database.db) : new MemoryResourceRepository();
-const app = createApp(repository);
+const app = createApp(repository, env);
 
-serve({ fetch: app.fetch, port }, (info) => {
-  console.log(`BLUE PLASTIC CENTER API listening on http://localhost:${info.port}`);
-  console.log(database ? "Persistence: PostgreSQL" : "Persistence: in-memory development repository");
-});
+await app.listen({ host: env.HOST, port: env.PORT });
+app.log.info({ persistence: database ? "postgresql" : "memory" }, "BLUE PLASTIC CENTER API started");
+
+const shutdown = async () => {
+  await app.close();
+  await database?.close();
+};
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

@@ -2,7 +2,8 @@
   "name": "@blue-plastic/api",
   "version": "0.1.0",
   "private": true,
-  "description": "Multi-tenant REST API for the BLUE PLASTIC CENTER accounting platform",
+  "type": "module",
+  "description": "Fastify REST API for the BLUE PLASTIC CENTER accounting platform",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
@@ -17,10 +18,12 @@
   },
   "dependencies": {
     "@blue-plastic/types": "*",
-    "@hono/node-server": "^2.0.11",
+    "@fastify/cors": "^11.1.0",
+    "@fastify/helmet": "^13.0.2",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.32",
+    "fastify": "^5.6.2",
+    "fastify-plugin": "^5.1.0",
     "postgres": "^3.4.9",
     "zod": "^3.25.76"
   },

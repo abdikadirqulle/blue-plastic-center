@@ -24,7 +24,7 @@ being built with the functional breadth of enterprise accounting software.
   payroll approval/liabilities, and expanded enterprise reports
 - Swappable mock/API enterprise repository for accounting, projects, and payroll
 - Typed API client boundaries and realistic frontend mock data
-- Multi-tenant Hono REST API with Zod validation and RBAC
+- Fastify REST API with Zod validation and RBAC
 - PostgreSQL/Drizzle schema, migrations, seed data, audit events, and optimistic locking
 - Product, architecture, frontend, roadmap, and accounting documentation
 
@@ -34,7 +34,7 @@ being built with the functional breadth of enterprise accounting software.
 - Tailwind CSS 4
 - Lucide React icons
 - React Hook Form and Zod
-- Hono, PostgreSQL, and Drizzle ORM
+- Fastify, PostgreSQL, and Drizzle ORM
 - Vite development and deployment runtime
 
 ## Local development
@@ -84,4 +84,5 @@ docs/                 Product and engineering documentation
 ```
 
 Read `AGENTS.md` before making changes. Product scope and delivery decisions are
-recorded in `docs/`.
+recorded in `docs/`. Backend setup and phases are documented in
+`docs/BACKEND.md` and `docs/BACKEND_PLAN.md`.

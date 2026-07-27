@@ -34,7 +34,7 @@ export class ApiClient {
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
       headers: {
-        "Content-Type": "application/json",
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...init?.headers,
       },

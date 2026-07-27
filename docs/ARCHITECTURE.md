@@ -28,7 +28,7 @@ Web client
 
 ## Backend
 
-- Hono REST API with TypeScript
+- Fastify REST API with TypeScript
 - PostgreSQL
 - Drizzle ORM
 - Zod request and domain validation
@@ -50,14 +50,24 @@ not write journal lines directly.
 ```text
 apps/api/
   src/
-    app.ts                         HTTP routes, middleware, error envelope
-    index.ts                       Node server and repository selection
+    app.ts                         Fastify composition root
+    index.ts                       Node process and graceful shutdown
+    config/
+      env.ts                       Zod-validated runtime configuration
     db/
       client.ts                    PostgreSQL/Drizzle connection
       schema.ts                    Tenant, ledger, resource, and audit tables
       seed.ts                      Initial company, branch, and demo users
     domain/
       modules.ts                   Module/resource registry and required fields
+    modules/
+      system/                      Metadata and audit routes
+      resources/                   Generic CRUD routes and request schemas
+      reports/                     Report execution
+      imports/                     Import validation
+    plugins/
+      request-context.ts           Authentication and request scope
+      error-handler.ts             Stable API error envelope
     platform/
       auth.ts                      Authentication and RBAC grants
       errors.ts                    Stable API error codes
@@ -68,6 +78,8 @@ apps/api/
       postgres-resource-repository.ts
     services/
       resource-service.ts          Validation, CRUD, posting, locking, and audit
+    types/
+      fastify.d.ts                  Fastify request augmentation
   drizzle/                         Versioned PostgreSQL migrations
   tests/                           End-to-end API contract tests
 ```

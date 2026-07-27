@@ -5,19 +5,29 @@ import { MemoryResourceRepository } from "../dist/repositories/memory-resource-r
 
 const auth = {
   Authorization: "Bearer admin-demo-token",
-  "Content-Type": "application/json",
   "X-Company-Id": "00000000-0000-4000-8000-000000000001",
   "X-Branch-Id": "00000000-0000-4000-8000-000000000011",
 };
 
-const request = (app, path, init = {}) => app.request(path, {
-  ...init,
-  headers: { ...auth, ...init.headers },
-});
+async function inject(app, path, init = {}) {
+  const response = await app.inject({
+    method: init.method ?? "GET",
+    url: path,
+    headers: {
+      ...auth,
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      ...init.headers,
+    },
+    payload: init.body,
+  });
+  return Object.assign(response, { status: response.statusCode });
+}
+
+const request = (app, path, init = {}) => inject(app, path, init);
 
 test("health and module metadata expose the backend platform", async () => {
   const app = createApp();
-  const health = await app.request("/health");
+  const health = await inject(app, "/health", { headers: {} });
   assert.equal(health.status, 200);
   assert.equal((await health.json()).data.status, "healthy");
 
@@ -31,7 +41,7 @@ test("health and module metadata expose the backend platform", async () => {
 
 test("authentication, RBAC, required fields, and tenant isolation are enforced", async () => {
   const app = createApp();
-  assert.equal((await app.request("/v1/sales/customers")).status, 401);
+  assert.equal((await inject(app, "/v1/sales/customers", { headers: { Authorization: "" } })).status, 401);
 
   const invalid = await request(app, "/v1/sales/customers", {
     method: "POST",
