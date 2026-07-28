@@ -96,3 +96,23 @@ test("transaction and item forms use safe defaults and account references", asyn
   expect(references).toMatch(/apiClient\.create\("inventory", "items"/)
   expect(references).toMatch(/apiClient\.create\("accounting", "chart-of-accounts"/)
 })
+
+test("table toolbars provide modal filters and working export formats", async () => {
+  const [toolbar, resources, sales, operations, enterprise] = await Promise.all([
+    read("../components/ui/table-toolbar.tsx"),
+    read("../features/resources/resource-page.tsx"),
+    read("../features/sales/components/sales-workspace-page.tsx"),
+    read("../features/operations/components/operations-workspace-page.tsx"),
+    read("../features/enterprise/components/enterprise-workspace-page.tsx"),
+  ])
+
+  expect(toolbar).toMatch(/Export as PDF/)
+  expect(toolbar).toMatch(/Export as Excel/)
+  expect(toolbar).toMatch(/window\.print\(\)/)
+  expect(toolbar).toMatch(/role="dialog"/)
+  expect(toolbar).toMatch(/activeFilterCount/)
+  for (const page of [resources, sales, operations, enterprise])
+    expect(page).toMatch(/<TableToolbar/)
+  expect(sales).toMatch(/View details/)
+  expect(sales).toMatch(/new\?edit=/)
+})

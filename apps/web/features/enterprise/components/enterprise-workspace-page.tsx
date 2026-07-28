@@ -5,14 +5,15 @@ import { useMemo, useState } from "react";
 import { useRouter } from "@/components/routing";
 import {
   ArrowRight, BriefcaseBusiness, Calculator, CheckCircle2,
-  Clock3, Download, Filter, Landmark, LockKeyhole, Plus,
-  Printer, Search, Trash2, WalletCards,
+  Clock3, Landmark, LockKeyhole, Plus,
+  Trash2, WalletCards,
 } from "lucide-react";
 import { AppShell } from "../../../components/layout/app-shell";
 import { Badge } from "../../../components/ui/badge";
 import { Card } from "../../../components/ui/card";
 import { ConfirmDeleteDialog } from "../../../components/ui/confirm-delete-dialog";
 import { Select } from "../../../components/ui/select";
+import { TableToolbar } from "../../../components/ui/table-toolbar";
 import { LoadingState } from "../../../components/ui/loading-state";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
@@ -76,13 +77,13 @@ export function EnterpriseWorkspacePage({ config }: { config: ResourceConfig }) 
       <section className="overflow-hidden rounded-2xl text-white shadow-sm" style={{ background: moduleMeta.gradient }}>
         <div className="grid gap-5 px-5 py-6 lg:grid-cols-[1fr_auto] lg:px-7">
           <div className="flex gap-4"><span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/15"><Icon size={23}/></span><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky-200">{moduleMeta.label}</p><h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] md:text-[30px]">{config.title}</h1><p className="mt-1 max-w-2xl text-xs text-white/65">{config.description}</p></div></div>
-          <div className="flex flex-wrap items-center gap-2"><button onClick={() => notify("Export prepared", `${records.length} records are ready.`)} className="flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 text-xs font-bold"><Download size={15}/>Export</button><button onClick={() => window.print()} className="flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 text-xs font-bold"><Printer size={15}/>Print</button><Link href={`/${enterpriseModule}/${resource}/new`} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold"><Plus size={15}/>{config.primaryAction}</Link></div>
+          <div className="flex flex-wrap items-center gap-2"><Link href={`/${enterpriseModule}/${resource}/new`} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold"><Plus size={15}/>{config.primaryAction}</Link></div>
         </div>
         <nav className="flex overflow-x-auto border-t border-white/10 bg-black/10 px-3">{tabs[enterpriseModule].map(([slug,label]) => <Link key={slug} href={`/${enterpriseModule}/${slug}`} className={`shrink-0 border-b-2 px-3 py-3 text-[11px] font-semibold ${slug === resource ? "border-sky-300 text-white" : "border-transparent text-white/55"}`}>{label}</Link>)}</nav>
       </section>
       <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{liveStats.map((stat,index) => <Card key={stat.label} className="relative overflow-hidden p-4"><span className={`absolute inset-y-0 left-0 w-1 ${["bg-[#007DCC]","bg-emerald-500","bg-amber-500","bg-violet-500"][index]}`}/><p className="text-[10px] font-medium uppercase text-[#788b96]">{stat.label}</p><p className="mt-2 text-xl font-semibold">{stat.value}</p><p className="mt-1 text-[10px] text-[#607681]">{stat.helper}</p></Card>)}</section>
       <Card className="mt-4 overflow-hidden">
-        <div className="flex flex-col gap-2 border-b bg-[#fbfcfd] p-3.5 lg:flex-row"><div className="relative flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#82949e]"/><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={config.searchPlaceholder} className="h-10 w-full rounded-xl border border-[#dce6ed] bg-white pl-9 pr-3 text-xs outline-none focus:border-[#007DCC]"/></div><Select value={status} onValueChange={setStatus} options={statusOptions.length ? statusOptions : ["All statuses"]} className="h-10 w-[170px] text-xs"/><button onClick={() => { setSearch(""); setStatus("All statuses"); }} className="flex h-10 items-center gap-2 rounded-xl border bg-white px-3 text-xs font-bold"><Filter size={14}/>Reset</button></div>
+        <TableToolbar search={search} onSearchChange={setSearch} searchPlaceholder={config.searchPlaceholder} filterTitle={`Filter ${config.title}`} filterDescription={`Filter ${config.title.toLowerCase()} using the relevant accounting, project, or payroll status.`} activeFilterCount={status !== "All statuses" ? 1 : 0} onResetFilters={() => setStatus("All statuses")} columns={["Reference", "Name", "Detail", "Value", "Date", "Status"]} rows={records.map((record) => [record.id, record.name, record.detail, record.value, record.date, record.status])} fileName={`blue-plastic-${enterpriseModule}-${resource}`} filterContent={<label className="text-xs font-semibold text-[#405762] sm:col-span-2"><span className="mb-1.5 block">{config.title} status</span><Select value={status} onValueChange={setStatus} options={statusOptions.length ? statusOptions : ["All statuses"]}/></label>}/>
         {error ? <div className="p-10 text-center text-red-600">{error}</div> : loading ? <LoadingState label={`Loading ${config.title.toLowerCase()}…`} className="m-4"/> :
           resource === "chart-of-accounts" ? <AccountCenter records={records} onOpen={(id) => router.push(`/accounting/chart-of-accounts/${id}`)}/> :
           resource === "close-center" ? <CloseCenter records={records} onComplete={(record) => { void updateStatus(record.id, "Complete"); notify("Close task completed", record.name); }}/> :

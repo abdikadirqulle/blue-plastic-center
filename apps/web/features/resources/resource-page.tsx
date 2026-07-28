@@ -6,15 +6,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
-  Download,
   Eye,
-  Filter,
   MoreHorizontal,
   Pencil,
   Plus,
-  Printer,
-  Search,
-  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import { AppShell } from "../../components/layout/app-shell";
@@ -23,6 +18,7 @@ import { Card } from "../../components/ui/card";
 import { ConfirmDeleteDialog } from "../../components/ui/confirm-delete-dialog";
 import { DatePicker } from "../../components/ui/date-picker";
 import { Select } from "../../components/ui/select";
+import { TableToolbar } from "../../components/ui/table-toolbar";
 import { Toast, type ToastMessage, type ToastVariant } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
 import {
@@ -113,21 +109,6 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
     window.setTimeout(() => setToast(null), 3200);
   };
 
-  const exportRows = () => {
-    const csv = [
-      ["ID", ...config.columns, "Status"].join(","),
-      ...filteredRows.map((row) => [row.displayId ?? row.cells[0], ...row.cells, row.status].map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")),
-    ].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `blue-plastic-${config.module}-${config.slug}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    notify("Export completed", "success", `${filteredRows.length} filtered ${config.title.toLowerCase()} downloaded as CSV.`);
-  };
-
   return (
     <AppShell>
       <div className="mx-auto max-w-[1500px]">
@@ -179,30 +160,24 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
             </div>
           </nav>
 
-          <div className="border-b border-[#e5ecf1] bg-[#fbfcfd] p-3.5">
-            <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center">
-            <div className="relative min-w-[240px] flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8496a1]" size={16} />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={config.searchPlaceholder} className="h-10 w-full rounded-xl border border-[#dce6ed] bg-white pl-9 pr-3 text-xs outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10" />
-            </div>
-            <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
-            <div className="relative shrink-0">
-              <Filter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71848f]" size={15} />
-              <Select value={selectedStatus} onValueChange={setStatus} options={statusOptions} className="h-10 w-[154px] pl-9 text-xs font-semibold"/>
-            </div>
-            <Select value={selectedKeyValue} onValueChange={setKeyValue} options={keyOptions} placeholder={allKeyOption} className="h-10 w-[170px] text-xs font-semibold"/>
-            {dateColumnIndex >= 0 ? <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="From" className="h-10 w-[132px] text-xs"/> : null}
-            {dateColumnIndex >= 0 ? <DatePicker value={dateTo} onChange={setDateTo} placeholder="To" className="h-10 w-[132px] text-xs"/> : null}
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5 xl:border-l xl:border-[#dfe7ec] xl:pl-2.5">
-            <button aria-label="Reset filters" title="Reset filters" onClick={() => { setSearch(""); setStatus("All statuses"); setKeyValue(allKeyOption); setDateFrom(""); setDateTo(""); notify("Filters reset", "info", "All records are visible again."); }} className="grid size-10 place-items-center rounded-xl border border-[#dce6ed] bg-white text-[#526874] hover:border-[#007DCC] hover:text-[#007DCC]">
-              <SlidersHorizontal size={15} />
-            </button>
-            <button onClick={exportRows} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-bold text-[#526874] hover:border-[#007DCC] hover:text-[#007DCC]"><Download size={15}/><span className="hidden 2xl:inline">Export</span></button>
-            <button onClick={() => { window.print(); notify("Print dialog opened", "info", `Printing ${filteredRows.length} filtered records.`); }} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-bold text-[#526874] hover:border-[#007DCC] hover:text-[#007DCC]"><Printer size={15}/><span className="hidden 2xl:inline">Print</span></button>
-            </div>
-            </div>
-          </div>
+          <TableToolbar
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder={config.searchPlaceholder}
+            filterTitle={`Filter ${config.title}`}
+            filterDescription={`Show ${config.title.toLowerCase()} by status, ${keyFilterLabel.toLowerCase()}, and transaction date.`}
+            activeFilterCount={[status !== "All statuses", keyValue !== allKeyOption, Boolean(dateFrom), Boolean(dateTo)].filter(Boolean).length}
+            onResetFilters={() => { setStatus("All statuses"); setKeyValue(allKeyOption); setDateFrom(""); setDateTo(""); }}
+            columns={["ID", ...config.columns.slice(1), "Status"]}
+            rows={filteredRows.map((row) => [row.displayId ?? row.cells[0], ...row.cells, row.status])}
+            fileName={`blue-plastic-${config.module}-${config.slug}`}
+            filterContent={<>
+              <label className="text-xs font-semibold text-[#405762]"><span className="mb-1.5 block">Status</span><Select value={selectedStatus} onValueChange={setStatus} options={statusOptions} className="h-10 text-xs"/></label>
+              <label className="text-xs font-semibold text-[#405762]"><span className="mb-1.5 block">{keyFilterLabel}</span><Select value={selectedKeyValue} onValueChange={setKeyValue} options={keyOptions} className="h-10 text-xs"/></label>
+              {dateColumnIndex >= 0 ? <label className="text-xs font-semibold text-[#405762]"><span className="mb-1.5 block">From date</span><DatePicker value={dateFrom} onChange={setDateFrom}/></label> : null}
+              {dateColumnIndex >= 0 ? <label className="text-xs font-semibold text-[#405762]"><span className="mb-1.5 block">To date</span><DatePicker value={dateTo} onChange={setDateTo}/></label> : null}
+            </>}
+          />
 
           {config.presentation === "cards" ? (
             <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">

@@ -5,8 +5,8 @@ import { useMemo, useState } from "react";
 import { useRouter } from "@/components/routing";
 import {
   ArrowRight, Boxes, Check, CheckCircle2, ClipboardCheck,
-  Download, Factory, Filter, Landmark, PackageCheck, Plus, Printer,
-  Search, ShieldCheck, ShoppingCart, Sparkles, Trash2, Truck,
+  Factory, Landmark, PackageCheck, Plus,
+  ShieldCheck, ShoppingCart, Sparkles, Trash2, Truck,
 } from "lucide-react";
 import { AppShell } from "../../../components/layout/app-shell";
 import { Badge } from "../../../components/ui/badge";
@@ -14,6 +14,7 @@ import { Card } from "../../../components/ui/card";
 import { ConfirmDeleteDialog } from "../../../components/ui/confirm-delete-dialog";
 import { DatePicker } from "../../../components/ui/date-picker";
 import { Select } from "../../../components/ui/select";
+import { TableToolbar } from "../../../components/ui/table-toolbar";
 import { LoadingState } from "../../../components/ui/loading-state";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
@@ -81,18 +82,6 @@ export function OperationsWorkspacePage({ config }: { config: ResourceConfig }) 
     window.setTimeout(() => setToast(null), 3000);
   };
 
-  const exportRows = () => {
-    const csv = [["ID", ...config.columns, "Status"], ...records.map((record) => [record.id, record.name, record.secondary, record.amount, record.date, record.status])]
-      .map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(",")).join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `blue-plastic-${opsModule}-${resource}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    notify("Export completed", `${records.length} records downloaded as CSV.`);
-  };
-
   return (
     <AppShell>
       <div className="mx-auto max-w-[1600px]">
@@ -103,8 +92,6 @@ export function OperationsWorkspacePage({ config }: { config: ResourceConfig }) 
               <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky-200">{meta.eyebrow} · {config.title}</p><h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] md:text-[30px]">{config.title}</h1><p className="mt-1 max-w-2xl text-xs leading-5 text-white/65">{config.description}</p></div>
             </div>
             <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-              <button onClick={exportRows} className="flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 text-xs font-bold"><Download size={15}/>Export</button>
-              <button onClick={() => window.print()} className="flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 text-xs font-bold"><Printer size={15}/>Print</button>
               <Link href={`/${opsModule}/${resource}/new`} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold"><Plus size={16}/>{config.primaryAction}</Link>
             </div>
           </div>
@@ -122,10 +109,7 @@ export function OperationsWorkspacePage({ config }: { config: ResourceConfig }) 
         </section>
 
         <Card className="mt-4 overflow-hidden">
-          <div className="flex flex-col gap-2.5 border-b border-[#e4ebf0] bg-[#fbfcfd] p-3.5 xl:flex-row xl:items-center">
-            <div className="relative min-w-[240px] flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#82949e]"/><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={config.searchPlaceholder} className="h-10 w-full rounded-xl border border-[#dce6ed] bg-white pl-9 pr-3 text-xs outline-none focus:border-[#007DCC]"/></div>
-            <div className="flex flex-wrap gap-2"><Select value={status} onValueChange={setStatus} options={statuses.length ? statuses : ["All statuses"]} className="h-10 w-[160px] text-xs"/><DatePicker value={from} onChange={setFrom} placeholder="From" className="h-10 w-[140px]"/><DatePicker value={to} onChange={setTo} placeholder="To" className="h-10 w-[140px]"/><button onClick={() => { setSearch(""); setStatus("All statuses"); setFrom(""); setTo(""); }} className="flex h-10 items-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3 text-xs font-bold text-[#526874]"><Filter size={14}/>Reset</button></div>
-          </div>
+          <TableToolbar search={search} onSearchChange={setSearch} searchPlaceholder={config.searchPlaceholder} filterTitle={`Filter ${config.title}`} filterDescription={`Filter ${config.title.toLowerCase()} by operational status and date range.`} activeFilterCount={[status !== "All statuses", Boolean(from), Boolean(to)].filter(Boolean).length} onResetFilters={() => { setStatus("All statuses"); setFrom(""); setTo(""); }} columns={["Document", "Name", "Detail", "Amount", "Date", "Status"]} rows={records.map((record) => [record.id, record.name, record.secondary, record.amount, record.date, record.status])} fileName={`blue-plastic-${opsModule}-${resource}`} filterContent={<><label className="text-xs font-semibold text-[#405762] sm:col-span-2"><span className="mb-1.5 block">Operational status</span><Select value={status} onValueChange={setStatus} options={statuses.length ? statuses : ["All statuses"]}/></label><label className="text-xs font-semibold text-[#405762]"><span className="mb-1.5 block">From date</span><DatePicker value={from} onChange={setFrom}/></label><label className="text-xs font-semibold text-[#405762]"><span className="mb-1.5 block">To date</span><DatePicker value={to} onChange={setTo}/></label></>}/>
           {error ? <div className="p-10 text-center text-sm text-red-600">{error}</div> : loading ? <LoadingState label={`Loading ${config.title.toLowerCase()}…`} className="m-4"/> :
             resource === "vendors" ? <VendorCenter records={records} onOpen={(id) => router.push(`/${opsModule}/${resource}/${id}`)}/> :
             resource === "approvals" ? <ApprovalCenter records={records} onAction={(record, action) => { void updateStatus(record.id, action === "Approve" ? "Approved" : "Changes requested"); notify(`Request ${action.toLowerCase()}d`, `${record.id} was updated.`); }}/> :
