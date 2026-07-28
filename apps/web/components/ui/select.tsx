@@ -6,7 +6,7 @@ import { useState } from "react";
 import { cn } from "../../lib/utils";
 
 export type SelectOption = string | { label: string; value: string };
-export type QuickAddKind = "contact" | "item" | "account";
+export type QuickAddKind = "customer" | "vendor" | "item" | "account";
 export interface QuickAddInput {
   kind: QuickAddKind;
   name: string;
@@ -30,7 +30,7 @@ export function Select({
   allowAddNew = false,
   addNewLabel = "record",
   searchable = true,
-  quickAddKind = "contact",
+  quickAddKind = "customer",
   onCreateOption,
   onOptionCreated,
 }: {
@@ -197,7 +197,7 @@ export function Select({
           <div className="grid gap-4 p-5 sm:grid-cols-2">
             <label className="text-xs font-bold text-[#405762] sm:col-span-2"><span className="mb-1.5 block">Name <span className="text-red-500">*</span></span><input autoFocus value={newName} onChange={(event) => setNewName(event.target.value)} placeholder={`Enter ${addNewLabel} name`} className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></label>
             <label className="text-xs font-bold text-[#405762]"><span className="mb-1.5 block">{quickAddKind === "item" ? "SKU" : quickAddKind === "account" ? "Account number" : "Code or reference"} <span className="text-red-500">*</span></span><input value={newCode} onChange={(event) => setNewCode(event.target.value)} placeholder={quickAddKind === "item" ? "ITEM-001" : quickAddKind === "account" ? "6000" : "Optional code"} className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></label>
-            {quickAddKind === "contact" ? (
+            {quickAddKind === "customer" || quickAddKind === "vendor" ? (
               <label className="text-xs font-bold text-[#405762]"><span className="mb-1.5 block">Email or phone</span><input value={newContact} onChange={(event) => setNewContact(event.target.value)} placeholder="Optional contact" className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></label>
             ) : null}
             {quickAddKind === "item" ? (

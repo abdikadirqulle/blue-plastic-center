@@ -5,9 +5,17 @@ import {
   branches,
   companies,
   fiscalPeriods,
+  items,
+  resourceRecords,
   users,
 } from "./schema.js"
 import { hashPassword } from "../modules/auth/password.js"
+
+const uuidOrNull = (value: unknown) =>
+  typeof value === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : null
 
 async function seed() {
   const databaseUrl = process.env.DATABASE_URL
@@ -147,6 +155,81 @@ async function seed() {
         target: [accounts.companyId, accounts.accountNumber],
         set: { name, type, currency: "USD", active: true },
       })
+  }
+
+  const legacyRecords = await db.select().from(resourceRecords)
+  for (const record of legacyRecords) {
+    if (
+      record.module === "accounting" &&
+      record.resource === "chart-of-accounts" &&
+      record.data.accountNumber &&
+      (record.data.accountName || record.data.name) &&
+      record.data.accountType
+    ) {
+      await db.insert(accounts).values({
+        id: record.id,
+        companyId: record.companyId,
+        accountNumber: String(record.data.accountNumber),
+        name: String(record.data.accountName ?? record.data.name),
+        type: String(record.data.accountType),
+        currency: String(record.data.currency ?? "USD"),
+        active: !record.isDeleted && record.status !== "inactive",
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+      }).onConflictDoUpdate({
+        target: [accounts.companyId, accounts.accountNumber],
+        set: {
+          name: String(record.data.accountName ?? record.data.name),
+          type: String(record.data.accountType),
+          currency: String(record.data.currency ?? "USD"),
+          active: !record.isDeleted && record.status !== "inactive",
+          updatedAt: record.updatedAt,
+        },
+      })
+    }
+    if (
+      record.module === "inventory" &&
+      record.resource === "items" &&
+      record.data.sku &&
+      record.data.name &&
+      record.data.type
+    ) {
+      await db.insert(items).values({
+        id: record.id,
+        companyId: record.companyId,
+        branchId: record.branchId,
+        sku: String(record.data.sku),
+        name: String(record.data.name),
+        type: String(record.data.type),
+        salesPrice: String(record.data.salesPrice ?? "0"),
+        purchaseCost: String(record.data.purchaseCost ?? "0"),
+        incomeAccountId: uuidOrNull(record.data.incomeAccountId),
+        expenseAccountId: uuidOrNull(record.data.expenseAccountId),
+        inventoryAccountId: uuidOrNull(record.data.inventoryAccountId),
+        active: !record.isDeleted && record.status !== "inactive",
+        version: record.version,
+        createdBy: record.createdBy,
+        updatedBy: record.updatedBy,
+        isDeleted: record.isDeleted,
+        deletedAt: record.deletedAt,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+      }).onConflictDoUpdate({
+        target: [items.companyId, items.sku],
+        set: {
+          name: String(record.data.name),
+          type: String(record.data.type),
+          salesPrice: String(record.data.salesPrice ?? "0"),
+          purchaseCost: String(record.data.purchaseCost ?? "0"),
+          active: !record.isDeleted && record.status !== "inactive",
+          version: record.version,
+          updatedBy: record.updatedBy,
+          isDeleted: record.isDeleted,
+          deletedAt: record.deletedAt,
+          updatedAt: record.updatedAt,
+        },
+      })
+    }
   }
 
   await db

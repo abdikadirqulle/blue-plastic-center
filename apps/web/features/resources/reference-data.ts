@@ -119,7 +119,20 @@ export function useReferenceData() {
             label: `${input.code} — ${input.name}`,
           }
         }
-        return { value: input.name, label: input.name }
+        const moduleName = input.kind === "vendor" ? "purchasing" : "sales"
+        const resourceName = input.kind === "vendor" ? "vendors" : "customers"
+        const response = await apiClient.create(moduleName, resourceName, {
+          displayName: input.name,
+          ...(input.contact.includes("@")
+            ? { email: input.contact }
+            : input.contact ? { phone: input.contact } : {}),
+          currency: "USD",
+          openingBalance: "0",
+        }, "active")
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.resource(moduleName, resourceName),
+        })
+        return { value: response.data.id, label: input.name }
       },
       resolve(value: unknown) {
         if (value === undefined || value === null || value === "") return "—"

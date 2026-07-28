@@ -292,6 +292,11 @@ test("Phase 2 CRUD validates operational documents, numbers them, and honors ide
       invoiceDate: "2026-07-28",
       dueDate: "2026-08-27",
       currency: "USD",
+      template: "Product invoice",
+      class: "Wholesale",
+      terms: "Net 30",
+      poNumber: "CUSTOMER-PO-88",
+      shippingMethod: "Company truck",
       lines: [line],
     },
   };
@@ -333,11 +338,22 @@ test("Phase 2 CRUD validates operational documents, numbers them, and honors ide
   assert.equal(listed.json().meta.total, 1);
   const fetched = await request(app, `/v1/sales/invoices/${first.json().data.id}`);
   assert.equal(fetched.status, 200);
+  assert.equal(fetched.json().data.data.template, "Product invoice");
+  assert.equal(fetched.json().data.data.class, "Wholesale");
+  assert.equal(fetched.json().data.data.poNumber, "CUSTOMER-PO-88");
   const updated = await request(app, `/v1/sales/invoices/${first.json().data.id}`, {
     method: "PATCH",
-    body: JSON.stringify({ version: 1, data: { memo: "Customer requested delivery" } }),
+    body: JSON.stringify({
+      version: 1,
+      data: {
+        memo: "Customer requested delivery",
+        shippingMethod: "Third-party delivery",
+      },
+    }),
   });
   assert.equal(updated.json().data.version, 2);
+  assert.equal(updated.json().data.data.template, "Product invoice");
+  assert.equal(updated.json().data.data.shippingMethod, "Third-party delivery");
   assert.equal((await request(app, `/v1/sales/invoices/${first.json().data.id}`, {
     method: "DELETE",
   })).status, 204);

@@ -37,6 +37,7 @@ import {
 } from "./resource-api"
 import { apiClient } from "@/lib/api-client"
 import { useReferenceData } from "./reference-data"
+import { resourceFieldValue } from "./resource-field-mapping"
 
 const statusVariant = (status: string) => {
   if (["Paid", "Posted", "Active", "Approved", "Completed"].includes(status))
@@ -96,28 +97,14 @@ function displayValue(
   data: Record<string, unknown>,
   resolveReference: (value: unknown) => string,
 ) {
-  const aliases: Record<string, string[]> = {
-    customer: ["customerId"],
-    customerName: ["customerId"],
-    vendor: ["vendorId"],
-    vendorName: ["vendorId"],
-    project: ["projectId"],
-    employee: ["employeeId"],
-    warehouse: ["warehouseId"],
-    account: ["accountId"],
-    item: ["itemId"],
-  }
-  const actualKey = [field.name, ...(aliases[field.name] ?? [])].find(
-    (key) => data[key] !== undefined && data[key] !== null && data[key] !== "",
-  )
-  const actual = actualKey ? data[actualKey] : undefined
+  const actual = resourceFieldValue(field.name, data)
   if (actual !== undefined && actual !== null) {
     if (typeof actual === "boolean") return actual ? "Yes" : "No"
     if (Array.isArray(actual)) return `${actual.length} record${actual.length === 1 ? "" : "s"}`
     if (typeof actual === "object") return JSON.stringify(actual, null, 2)
     if (
-      /(^|Id$)|customer|vendor|project|employee|warehouse|account|item/i.test(
-        actualKey ?? field.name,
+      /(Id$)|customer|vendor|project|employee|warehouse|account|item/i.test(
+        field.name,
       )
     )
       return resolveReference(actual)

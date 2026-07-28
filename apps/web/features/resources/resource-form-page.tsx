@@ -26,6 +26,10 @@ import { ApiError } from "../../lib/api-client";
 import type { FormField, ResourceConfig } from "./resource-config";
 import { useResourceDetail, useResourceMutations } from "./resource-api";
 import { useReferenceData } from "./reference-data";
+import {
+  normalizeResourceData,
+  resourceFieldValue,
+} from "./resource-field-mapping";
 
 interface LineItem {
   id: number;
@@ -44,7 +48,8 @@ function supportsQuickAdd(field: FormField) {
 function quickAddKind(field: FormField): QuickAddKind {
   if (/account/i.test(field.name)) return "account";
   if (/item|product|service/i.test(field.name)) return "item";
-  return "contact";
+  if (/vendor|payee/i.test(field.name)) return "vendor";
+  return "customer";
 }
 
 function FormControl({
@@ -161,19 +166,16 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
 
   useEffect(() => {
     if (!detail.data?.data) return;
-    const loaded = Object.fromEntries(
-      Object.entries(detail.data.data.data).map(([key, value]) => [
-        key,
-        typeof value === "object" ? JSON.stringify(value) : String(value ?? ""),
-      ]),
-    );
     const source = detail.data.data.data;
-    loaded.customer ??= String(source.customerId ?? "");
-    loaded.vendor ??= String(source.vendorId ?? "");
-    loaded.project ??= String(source.projectId ?? "");
-    loaded.employee ??= String(source.employeeId ?? "");
-    loaded.warehouse ??= String(source.warehouseId ?? "");
-    loaded.account ??= String(source.accountId ?? "");
+    const loaded = Object.fromEntries(
+      allFields.map((field) => {
+        const value = resourceFieldValue(field.name, source);
+        return [
+          field.name,
+          typeof value === "object" ? JSON.stringify(value) : String(value ?? ""),
+        ];
+      }),
+    );
     setValues(loaded);
     if (Array.isArray(source.lines) && source.lines.length) {
       setLineItems(source.lines.map((entry, index) => {
@@ -217,26 +219,12 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
       return;
     }
     setErrors({});
-    const data: Record<string, unknown> = Object.fromEntries(
+    const data: Record<string, unknown> = normalizeResourceData(Object.fromEntries(
       Object.entries(values).filter(([, value]) => value !== ""),
-    );
+    ));
     for (const field of fields) {
       if (field.type === "checkbox")
         data[field.name] = values[field.name] === "true";
-    }
-    const aliases: Record<string, string[]> = {
-      customerId: ["customer", "customerName"],
-      vendorId: ["vendor", "vendorName"],
-      projectId: ["project"],
-      employeeId: ["employee"],
-      warehouseId: ["warehouse"],
-      accountId: ["account"],
-      displayName: ["customerName", "vendorName", "customer", "vendor", "name"],
-    };
-    for (const [target, sources] of Object.entries(aliases)) {
-      if (data[target]) continue;
-      const source = sources.find((key) => values[key]);
-      if (source) data[target] = values[source];
     }
     if (config.hasLineItems) {
       const completedLines = lineItems.filter((line) => line.item);

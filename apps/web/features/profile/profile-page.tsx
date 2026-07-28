@@ -123,7 +123,7 @@ export default function ProfilePage() {
                 <label className="text-xs font-bold text-[#405762]">
                   <span className="mb-2 block">Last name</span>
                   <input
-                    defaultValue="Qulle"
+                    defaultValue="Abdullahi"
                     className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"
                   />
                 </label>
