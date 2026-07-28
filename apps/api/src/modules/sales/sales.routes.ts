@@ -5,7 +5,7 @@ import {
   allocationSchema,
   conversionSchema,
   emailDocumentSchema,
-} from "./sales.schemas.js"
+} from "@blue-plastic/types"
 import type { ResourceService } from "../../services/resource-service.js"
 
 export async function salesRoutes(

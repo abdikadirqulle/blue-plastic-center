@@ -6,7 +6,7 @@ import {
   positiveDecimal,
   transactionLines,
   type OperationalSchema,
-} from "../operations/operational.schemas.js"
+} from "./operational.js"
 
 export const inventorySchemas: Record<string, OperationalSchema> = {
   items: z.object({

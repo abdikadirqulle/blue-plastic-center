@@ -1,30 +1,7 @@
 import { webEnv } from "@/lib/env";
 import { authService } from "@/features/auth/auth-service";
-
-export interface ApiEnvelope<T> {
-  data: T;
-  meta?: {
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
-export interface ApiRecord<TData extends Record<string, unknown> = Record<string, unknown>> {
-  id: string;
-  module: string;
-  resource: string;
-  companyId: string;
-  branchId: string;
-  status: string;
-  version: number;
-  data: TData;
-  createdAt: string;
-  updatedAt: string;
-  isDeleted: boolean;
-  deletedAt?: string;
-}
+import type { ApiEnvelope, ApiErrorPayload, ApiRecord } from "@blue-plastic/types";
+export type { ApiEnvelope, ApiRecord } from "@blue-plastic/types";
 
 export class ApiError extends Error {
   constructor(
@@ -32,6 +9,7 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code?: string,
     readonly details?: unknown,
+    readonly requestId?: string,
   ) {
     super(message)
   }
@@ -84,18 +62,28 @@ export class ApiClient {
     if (!response.ok) {
       const body = await response.json().catch(() => ({
         error: { message: response.statusText },
-      })) as {
-        error?: { message?: string; code?: string; details?: unknown }
-      };
+      })) as Partial<ApiErrorPayload>;
+      const requestId = body.error?.requestId ?? response.headers.get("X-Request-Id") ?? undefined;
       if (response.status === 401 && window.location.pathname !== "/login") {
         authService.clear()
         window.location.assign("/login")
       }
+      const message = validationMessage(body.error?.message ?? "API request failed", body.error?.details);
+      console.error("[API_REQUEST_FAILED]", {
+        requestId,
+        method: init?.method ?? "GET",
+        path,
+        status: response.status,
+        code: body.error?.code,
+        message,
+        details: body.error?.details,
+      });
       throw new ApiError(
-        validationMessage(body.error?.message ?? "API request failed", body.error?.details),
+        `${message}${requestId ? ` · Ref: ${requestId.slice(0, 8)}` : ""}`,
         response.status,
         body.error?.code,
         body.error?.details,
+        requestId,
       );
     }
     if (response.status === 204) return undefined as T;

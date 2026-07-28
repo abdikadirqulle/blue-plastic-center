@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify"
 import { authorizeResource } from "../../platform/auth.js"
 import type { OperationalWorkflowService } from "../operations/operational-workflow.service.js"
-import { fulfillmentActionSchema } from "./inventory.schemas.js"
+import { fulfillmentActionSchema } from "@blue-plastic/types"
 
 const actionStatus = {
   allocate: "allocated",

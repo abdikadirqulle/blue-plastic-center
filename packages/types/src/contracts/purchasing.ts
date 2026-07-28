@@ -8,7 +8,7 @@ import {
   positiveDecimal,
   transactionLines,
   type OperationalSchema,
-} from "../operations/operational.schemas.js"
+} from "./operational.js"
 
 const vendorDocument = documentBase.extend({ vendorId: identifier })
 

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { currencyCode, decimalString, identifier, isoDate, positiveDecimal, type OperationalSchema } from "../operations/operational.schemas.js"
+import { currencyCode, decimalString, identifier, isoDate, positiveDecimal, type OperationalSchema } from "./operational.js"
 
 export const projectSchemas: Record<string, OperationalSchema> = {
   projects: z.object({

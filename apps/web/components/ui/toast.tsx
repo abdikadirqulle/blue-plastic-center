@@ -59,7 +59,7 @@ export function Toast({
   const Icon = style.icon;
 
   return (
-    <div role={message.variant === "error" ? "alert" : "status"} aria-live="polite" className={cn("fixed bottom-5 right-5 z-[120] w-[min(390px,calc(100vw-2rem))] overflow-hidden rounded-2xl border shadow-[0_18px_50px_rgba(15,42,58,0.2)]", style.frame)}>
+    <div role={message.variant === "error" ? "alert" : "status"} aria-live="polite" className={cn("fixed right-4 top-[72px] z-[120] w-[min(390px,calc(100vw-2rem))] overflow-hidden rounded-xl border shadow-[0_14px_40px_rgba(15,42,58,0.18)] lg:right-6", style.frame)}>
       <div className="flex items-start gap-3 p-4">
         <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", style.iconWrap)}><Icon size={20}/></span>
         <div className="min-w-0 flex-1 pt-0.5">

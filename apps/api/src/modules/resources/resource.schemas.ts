@@ -1,4 +1,5 @@
 import { z } from "zod";
+export type { ResourceParams } from "@blue-plastic/types";
 
 export const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -14,9 +15,3 @@ export const writeSchema = z.object({
   version: z.number().int().positive().optional(),
   data: z.record(z.unknown()),
 });
-
-export interface ResourceParams {
-  module: string;
-  resource: string;
-  id: string;
-}

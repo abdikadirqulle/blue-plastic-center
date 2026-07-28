@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { decimalString, identifier, isoDate, type OperationalSchema } from "../operations/operational.schemas.js"
+import { decimalString, identifier, isoDate, type OperationalSchema } from "./operational.js"
 
 const journalLine = z.object({
   accountId: identifier,

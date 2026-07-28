@@ -5,8 +5,11 @@ import {
   isoDate,
   positiveDecimal,
   type OperationalSchema,
-} from "../operations/operational.schemas.js"
-import { decimalToMinor } from "../accounting/ledger-math.js"
+} from "./operational.js"
+function decimalToMinor(value: string) {
+  const [whole, fraction = ""] = value.split(".")
+  return BigInt(whole) * 10_000n + BigInt(`${fraction}0000`.slice(0, 4))
+}
 
 const payRunLine = z
   .object({

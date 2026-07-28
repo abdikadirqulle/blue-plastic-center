@@ -6,7 +6,7 @@ import {
   isoDate,
   positiveDecimal,
   type OperationalSchema,
-} from "../operations/operational.schemas.js"
+} from "./operational.js"
 
 export const bankingSchemas: Record<string, OperationalSchema> = {
   accounts: z.object({

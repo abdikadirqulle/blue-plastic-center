@@ -5,7 +5,11 @@ import { useRouter } from "@/components/routing";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ArrowLeft, LoaderCircle, Plus, Save, Trash2 } from "lucide-react";
-import { z } from "zod";
+import {
+  createDraftFormSchema,
+  essentialFormFields,
+  draftResourceDataSchema,
+} from "@blue-plastic/types";
 import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
 import { ConfirmDeleteDialog } from "../../components/ui/confirm-delete-dialog";
@@ -29,21 +33,6 @@ interface LineItem {
 
 function supportsQuickAdd(field: FormField) {
   return /(customer|vendor|account|warehouse|employee|project|salesRep|approver|payee)$/i.test(field.name);
-}
-
-function essentialRequiredFields(fields: FormField[]) {
-  const configured = fields.filter((field) => field.required);
-  const selected: FormField[] = [];
-  const take = (pattern: RegExp) => {
-    const field = configured.find((candidate) => pattern.test(candidate.name) && !selected.includes(candidate));
-    if (field) selected.push(field);
-  };
-  take(/^(customer|customerId|customerName|vendor|vendorId|vendorName|employee|employeeId|account|accountId|accountName|item|itemId|itemName|project|projectId|projectName|payee|displayName|name)$/i);
-  take(/(transactionDate|invoiceDate|billDate|paymentDate|receiptDate|orderDate|entryDate|payDate|startDate|date)$/i);
-  take(/^(amount|total|openingBalance|contractAmount|grossPay|quantity)$/i);
-  take(/^(dueDate)$/i);
-  if (!selected.length && configured[0]) selected.push(configured[0]);
-  return new Set(selected.slice(0, 4).map((field) => field.name));
 }
 
 function FormControl({
@@ -112,7 +101,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
     value: record.id,
   }));
   const allFields = config.formSections.flatMap((section) => section.fields);
-  const requiredFields = essentialRequiredFields(allFields);
+  const requiredFields = essentialFormFields(allFields);
 
   useEffect(() => {
     if (!detail.data?.data) return;
@@ -150,18 +139,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
     event.preventDefault();
     const form = event.currentTarget;
     const fields = allFields;
-    const shape = Object.fromEntries(fields.map((field) => {
-      const required = requiredFields.has(field.name);
-      let validator: z.ZodTypeAny = required
-        ? z.string().min(1, `${field.label} is required`)
-        : z.string();
-      if (field.type === "email")
-        validator = required
-          ? z.string().email("Enter a valid email address")
-          : z.union([z.literal(""), z.string().email("Enter a valid email address")]);
-      return [field.name, validator];
-    }));
-    const result = z.object(shape).safeParse(
+    const result = createDraftFormSchema(fields).safeParse(
       Object.fromEntries(fields.map((field) => [field.name, values[field.name] ?? ""])),
     );
     if (!result.success) {
@@ -207,6 +185,16 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
       data.balanceDue = (lineTotal * 1.05).toFixed(4);
     }
     if (!data.currency) data.currency = "USD";
+    const draftResult = draftResourceDataSchema.safeParse(data);
+    if (!draftResult.success) {
+      setMessage({ title: "Invalid form data", description: "The form contains a value that cannot be saved.", variant: "error" });
+      console.error("[FORM_CONTRACT_ERROR]", {
+        module: config.module,
+        resource: config.slug,
+        issues: draftResult.error.issues,
+      });
+      return;
+    }
     try {
       if (editId && detail.data?.data) {
         await mutations.update.mutateAsync({
@@ -215,7 +203,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
           version: detail.data.data.version,
         });
       } else {
-        await mutations.create.mutateAsync({ data, status: "draft" });
+        await mutations.create.mutateAsync({ data, status: "incomplete" });
       }
     } catch (caught) {
       if (caught instanceof ApiError && caught.details && typeof caught.details === "object") {

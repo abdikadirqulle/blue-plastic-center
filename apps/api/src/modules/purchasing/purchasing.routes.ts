@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify"
 import { authorizeResource } from "../../platform/auth.js"
 import type { ResourceService } from "../../services/resource-service.js"
 import type { OperationalWorkflowService } from "../operations/operational-workflow.service.js"
-import { approvalDecisionSchema, receivePurchaseOrderSchema } from "./purchasing.schemas.js"
+import { approvalDecisionSchema, receivePurchaseOrderSchema } from "@blue-plastic/types"
 
 export async function purchasingRoutes(
   app: FastifyInstance,

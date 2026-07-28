@@ -8,7 +8,7 @@ import {
   partySchema,
   positiveDecimal,
   type OperationalSchema,
-} from "../operations/operational.schemas.js"
+} from "./operational.js"
 
 const customerDocument = documentBase.extend({
   customerId: identifier,
@@ -28,19 +28,25 @@ export const salesSchemas: Record<string, OperationalSchema> = {
     invoiceDate: isoDate,
     dueDate: isoDate,
   }),
-  payments: z.object({
-    customerId: identifier,
-    paymentDate: isoDate,
-    amount: positiveDecimal,
-    currency: currencyCode,
-    depositToAccountId: identifier,
-    paymentMethod: z.string().min(1),
-    allocations: z.array(z.object({
-      invoiceId: identifier,
+  payments: z
+    .object({
+      customerId: identifier,
+      paymentDate: isoDate,
       amount: positiveDecimal,
-    })).default([]),
-    reference: z.string().optional(),
-  }).passthrough(),
+      currency: currencyCode,
+      depositToAccountId: identifier,
+      paymentMethod: z.string().min(1),
+      allocations: z
+        .array(
+          z.object({
+            invoiceId: identifier,
+            amount: positiveDecimal,
+          }),
+        )
+        .default([]),
+      reference: z.string().optional(),
+    })
+    .passthrough(),
   "credit-notes": customerDocument.extend({
     creditDate: isoDate,
   }),
@@ -53,19 +59,23 @@ export const salesSchemas: Record<string, OperationalSchema> = {
     refundDate: isoDate,
     paymentAccountId: identifier,
   }),
-  statements: z.object({
-    customerId: identifier,
-    statementDate: isoDate,
-    fromDate: isoDate.optional(),
-    toDate: isoDate,
-  }).passthrough(),
-  deposits: z.object({
-    customerId: identifier,
-    depositTo: identifier,
-    depositDate: isoDate,
-    amount: positiveDecimal,
-    currency: currencyCode,
-  }).passthrough(),
+  statements: z
+    .object({
+      customerId: identifier,
+      statementDate: isoDate,
+      fromDate: isoDate.optional(),
+      toDate: isoDate,
+    })
+    .passthrough(),
+  deposits: z
+    .object({
+      customerId: identifier,
+      depositTo: identifier,
+      depositDate: isoDate,
+      amount: positiveDecimal,
+      currency: currencyCode,
+    })
+    .passthrough(),
   "recurring-invoices": customerDocument.extend({
     templateName: z.string().min(2),
     frequency: z.enum(["weekly", "monthly", "quarterly", "yearly"]),
@@ -79,10 +89,14 @@ export const conversionSchema = z.object({
 })
 
 export const allocationSchema = z.object({
-  allocations: z.array(z.object({
-    invoiceId: identifier,
-    amount: positiveDecimal,
-  })).min(1),
+  allocations: z
+    .array(
+      z.object({
+        invoiceId: identifier,
+        amount: positiveDecimal,
+      }),
+    )
+    .min(1),
 })
 
 export const emailDocumentSchema = z.object({

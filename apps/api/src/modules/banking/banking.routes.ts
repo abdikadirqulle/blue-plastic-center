@@ -5,7 +5,7 @@ import type { OperationalWorkflowService } from "../operations/operational-workf
 import {
   feedActionSchema,
   reconciliationFinishSchema,
-} from "./banking.schemas.js"
+} from "@blue-plastic/types"
 
 const feedStatus = {
   match: "matched",

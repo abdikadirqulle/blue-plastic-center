@@ -7,7 +7,7 @@ import {
   periodSchema,
   reconciliationSchema,
   reverseJournalSchema,
-} from "./accounting.schemas.js"
+} from "@blue-plastic/types"
 import { decimalToMinor, minorToDecimal } from "./ledger-math.js"
 
 export async function accountingRoutes(

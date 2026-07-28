@@ -2,13 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createApp } from "../dist/app.js";
 import { MemoryResourceRepository } from "../dist/repositories/memory-resource-repository.js";
-import { salesSchemas } from "../dist/modules/sales/sales.schemas.js";
-import { purchasingSchemas } from "../dist/modules/purchasing/purchasing.schemas.js";
-import { inventorySchemas } from "../dist/modules/inventory/inventory.schemas.js";
-import { bankingSchemas } from "../dist/modules/banking/banking.schemas.js";
-import { accountingSchemas } from "../dist/modules/accounting/accounting.schemas.js";
-import { projectSchemas } from "../dist/modules/projects/project.schemas.js";
-import { payrollSchemas } from "../dist/modules/payroll/payroll.schemas.js";
+import {
+  accountingSchemas,
+  bankingSchemas,
+  inventorySchemas,
+  payrollSchemas,
+  projectSchemas,
+  purchasingSchemas,
+  salesSchemas,
+} from "@blue-plastic/types";
 import { allowedWebOrigins } from "../dist/config/env.js";
 
 async function inject(app, path, init = {}, auth = {}) {

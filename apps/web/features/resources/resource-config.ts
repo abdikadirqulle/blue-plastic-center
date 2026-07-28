@@ -1,56 +1,19 @@
-export type FieldType =
-  | "text"
-  | "email"
-  | "tel"
-  | "number"
-  | "date"
-  | "select"
-  | "textarea"
-  | "checkbox"
+import type {
+  FormField,
+  FormSection,
+  ModuleDefinition,
+  ResourceConfig,
+  ResourceRow,
+} from "@blue-plastic/types"
 
-export interface FormField {
-  name: string
-  label: string
-  type: FieldType
-  required?: boolean
-  options?: string[]
-  placeholder?: string
-  width?: "half" | "third" | "full"
-}
-
-export interface FormSection {
-  title: string
-  description?: string
-  fields: FormField[]
-}
-
-export interface ResourceRow {
-  id: string
-  cells: string[]
-  status: string
-}
-
-export interface ResourceConfig {
-  module: string
-  moduleTitle: string
-  slug: string
-  title: string
-  description: string
-  primaryAction: string
-  searchPlaceholder: string
-  columns: string[]
-  stats: Array<{ label: string; value: string; helper: string }>
-  formSections: FormSection[]
-  hasLineItems?: boolean
-  rows: ResourceRow[]
-  presentation?: "table" | "cards" | "sections"
-}
-
-export interface ModuleDefinition {
-  title: string
-  description: string
-  resources: Array<{ slug: string; label: string }>
-}
+export type {
+  FieldType,
+  FormField,
+  FormSection,
+  ModuleDefinition,
+  ResourceConfig,
+  ResourceRow,
+} from "@blue-plastic/types"
 
 function sampleRows(
   _prefix: string,

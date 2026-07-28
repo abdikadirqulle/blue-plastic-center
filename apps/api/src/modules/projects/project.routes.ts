@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify"
 import { authorizeResource } from "../../platform/auth.js"
 import type { ResourceService } from "../../services/resource-service.js"
 import { decimalToMinor, minorToDecimal } from "../accounting/ledger-math.js"
-import { progressBillingSchema } from "./project.schemas.js"
+import { progressBillingSchema } from "@blue-plastic/types"
 
 export async function projectRoutes(
   app: FastifyInstance,

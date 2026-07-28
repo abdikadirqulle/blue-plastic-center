@@ -107,10 +107,14 @@ export class ResourceService {
     moduleName: string,
     resourceName: string,
     input: Record<string, unknown>,
+    status = "draft",
   ) {
-    const data = validateOperationalData(moduleName, resourceName, input)
-    validateRequired(moduleName, resourceName, data)
-    validateJournalBalance(moduleName, resourceName, data)
+    const partial = status.toLowerCase() === "incomplete"
+    const data = validateOperationalData(moduleName, resourceName, input, { partial })
+    if (!partial) {
+      validateRequired(moduleName, resourceName, data)
+      validateJournalBalance(moduleName, resourceName, data)
+    }
     return data
   }
 
@@ -184,7 +188,8 @@ export class ResourceService {
         `Status ${input.status} must be created through its secured workflow endpoint`,
       )
     }
-    let data = this.validateData(moduleName, resourceName, input.data)
+    const status = input.status ?? "draft"
+    let data = this.validateData(moduleName, resourceName, input.data, status)
     const documentKey = `${moduleName}/${resourceName}`
     const prefix = documentPrefixes[documentKey]
     if (prefix && !data.documentNumber) {
@@ -197,7 +202,7 @@ export class ResourceService {
         ),
       }
     }
-    data = this.validateData(moduleName, resourceName, data)
+    data = this.validateData(moduleName, resourceName, data, status)
     const now = new Date().toISOString()
     const record: ResourceRecord = {
       id: randomUUID(),
@@ -205,7 +210,7 @@ export class ResourceService {
       resource: resourceName,
       companyId: context.companyId,
       branchId: context.branchId,
-      status: input.status ?? "draft",
+      status,
       version: 1,
       data,
       createdAt: now,
@@ -252,12 +257,16 @@ export class ResourceService {
         `Status ${input.status} must be set through its secured workflow endpoint`,
       )
     }
+    const status = input.status ?? current.status
+    const partial = status.toLowerCase() === "incomplete"
     const data = validateOperationalData(moduleName, resourceName, {
       ...current.data,
       ...input.data,
-    })
-    validateRequired(moduleName, resourceName, data)
-    validateJournalBalance(moduleName, resourceName, data)
+    }, { partial })
+    if (!partial) {
+      validateRequired(moduleName, resourceName, data)
+      validateJournalBalance(moduleName, resourceName, data)
+    }
     const updated: ResourceRecord = {
       ...current,
       data,
