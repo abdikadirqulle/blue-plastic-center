@@ -98,8 +98,9 @@ test("transaction and item forms use safe defaults and account references", asyn
 })
 
 test("table toolbars provide modal filters and working export formats", async () => {
-  const [toolbar, resources, sales, operations, enterprise] = await Promise.all([
+  const [toolbar, actions, resources, sales, operations, enterprise] = await Promise.all([
     read("../components/ui/table-toolbar.tsx"),
+    read("../components/ui/row-action-menu.tsx"),
     read("../features/resources/resource-page.tsx"),
     read("../features/sales/components/sales-workspace-page.tsx"),
     read("../features/operations/components/operations-workspace-page.tsx"),
@@ -113,6 +114,9 @@ test("table toolbars provide modal filters and working export formats", async ()
   expect(toolbar).toMatch(/activeFilterCount/)
   for (const page of [resources, sales, operations, enterprise])
     expect(page).toMatch(/<TableToolbar/)
-  expect(sales).toMatch(/View details/)
-  expect(sales).toMatch(/new\?edit=/)
+  expect(actions).toMatch(/createPortal/)
+  expect(actions).toMatch(/View details/)
+  expect(actions).toMatch(/Edit/)
+  expect(actions).toMatch(/Delete/)
+  expect(sales).toMatch(/<RowActionMenu/)
 })

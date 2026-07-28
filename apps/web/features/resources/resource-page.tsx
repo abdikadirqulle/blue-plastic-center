@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  MoreHorizontal,
   Pencil,
   Plus,
   Trash2,
@@ -19,6 +18,7 @@ import { ConfirmDeleteDialog } from "../../components/ui/confirm-delete-dialog";
 import { DatePicker } from "../../components/ui/date-picker";
 import { Select } from "../../components/ui/select";
 import { TableToolbar } from "../../components/ui/table-toolbar";
+import { RowActionMenu } from "../../components/ui/row-action-menu";
 import { Toast, type ToastMessage, type ToastVariant } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
 import {
@@ -53,7 +53,6 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [rows, setRows] = useState<ResourceRow[]>([]);
-  const [menuRow, setMenuRow] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResourceRow | null>(null);
   const apiRows = useResourceList(config.module, config.slug, {
@@ -234,15 +233,13 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                       </td>
                     ))}
                     <td className="px-5 py-4"><Badge variant={badgeVariant(row.status)}>{row.status}</Badge></td>
-                    <td className="relative px-5 py-4 text-right" onClick={(event) => event.stopPropagation()}>
-                      <button aria-label={`Actions for ${row.id}`} onClick={() => setMenuRow(menuRow === row.id ? null : row.id)} className="rounded-lg p-2 text-[#78909d] hover:bg-[#e9f4fb] hover:text-[#007DCC]"><MoreHorizontal size={17} /></button>
-                      {menuRow === row.id ? (
-                        <div className="absolute right-8 top-12 z-20 w-36 rounded-xl border border-[#dce6ed] bg-white p-1.5 text-left shadow-xl">
-                          <Link href={`/${config.module}/${config.slug}/${encodeURIComponent(row.id)}`} onClick={() => setMenuRow(null)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold hover:bg-[#eef7fd]"><Eye size={14}/> View details</Link>
-                          <Link href={`/${config.module}/${config.slug}/new?edit=${encodeURIComponent(row.id)}`} onClick={() => setMenuRow(null)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold hover:bg-[#eef7fd]"><Pencil size={14}/> Edit</Link>
-                          <button onClick={() => { setDeleteTarget(row); setMenuRow(null); }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"><Trash2 size={14}/> Delete</button>
-                        </div>
-                      ) : null}
+                    <td className="px-5 py-4 text-right" onClick={(event) => event.stopPropagation()}>
+                      <RowActionMenu
+                        label={row.displayId ?? row.id}
+                        viewHref={`/${config.module}/${config.slug}/${encodeURIComponent(row.id)}`}
+                        editHref={`/${config.module}/${config.slug}/new?edit=${encodeURIComponent(row.id)}`}
+                        onDelete={() => setDeleteTarget(row)}
+                      />
                     </td>
                   </tr>
                 ))}
