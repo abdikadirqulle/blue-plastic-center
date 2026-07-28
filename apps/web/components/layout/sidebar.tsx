@@ -7,6 +7,7 @@ import {
   BarChart3,
   Boxes,
   ChevronDown,
+  ChevronRight,
   CircleDollarSign,
   ClipboardList,
   Database,
@@ -177,6 +178,59 @@ const navigation = [
   },
 ]
 
+const reportNavigation = [
+  {
+    label: "Financial",
+    href: "/reports/financial",
+    reports: [
+      ["Profit and Loss", "Profit and Loss", "profit-and-loss"],
+      ["Balance Sheet", "Balance Sheet", "balance-sheet"],
+      ["Trial Balance", "Trial Balance", "trial-balance"],
+      ["General Ledger", "General Ledger", "general-ledger"],
+    ],
+  },
+  {
+    label: "Sales & receivables",
+    href: "/reports/sales",
+    reports: [
+      ["Sales by Customer", "Sales by Customer Summary", "sales-by-customer"],
+      ["Sales by Item", "Sales by Item Summary", "sales-by-item"],
+      ["A/R Aging", "A/R Aging Summary", "receivables-aging"],
+      ["Invoice List", "Invoice List", "invoice-list"],
+      ["Collections", "Collections Report", "collections"],
+    ],
+  },
+  {
+    label: "Purchasing & payables",
+    href: "/reports/purchasing",
+    reports: [
+      ["A/P Aging", "A/P Aging Summary", "payables-aging"],
+      ["Vendor balances", "Vendor Balance Summary", "payables-aging"],
+      ["Unpaid bills", "Unpaid Bills Detail", "payables-aging"],
+    ],
+  },
+  {
+    label: "Inventory",
+    href: "/reports/inventory",
+    reports: [
+      ["Inventory valuation", "Inventory Valuation Summary", "inventory-valuation"],
+      ["Stock status", "Inventory Stock Status by Item", "inventory-valuation"],
+    ],
+  },
+  {
+    label: "Payroll",
+    href: "/reports/payroll",
+    reports: [["Payroll reports", "Payroll Summary", "audit-trail"]],
+  },
+] as const
+
+function reportHref(name: string, kind: string) {
+  const today = new Date()
+  const to = today.toISOString().slice(0, 10)
+  const from = `${to.slice(0, 8)}01`
+  return `/reports/view?${new URLSearchParams({ name, kind, from, to, basis: "accrual" })}`
+}
+
 export function Sidebar({
   open,
   onClose,
@@ -225,8 +279,20 @@ export function Sidebar({
                     {links.length ? <ChevronDown size={12} /> : null}
                   </Link>
                   {links.length ? (
-                    <div className="invisible absolute left-0 top-full z-50 w-56 translate-y-1 rounded-xl border border-[#dce6ed] bg-white p-2 text-[#304954] opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
-                      {links.map(([name, link]) => (
+                    <div className={cn("invisible absolute top-full z-50 w-56 translate-y-1 rounded-xl border border-[#dce6ed] bg-white p-2 text-[#304954] opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100", label === "Reports" ? "right-0" : "left-0")}>
+                      {label === "Reports" ? reportNavigation.map((category) => (
+                        <div key={category.label} className="group/report-category relative">
+                          <Link href={category.href} className="flex items-center justify-between rounded-lg px-3 py-2.5 text-xs font-semibold hover:bg-[#eef7fd] hover:text-[#007DCC]">
+                            {category.label}<ChevronRight size={13}/>
+                          </Link>
+                          <div className="invisible absolute right-full top-0 z-[60] w-60 rounded-xl border border-[#dce6ed] bg-white p-2 opacity-0 shadow-2xl transition group-hover/report-category:visible group-hover/report-category:opacity-100">
+                            <Link href={category.href} className="mb-1 block rounded-lg border-b border-[#e8eef2] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#007DCC] hover:bg-[#eef7fd]">View all {category.label}</Link>
+                            {category.reports.map(([reportLabel, reportName, kind]) => (
+                              <Link key={reportLabel} href={reportHref(reportName, kind)} className="block rounded-lg px-3 py-2 text-xs font-medium text-[#405762] hover:bg-[#eef7fd] hover:text-[#007DCC]">{reportLabel}</Link>
+                            ))}
+                          </div>
+                        </div>
+                      )) : links.map(([name, link]) => (
                         <Link
                           key={`${name}-${link}`}
                           href={link}

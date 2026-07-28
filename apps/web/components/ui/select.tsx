@@ -149,7 +149,7 @@ export function Select({
         <SelectPrimitive.Icon><ChevronDown size={15} className="text-[#7d909c]"/></SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
-        <SelectPrimitive.Content position="popper" sideOffset={5} className="z-[100] max-h-80 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-[#dce6ed] bg-white p-1.5 shadow-xl">
+        <SelectPrimitive.Content position="popper" sideOffset={5} collisionPadding={16} className="z-[220] max-h-80 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-[#dce6ed] bg-white p-1.5 shadow-xl">
           {searchable ? (
             <div className="relative mb-1.5 border-b border-[#e6edf1] pb-1.5">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-[65%] text-[#80929d]" size={14}/>
