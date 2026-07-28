@@ -43,6 +43,13 @@
       "when": 1785192999027,
       "tag": "0005_new_zaladane",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785250888499,
+      "tag": "0006_watery_dreadnoughts",
+      "breakpoints": true
     }
   ]
 }

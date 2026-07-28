@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "../../components/routing"
-import { CircleDollarSign, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react"
+import { CircleDollarSign, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react"
 import { z } from "zod"
 import { authService } from "./auth-service"
 import { useQueryClient } from "@tanstack/react-query"
@@ -86,7 +86,7 @@ export default function LoginPage() {
               )
               const result = z
                 .object({
-                  email: z.string().email("Enter a valid email address"),
+                  username: z.string().trim().min(3, "Enter a valid username"),
                   password: z
                     .string()
                     .min(6, "Password must contain at least 6 characters"),
@@ -102,7 +102,7 @@ export default function LoginPage() {
               setError("")
               setLoading(true)
               try {
-                await authService.login(result.data.email, result.data.password)
+                await authService.login(result.data.username, result.data.password)
                 await queryClient.invalidateQueries({
                   queryKey: queryKeys.session,
                 })
@@ -136,17 +136,18 @@ export default function LoginPage() {
             </label> */}
             <label className="block">
               <span className="mb-1.5 block text-xs font-bold text-[#455e6b]">
-                Email address
+                Username
               </span>
               <div className="relative">
-                <Mail
+                <UserRound
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7f929d]"
                   size={17}
                 />
                 <input
-                  name="email"
-                  type="email"
-                  defaultValue="admin@blueplastic.local"
+                  name="username"
+                  type="text"
+                  autoComplete="username"
+                  defaultValue="admin"
                   className="h-12 w-full rounded-xl border border-[#dce6ed] pl-10 pr-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"
                 />
               </div>

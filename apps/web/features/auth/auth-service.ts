@@ -3,14 +3,14 @@ import { webEnv } from "@/lib/env"
 const csrfKey = "blue-plastic-csrf"
 
 export const authService = {
-  async login(email: string, password: string) {
+  async login(username: string, password: string) {
     let response: Response
     try {
       response = await fetch(`${webEnv.apiUrl}/v1/auth/login`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       })
     } catch {
       throw new Error(
@@ -36,7 +36,7 @@ export const authService = {
     if (!response.ok) throw new Error("Session expired")
     return response.json() as Promise<{
       data: {
-        user: { id: string; displayName: string; email: string; role: string }
+        user: { id: string; displayName: string; username: string; email: string; role: string }
         company: { id: string; legalName: string }
         branch: { id: string; name: string }
       }

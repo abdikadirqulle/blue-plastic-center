@@ -22,12 +22,14 @@ type ProfileUser = {
   displayName?: string
   name?: string
   email?: string
+  username?: string
   role: string
 }
 
 export default function ProfilePage() {
   const queryClient = useQueryClient()
   const [displayName, setDisplayName] = useState("")
+  const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [toast, setToast] = useState<ToastMessage | null>(null)
   const profile = useQuery({
@@ -39,6 +41,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!user) return
     setDisplayName(user.displayName ?? user.name ?? "")
+    setUsername(user.username ?? "")
     setEmail(user.email ?? "")
   }, [user])
 
@@ -57,7 +60,7 @@ export default function ProfilePage() {
     mutationFn: () =>
       apiClient.action<{ user: ProfileUser }>(
         "/v1/auth/me",
-        { displayName: displayName.trim(), email: email.trim() },
+        { displayName: displayName.trim(), username: username.trim(), email: email.trim() },
         "PATCH",
       ),
     onSuccess: async () => {
@@ -142,6 +145,20 @@ export default function ProfilePage() {
                   </label>
                   <label className="text-xs font-semibold text-[#405762]">
                     <span className="mb-2 flex items-center gap-2">
+                      <UserRound size={14} /> Username <b className="text-red-500">*</b>
+                    </span>
+                    <input
+                      required
+                      minLength={3}
+                      pattern="[A-Za-z0-9._-]+"
+                      autoComplete="username"
+                      value={username}
+                      onChange={(event) => setUsername(event.target.value.toLowerCase())}
+                      className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"
+                    />
+                  </label>
+                  <label className="text-xs font-semibold text-[#405762]">
+                    <span className="mb-2 flex items-center gap-2">
                       <Mail size={14} /> Email <b className="text-red-500">*</b>
                     </span>
                     <input
@@ -155,7 +172,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex justify-end border-t border-[#edf1f4] px-5 py-4">
                   <button
-                    disabled={update.isPending || !displayName.trim() || !email.trim()}
+                    disabled={update.isPending || !displayName.trim() || !username.trim() || !email.trim()}
                     className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-5 text-xs font-semibold text-white hover:bg-[#0069ad] disabled:cursor-wait disabled:opacity-60"
                   >
                     {update.isPending ? (

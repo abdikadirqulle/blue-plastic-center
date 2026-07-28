@@ -35,7 +35,7 @@ async function getSession(app) {
       const response = await inject(app, "/v1/auth/login", {
         method: "POST",
         body: JSON.stringify({
-          email: "admin@blueplastic.local",
+          username: "admin",
           password: "Admin123!",
         }),
       });
@@ -76,7 +76,7 @@ test("secure session authentication requires valid credentials and CSRF", async 
   const app = createApp();
   const invalid = await inject(app, "/v1/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email: "admin@blueplastic.local", password: "Incorrect123!" }),
+    body: JSON.stringify({ username: "admin", password: "Incorrect123!" }),
   });
   assert.equal(invalid.status, 401);
 
@@ -128,6 +128,7 @@ test("administrators can provision the small company user team", async () => {
   const created = await request(app, "/v1/auth/users", {
     method: "POST",
     body: JSON.stringify({
+      username: "accountant",
       email: "accountant@blueplastic.local",
       displayName: "Company Accountant",
       role: "accountant",
@@ -167,6 +168,7 @@ test("signed-in users can update their own profile", async () => {
     method: "PATCH",
     body: JSON.stringify({
       displayName: "Abdisalam A. Abdulahi",
+      username: "admin",
       email: "abdisalam@blueplastic.local",
     }),
   });
@@ -198,7 +200,7 @@ test("authentication, RBAC, required fields, and tenant isolation are enforced",
   const viewerLogin = await inject(app, "/v1/auth/login", {
     method: "POST",
     body: JSON.stringify({
-      email: "viewer@blueplastic.local",
+      username: "viewer",
       password: "Viewer123!",
     }),
   });
@@ -530,6 +532,7 @@ test("Phase 2 module roles cannot cross operational security boundaries", async 
   const provisioned = await request(app, "/v1/auth/users", {
     method: "POST",
     body: JSON.stringify({
+      username: "sales",
       email: "sales@blueplastic.local",
       displayName: "Sales User",
       role: "sales",
@@ -541,7 +544,7 @@ test("Phase 2 module roles cannot cross operational security boundaries", async 
   const login = await inject(app, "/v1/auth/login", {
     method: "POST",
     body: JSON.stringify({
-      email: "sales@blueplastic.local",
+      username: "sales",
       password: "SalesSecure123!",
     }),
   });

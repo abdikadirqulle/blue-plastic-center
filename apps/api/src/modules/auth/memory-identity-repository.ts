@@ -8,6 +8,7 @@ export class MemoryIdentityRepository implements IdentityRepository {
       id: "00000000-0000-4000-8000-000000000001",
       companyId: "00000000-0000-4000-8000-000000000001",
       defaultBranchId: "00000000-0000-4000-8000-000000000011",
+      username: "admin",
       email: "admin@blueplastic.local",
       displayName: "Abdisalam Abdulahi",
       role: "administrator",
@@ -19,6 +20,7 @@ export class MemoryIdentityRepository implements IdentityRepository {
       id: "00000000-0000-4000-8000-000000000003",
       companyId: "00000000-0000-4000-8000-000000000001",
       defaultBranchId: "00000000-0000-4000-8000-000000000011",
+      username: "viewer",
       email: "viewer@blueplastic.local",
       displayName: "Read Only User",
       role: "viewer",
@@ -32,6 +34,10 @@ export class MemoryIdentityRepository implements IdentityRepository {
 
   async findUserByEmail(email: string) {
     return this.users.find((user) => user.email === email.toLowerCase())
+  }
+
+  async findUserByUsername(username: string) {
+    return this.users.find((user) => user.username === username.toLowerCase())
   }
 
   async findUserById(userId: string, companyId: string) {
@@ -80,7 +86,7 @@ export class MemoryIdentityRepository implements IdentityRepository {
   async updateUser(
     userId: string,
     companyId: string,
-    changes: Partial<Pick<IdentityUser, "email" | "displayName" | "role" | "active">>,
+    changes: Partial<Pick<IdentityUser, "username" | "email" | "displayName" | "role" | "active">>,
   ) {
     const user = this.users.find(
       (candidate) => candidate.id === userId && candidate.companyId === companyId,

@@ -18,9 +18,9 @@ export class AuthService {
     private readonly sessionTtlHours: number,
   ) {}
 
-  async login(email: string, password: string, metadata: { userAgent?: string; ipAddress?: string }) {
-    const user = await this.repository.findUserByEmail(email.toLowerCase())
-    if (!user || !user.active) throw new ApiError(401, "INVALID_CREDENTIALS", "Email or password is incorrect")
+  async login(username: string, password: string, metadata: { userAgent?: string; ipAddress?: string }) {
+    const user = await this.repository.findUserByUsername(username.toLowerCase())
+    if (!user || !user.active) throw new ApiError(401, "INVALID_CREDENTIALS", "Username or password is incorrect")
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       throw new ApiError(429, "ACCOUNT_LOCKED", "Account is temporarily locked")
     }
@@ -28,7 +28,7 @@ export class AuthService {
       const attempts = user.failedLoginAttempts + 1
       const lockedUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60_000) : undefined
       await this.repository.recordLoginFailure(user.id, attempts, lockedUntil)
-      throw new ApiError(401, "INVALID_CREDENTIALS", "Email or password is incorrect")
+      throw new ApiError(401, "INVALID_CREDENTIALS", "Username or password is incorrect")
     }
 
     const token = randomBytes(32).toString("base64url")
@@ -72,6 +72,7 @@ export class AuthService {
     return {
       id: user.id,
       displayName: user.displayName,
+      username: user.username,
       email: user.email,
       role: user.role,
       active: user.active,
@@ -83,6 +84,7 @@ export class AuthService {
       id: user.id,
       displayName: user.displayName,
       role: user.role,
+      username: user.username,
       email: user.email,
       active: user.active,
     }))
@@ -91,17 +93,23 @@ export class AuthService {
   async createUser(input: {
     companyId: string
     branchId: string
+    username: string
     email: string
     displayName: string
     role: IdentityUser["role"]
     password: string
   }) {
-    const existing = await this.repository.findUserByEmail(input.email)
-    if (existing) throw new ApiError(409, "EMAIL_EXISTS", "A user with this email already exists")
+    const [existingUsername, existingEmail] = await Promise.all([
+      this.repository.findUserByUsername(input.username),
+      this.repository.findUserByEmail(input.email),
+    ])
+    if (existingUsername) throw new ApiError(409, "USERNAME_EXISTS", "This username is already in use")
+    if (existingEmail) throw new ApiError(409, "EMAIL_EXISTS", "A user with this email already exists")
     const user: IdentityUser = {
       id: randomUUID(),
       companyId: input.companyId,
       defaultBranchId: input.branchId,
+      username: input.username.toLowerCase(),
       email: input.email.toLowerCase(),
       displayName: input.displayName,
       role: input.role,
@@ -114,6 +122,7 @@ export class AuthService {
       id: user.id,
       displayName: user.displayName,
       role: user.role,
+      username: user.username,
       email: user.email,
       active: user.active,
     }
@@ -122,8 +131,13 @@ export class AuthService {
   async updateUser(
     userId: string,
     companyId: string,
-    changes: Partial<Pick<IdentityUser, "email" | "displayName" | "role" | "active">>,
+    changes: Partial<Pick<IdentityUser, "username" | "email" | "displayName" | "role" | "active">>,
   ) {
+    if (changes.username) {
+      const existing = await this.repository.findUserByUsername(changes.username)
+      if (existing && existing.id !== userId)
+        throw new ApiError(409, "USERNAME_EXISTS", "This username is already in use")
+    }
     if (changes.email) {
       const existing = await this.repository.findUserByEmail(changes.email)
       if (existing && existing.id !== userId)
@@ -134,6 +148,7 @@ export class AuthService {
     return {
       id: user.id,
       displayName: user.displayName,
+      username: user.username,
       email: user.email,
       role: user.role,
       active: user.active,

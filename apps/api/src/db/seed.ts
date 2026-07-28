@@ -53,6 +53,7 @@ async function seed() {
     {
       id: "00000000-0000-4000-8000-000000000001",
       email: "admin@blueplastic.local",
+      username: "admin",
       displayName: "Abdisalam Abdulahi",
       role: "administrator",
       password: "Admin123!",
@@ -60,6 +61,7 @@ async function seed() {
     {
       id: "00000000-0000-4000-8000-000000000002",
       email: "accountant@blueplastic.local",
+      username: "accountant",
       displayName: "Amina Yusuf",
       role: "accountant",
       password: "Accountant123!",
@@ -67,6 +69,7 @@ async function seed() {
     {
       id: "00000000-0000-4000-8000-000000000003",
       email: "viewer@blueplastic.local",
+      username: "viewer",
       displayName: "Read Only User",
       role: "viewer",
       password: "Viewer123!",
@@ -79,6 +82,7 @@ async function seed() {
       .values({
         id: user.id,
         companyId: "00000000-0000-4000-8000-000000000001",
+        username: user.username,
         email: user.email,
         displayName: user.displayName,
         role: user.role,
@@ -88,6 +92,7 @@ async function seed() {
         target: users.id,
         set: {
           email: user.email,
+          username: user.username,
           displayName: user.displayName,
           role: user.role,
           companyId: "00000000-0000-4000-8000-000000000001",

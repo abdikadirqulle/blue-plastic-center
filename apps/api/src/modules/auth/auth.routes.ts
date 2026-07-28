@@ -5,7 +5,7 @@ import type { AuthService } from "./auth-service.js"
 import { ApiError } from "../../platform/errors.js"
 
 const loginSchema = z.object({
-  email: z.string().email().transform((value) => value.toLowerCase()),
+  username: z.string().trim().min(3).max(50).regex(/^[a-zA-Z0-9._-]+$/).transform((value) => value.toLowerCase()),
   password: z.string().min(8).max(128),
 })
 
@@ -20,6 +20,7 @@ const roleSchema = z.enum([
   "viewer",
 ])
 const createUserSchema = z.object({
+  username: z.string().trim().min(3).max(50).regex(/^[a-zA-Z0-9._-]+$/),
   email: z.string().email(),
   displayName: z.string().trim().min(2).max(100),
   role: roleSchema,
@@ -28,10 +29,12 @@ const createUserSchema = z.object({
 const resetPasswordSchema = z.object({ password: z.string().min(10).max(128) })
 const updateProfileSchema = z.object({
   displayName: z.string().trim().min(2).max(100),
+  username: z.string().trim().min(3).max(50).regex(/^[a-zA-Z0-9._-]+$/),
   email: z.string().email(),
 })
 const updateUserSchema = z.object({
   displayName: z.string().trim().min(2).max(100).optional(),
+  username: z.string().trim().min(3).max(50).regex(/^[a-zA-Z0-9._-]+$/).optional(),
   email: z.string().email().optional(),
   role: roleSchema.optional(),
   active: z.boolean().optional(),
@@ -54,7 +57,7 @@ export async function authRoutes(app: FastifyInstance, authService: AuthService,
     config: { rateLimit: { max: 5, timeWindow: "15 minutes" } },
   }, async (request, reply) => {
     const input = loginSchema.parse(request.body)
-    const result = await authService.login(input.email, input.password, {
+    const result = await authService.login(input.username, input.password, {
       userAgent: request.headers["user-agent"],
       ipAddress: request.ip,
     })

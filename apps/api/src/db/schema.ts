@@ -58,6 +58,7 @@ export const branches = pgTable(
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   companyId: uuid("company_id").references(() => companies.id),
+  username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
   displayName: text("display_name").notNull(),
   role: text("role").notNull(),

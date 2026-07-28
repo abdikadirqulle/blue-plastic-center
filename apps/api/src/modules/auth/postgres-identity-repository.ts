@@ -27,6 +27,7 @@ export class PostgresIdentityRepository implements IdentityRepository {
       id: user.id,
       companyId: user.companyId,
       defaultBranchId: branch.id,
+      username: user.username,
       email: user.email,
       displayName: user.displayName,
       role: user.role as Role,
@@ -42,6 +43,15 @@ export class PostgresIdentityRepository implements IdentityRepository {
       .select()
       .from(users)
       .where(eq(users.email, email.toLowerCase()))
+      .limit(1)
+    return user ? this.toIdentityUser(user) : undefined
+  }
+
+  async findUserByUsername(username: string) {
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.username, username.toLowerCase()))
       .limit(1)
     return user ? this.toIdentityUser(user) : undefined
   }
@@ -132,6 +142,7 @@ export class PostgresIdentityRepository implements IdentityRepository {
     await this.db.insert(users).values({
       id: user.id,
       companyId: user.companyId,
+      username: user.username,
       email: user.email,
       displayName: user.displayName,
       role: user.role,
@@ -143,12 +154,13 @@ export class PostgresIdentityRepository implements IdentityRepository {
   async updateUser(
     userId: string,
     companyId: string,
-    changes: Partial<Pick<IdentityUser, "email" | "displayName" | "role" | "active">>,
+    changes: Partial<Pick<IdentityUser, "username" | "email" | "displayName" | "role" | "active">>,
   ) {
     const [updated] = await this.db
       .update(users)
       .set({
         ...changes,
+        ...(changes.username ? { username: changes.username.toLowerCase() } : {}),
         ...(changes.email ? { email: changes.email.toLowerCase() } : {}),
         updatedAt: new Date(),
       })

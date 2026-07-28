@@ -4,6 +4,7 @@ export interface IdentityUser {
   id: string
   companyId: string
   defaultBranchId: string
+  username: string
   email: string
   displayName: string
   role: Role
@@ -22,6 +23,7 @@ export interface IdentitySession {
 }
 
 export interface IdentityRepository {
+  findUserByUsername(username: string): Promise<IdentityUser | undefined>
   findUserByEmail(email: string): Promise<IdentityUser | undefined>
   findUserById(userId: string, companyId: string): Promise<IdentityUser | undefined>
   findUserBySessionHash(tokenHash: string): Promise<IdentityUser | undefined>
@@ -35,7 +37,7 @@ export interface IdentityRepository {
   updateUser(
     userId: string,
     companyId: string,
-    changes: Partial<Pick<IdentityUser, "email" | "displayName" | "role" | "active">>,
+    changes: Partial<Pick<IdentityUser, "username" | "email" | "displayName" | "role" | "active">>,
   ): Promise<IdentityUser | undefined>
   updateUserPassword(userId: string, passwordHash: string): Promise<void>
 }
