@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { createApp } from "../dist/app.js";
-import { MemoryResourceRepository } from "../dist/repositories/memory-resource-repository.js";
+import { test } from "vitest";
+import { createApp } from "../../src/app.js";
+import { allowedWebOrigins } from "../../src/config/env.js";
+import { MemoryResourceRepository } from "../../src/repositories/memory-resource-repository.js";
 import {
   accountingSchemas,
   bankingSchemas,
@@ -11,7 +12,6 @@ import {
   purchasingSchemas,
   salesSchemas,
 } from "@blue-plastic/types";
-import { allowedWebOrigins } from "../dist/config/env.js";
 
 async function inject(app, path, init = {}, auth = {}) {
   const response = await app.inject({

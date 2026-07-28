@@ -1,7 +1,6 @@
-import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import test from "node:test";
 import { URL } from "node:url";
+import { expect, test } from "vitest";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
@@ -13,14 +12,14 @@ test("uses a React and Vite browser entry point", async () => {
   ]);
   const manifest = JSON.parse(packageJson);
 
-  assert.equal(manifest.scripts.build, "vite build");
-  assert.ok(manifest.dependencies["react-router-dom"]);
-  assert.ok(manifest.dependencies["@tanstack/react-query"]);
-  assert.equal(manifest.dependencies.next, undefined);
-  assert.equal(manifest.dependencies.vinext, undefined);
-  assert.match(index, /<div id="root"><\/div>/);
-  assert.match(main, /createRoot/);
-  assert.match(main, /BrowserRouter/);
+  expect(manifest.scripts.build).toBe("vite build");
+  expect(manifest.dependencies["react-router-dom"]).toBeTruthy();
+  expect(manifest.dependencies["@tanstack/react-query"]).toBeTruthy();
+  expect(manifest.dependencies.next).toBeUndefined();
+  expect(manifest.dependencies.vinext).toBeUndefined();
+  expect(index).toMatch(/<div id="root"><\/div>/);
+  expect(main).toMatch(/createRoot/);
+  expect(main).toMatch(/BrowserRouter/);
 });
 
 test("declares every application route in one router", async () => {
@@ -36,7 +35,7 @@ test("declares every application route in one router", async () => {
     "/:section/:resource",
     "/:section",
   ]) {
-    assert.match(app, new RegExp(route.replaceAll("/", "\\/")));
+    expect(app).toMatch(new RegExp(route.replaceAll("/", "\\/")));
   }
 });
 
@@ -48,10 +47,10 @@ test("uses the live REST API and React Query integration", async () => {
     read("../src/main.tsx"),
     read("../features/trash/trash-page.tsx"),
   ]);
-  assert.match(env, /import\.meta\.env\.VITE_API_URL/);
-  assert.match(example, /VITE_DATA_SOURCE=api/);
-  assert.match(sales, /ApiSalesRepository/);
-  assert.match(main, /QueryClientProvider/);
-  assert.match(trash, /apiClient\.restore/);
-  assert.doesNotMatch(`${env}\n${sales}`, /NEXT_PUBLIC|process\.env/);
+  expect(env).toMatch(/import\.meta\.env\.VITE_API_URL/);
+  expect(example).toMatch(/VITE_DATA_SOURCE=api/);
+  expect(sales).toMatch(/ApiSalesRepository/);
+  expect(main).toMatch(/QueryClientProvider/);
+  expect(trash).toMatch(/apiClient\.restore/);
+  expect(`${env}\n${sales}`).not.toMatch(/NEXT_PUBLIC|process\.env/);
 });

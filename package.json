@@ -15,12 +15,18 @@
     "build": "turbo build",
     "typecheck": "turbo typecheck",
     "lint": "turbo lint",
-    "test": "turbo test",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run --project api-unit --project web-unit --project shared-contracts",
+    "test:integration": "vitest run --project api-integration",
+    "test:coverage": "vitest run --coverage",
     "check": "npm run typecheck && npm run lint && npm run test"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.10",
     "turbo": "^2.5.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "electron-to-chromium": "1.5.358"
