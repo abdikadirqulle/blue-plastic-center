@@ -1,7 +1,7 @@
 "use client";
 
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { Check, ChevronDown, Plus, Save, X } from "lucide-react";
+import { Check, ChevronDown, Plus, Save, Search, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "../../lib/utils";
 
@@ -17,6 +17,7 @@ export function Select({
   className,
   allowAddNew = false,
   addNewLabel = "record",
+  searchable = true,
 }: {
   value?: string;
   defaultValue?: string;
@@ -27,12 +28,14 @@ export function Select({
   className?: string;
   allowAddNew?: boolean;
   addNewLabel?: string;
+  searchable?: boolean;
 }) {
   const [addedOptions, setAddedOptions] = useState<string[]>([]);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newCode, setNewCode] = useState("");
   const [newContact, setNewContact] = useState("");
+  const [search, setSearch] = useState("");
 
   const normalizedOptions = options.map((option) =>
     typeof option === "string" ? { label: option, value: option } : option,
@@ -43,6 +46,9 @@ export function Select({
       .filter((value) => !normalizedOptions.some((option) => option.value === value))
       .map((value) => ({ label: value, value })),
   ];
+  const visibleOptions = localOptions.filter((option) =>
+    `${option.label} ${option.value}`.toLowerCase().includes(search.trim().toLowerCase()),
+  );
 
   const selectValue = (nextValue: string) => {
     if (nextValue === "__add_new__") {
@@ -69,20 +75,46 @@ export function Select({
 
   return (
     <>
-    <SelectPrimitive.Root name={name} value={value} defaultValue={defaultValue} onValueChange={selectValue}>
+    <SelectPrimitive.Root
+      name={name}
+      value={value}
+      defaultValue={defaultValue}
+      onValueChange={selectValue}
+      onOpenChange={(open) => {
+        if (!open) setSearch("");
+      }}
+    >
       <SelectPrimitive.Trigger className={cn("flex h-11 w-full items-center justify-between rounded-xl border border-[#dce6ed] bg-white px-3 text-left text-sm text-[#29414d] outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10", className)}>
         <SelectPrimitive.Value placeholder={placeholder}/>
         <SelectPrimitive.Icon><ChevronDown size={15} className="text-[#7d909c]"/></SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
-        <SelectPrimitive.Content position="popper" sideOffset={5} className="z-[100] max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-[#dce6ed] bg-white p-1.5 shadow-xl">
+        <SelectPrimitive.Content position="popper" sideOffset={5} className="z-[100] max-h-80 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-[#dce6ed] bg-white p-1.5 shadow-xl">
+          {searchable ? (
+            <div className="relative mb-1.5 border-b border-[#e6edf1] pb-1.5">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-[65%] text-[#80929d]" size={14}/>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                onKeyDown={(event) => event.stopPropagation()}
+                placeholder="Search options…"
+                aria-label="Search options"
+                className="h-9 w-full rounded-lg border border-[#dce6ed] bg-[#f8fafb] pl-8 pr-2 text-xs outline-none focus:border-[#007DCC] focus:bg-white"
+              />
+            </div>
+          ) : null}
           <SelectPrimitive.Viewport>
-            {localOptions.map((option) => (
+            {visibleOptions.map((option) => (
               <SelectPrimitive.Item key={option.value} value={option.value} className="relative flex cursor-pointer select-none items-center rounded-lg py-2.5 pl-3 pr-8 text-xs font-semibold text-[#405762] outline-none data-[highlighted]:bg-[#eaf5fc] data-[highlighted]:text-[#0069ad]">
                 <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
                 <SelectPrimitive.ItemIndicator className="absolute right-2.5"><Check size={14}/></SelectPrimitive.ItemIndicator>
               </SelectPrimitive.Item>
             ))}
+            {!visibleOptions.length ? (
+              <p className="px-3 py-4 text-center text-xs text-[#758995]">
+                No matching options
+              </p>
+            ) : null}
             {allowAddNew ? (
               <>
                 <SelectPrimitive.Separator className="my-1 h-px bg-[#e6edf1]"/>

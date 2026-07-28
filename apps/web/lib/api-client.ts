@@ -95,7 +95,9 @@ export class ApiClient {
   }
 
   get<TData extends Record<string, unknown>>(moduleName: string, resource: string, id: string) {
-    return this.request<ApiEnvelope<ApiRecord<TData>>>(`/v1/${moduleName}/${resource}/${id}`);
+    return this.request<ApiEnvelope<ApiRecord<TData>>>(
+      `/v1/${moduleName}/${resource}/${encodeURIComponent(id)}`,
+    );
   }
 
   create<TData extends Record<string, unknown>>(moduleName: string, resource: string, data: TData, status = "draft") {
@@ -113,14 +115,20 @@ export class ApiClient {
     version: number,
     status?: string,
   ) {
-    return this.request<ApiEnvelope<ApiRecord<TData>>>(`/v1/${moduleName}/${resource}/${id}`, {
+    return this.request<ApiEnvelope<ApiRecord<TData>>>(
+      `/v1/${moduleName}/${resource}/${encodeURIComponent(id)}`,
+      {
       method: "PATCH",
       body: JSON.stringify({ data, version, ...(status ? { status } : {}) }),
-    });
+      },
+    );
   }
 
   remove(moduleName: string, resource: string, id: string) {
-    return this.request<void>(`/v1/${moduleName}/${resource}/${id}`, { method: "DELETE" });
+    return this.request<void>(
+      `/v1/${moduleName}/${resource}/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
   }
 
   action<T>(

@@ -29,8 +29,14 @@ import type { FormField, ResourceConfig, ResourceRow } from "./resource-config"
 import { InvoicePreviewDialog } from "../sales/components/invoice-preview-dialog"
 import type { SalesResource } from "../sales/domain/sales-record"
 import { salesService } from "../sales/services/sales-service"
-import { useResourceDetail, useResourceMutations, recordTitle } from "./resource-api"
+import {
+  recordIdentifier,
+  recordTitle,
+  useResourceDetail,
+  useResourceMutations,
+} from "./resource-api"
 import { apiClient } from "@/lib/api-client"
+import { useReferenceData } from "./reference-data"
 
 const statusVariant = (status: string) => {
   if (["Paid", "Posted", "Active", "Approved", "Completed"].includes(status))
@@ -40,35 +46,84 @@ const statusVariant = (status: string) => {
   return "neutral"
 }
 
+const summaryPriority = [
+  "documentNumber",
+  "displayName",
+  "name",
+  "accountName",
+  "projectName",
+  "customerId",
+  "vendorId",
+  "employeeId",
+  "itemId",
+  "amount",
+  "total",
+  "outstanding",
+  "balanceDue",
+  "invoiceDate",
+  "billDate",
+  "paymentDate",
+  "orderDate",
+  "dueDate",
+]
+
+function fieldLabel(name: string) {
+  return name
+    .replace(/Id$/, "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/^./, (character) => character.toUpperCase())
+}
+
+function summaryFields(data: Record<string, unknown>) {
+  const scalarEntries = Object.entries(data).filter(
+    ([, value]) =>
+      value !== undefined &&
+      value !== null &&
+      value !== "" &&
+      typeof value !== "object",
+  )
+  return scalarEntries
+    .sort(([left], [right]) => {
+      const leftIndex = summaryPriority.indexOf(left)
+      const rightIndex = summaryPriority.indexOf(right)
+      return (leftIndex < 0 ? 999 : leftIndex) - (rightIndex < 0 ? 999 : rightIndex)
+    })
+    .slice(0, 4)
+}
+
 function displayValue(
   field: FormField,
-  index: number,
-  row: ResourceRow,
   data: Record<string, unknown>,
+  resolveReference: (value: unknown) => string,
 ) {
-  const actual = data[field.name]
+  const aliases: Record<string, string[]> = {
+    customer: ["customerId"],
+    customerName: ["customerId"],
+    vendor: ["vendorId"],
+    vendorName: ["vendorId"],
+    project: ["projectId"],
+    employee: ["employeeId"],
+    warehouse: ["warehouseId"],
+    account: ["accountId"],
+    item: ["itemId"],
+  }
+  const actualKey = [field.name, ...(aliases[field.name] ?? [])].find(
+    (key) => data[key] !== undefined && data[key] !== null && data[key] !== "",
+  )
+  const actual = actualKey ? data[actualKey] : undefined
   if (actual !== undefined && actual !== null) {
     if (typeof actual === "boolean") return actual ? "Yes" : "No"
-    if (typeof actual === "object") return JSON.stringify(actual)
+    if (Array.isArray(actual)) return `${actual.length} record${actual.length === 1 ? "" : "s"}`
+    if (typeof actual === "object") return JSON.stringify(actual, null, 2)
+    if (
+      /(^|Id$)|customer|vendor|project|employee|warehouse|account|item/i.test(
+        actualKey ?? field.name,
+      )
+    )
+      return resolveReference(actual)
     return String(actual)
   }
-  if (index === 0) return row.cells[0] ?? row.id
-  if (
-    /amount|price|balance|total|budget|value|cost|principal|rate/i.test(
-      field.name,
-    )
-  )
-    return row.cells[1] ?? "$0.00"
-  if (field.type === "date") return row.cells[2] ?? "26 Jul 2026"
-  if (field.type === "checkbox") return "Yes"
-  if (field.type === "select") return field.options?.[0] ?? "Not specified"
-  if (/email/i.test(field.name)) return "accounts@blueplastic.example"
-  if (/phone|mobile/i.test(field.name)) return "+252 61 555 0100"
-  if (/address/i.test(field.name)) return "Maka Al Mukarama Road, Mogadishu"
-  if (/currency/i.test(field.name)) return "USD"
-  if (/memo|note|description/i.test(field.name))
-    return `Recorded for ${row.cells[0] ?? row.id}. Verified against the original transaction and supporting documents.`
-  return `${field.label} for ${row.cells[0] ?? row.id}`
+  return "—"
 }
 
 export function ResourceDetailsPage({
@@ -81,10 +136,12 @@ export function ResourceDetailsPage({
   const router = useRouter()
   const detail = useResourceDetail(config.module, config.slug, id)
   const mutations = useResourceMutations(config.module, config.slug)
+  const references = useReferenceData()
   const record = detail.data?.data
   const row: ResourceRow = record
     ? {
         id: record.id,
+        displayId: recordIdentifier(record),
         status: record.status,
         cells: [
           recordTitle(record),
@@ -95,7 +152,8 @@ export function ResourceDetailsPage({
           ),
         ],
       }
-    : { id, status: "Loading", cells: ["Loading…", "—", "—"] }
+    : { id, displayId: "Loading…", status: "Loading", cells: ["Loading…", "—", "—"] }
+  const displayId = row.displayId ?? row.cells[0] ?? "Record"
   const [message, setMessage] = useState<ToastMessage | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -145,7 +203,7 @@ export function ResourceDetailsPage({
             </Link>
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-bold tracking-[-0.035em] text-[#142735] md:text-[29px]">
-                {row.id}
+                {displayId}
               </h1>
               <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
             </div>
@@ -165,7 +223,7 @@ export function ResourceDetailsPage({
                 notify(
                   "Export prepared",
                   "success",
-                  `${row.id} is ready to download.`,
+                  `${displayId} is ready to download.`,
                 )
               }
               className="flex h-10 items-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3.5 text-xs font-bold text-[#425966]"
@@ -186,13 +244,13 @@ export function ResourceDetailsPage({
         <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_340px]">
           <div className="space-y-4">
             <Card className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
-              {config.columns.slice(0, 4).map((column, index) => (
-                <div key={column}>
+              {summaryFields(record.data).map(([key, value]) => (
+                <div key={key}>
                   <p className="text-[10px] font-bold uppercase tracking-wide text-[#81929c]">
-                    {column}
+                    {fieldLabel(key)}
                   </p>
                   <p className="mt-1.5 text-sm font-bold text-[#29424e]">
-                    {index === 0 ? row.id : (row.cells[index - 1] ?? "—")}
+                    {/Id$/.test(key) ? references.resolve(value) : String(value)}
                   </p>
                 </div>
               ))}
@@ -211,7 +269,7 @@ export function ResourceDetailsPage({
                   ) : null}
                 </div>
                 <dl className="grid md:grid-cols-2">
-                  {section.fields.map((field, index) => (
+                  {section.fields.map((field) => (
                     <div
                       key={field.name}
                       className="border-b border-[#edf1f4] px-5 py-4 md:odd:border-r"
@@ -220,7 +278,7 @@ export function ResourceDetailsPage({
                         {field.label}
                       </dt>
                       <dd className="mt-1.5 text-sm font-semibold leading-6 text-[#304954]">
-                        {displayValue(field, index, row, record.data)}
+                        {displayValue(field, record.data, references.resolve)}
                       </dd>
                     </div>
                   ))}
@@ -259,7 +317,7 @@ export function ResourceDetailsPage({
                         const rate = Number(line.unitPrice ?? line.rate ?? line.debit ?? line.credit ?? 0)
                         return (
                           <tr key={index} className="border-t border-[#edf1f4]">
-                            <td className="px-5 py-4 font-bold">{String(line.itemId ?? line.accountId ?? "—")}</td>
+                            <td className="px-5 py-4 font-bold">{references.resolve(line.itemId ?? line.accountId)}</td>
                             <td className="px-5 py-4">{String(line.description ?? "—")}</td>
                             <td className="px-5 py-4">{quantity}</td>
                             <td className="px-5 py-4">{rate.toLocaleString()}</td>
@@ -284,7 +342,7 @@ export function ResourceDetailsPage({
                     onClick={async () => {
                       const target = config.slug === "estimates" ? "invoices" : "invoices";
                       await salesService.convert(config.slug as SalesResource, row.id, target);
-                      notify("Invoice created", "success", `${row.id} was converted to a new draft invoice.`);
+                      notify("Invoice created", "success", `${displayId} was converted to a new draft invoice.`);
                     }}
                     className="flex w-full items-center gap-3 rounded-xl bg-[#007DCC] px-3 py-3 text-xs font-bold text-white"
                   >
@@ -318,15 +376,15 @@ export function ResourceDetailsPage({
                 {config.module === "inventory" && config.slug === "fulfillment" ? (
                   <button onClick={() => {
                     const action = ({ draft: "allocate", allocated: "pick", picked: "pack", packed: "ship" } as Record<string, string>)[row.status.toLowerCase()] ?? "allocate";
-                    void runAction(`/v1/inventory/fulfillment/${encodeURIComponent(row.id)}/action`, { action }, "Fulfillment advanced", `${row.id} moved to ${action}.`);
+                    void runAction(`/v1/inventory/fulfillment/${encodeURIComponent(row.id)}/action`, { action }, "Fulfillment advanced", `${displayId} moved to ${action}.`);
                   }} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><ArrowRight size={15}/> Advance fulfillment stage</button>
                 ) : null}
                 {config.module === "banking" && config.slug === "bank-feeds" ? (
-                  <button onClick={() => void runAction(`/v1/banking/bank-feeds/${encodeURIComponent(row.id)}/action`, { action: "add", accountId: "1000" }, "Transaction added", `${row.id} was added to account 1000.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Add transaction</button>
+                  <button onClick={() => void runAction(`/v1/banking/bank-feeds/${encodeURIComponent(row.id)}/action`, { action: "add", accountId: "1000" }, "Transaction added", `${displayId} was added to account 1000.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Add transaction</button>
                 ) : null}
                 {config.module === "accounting" && config.slug === "journal-entries" ? (
                   <>
-                    <button onClick={() => void runAction(`/v1/accounting/journal-entries/${encodeURIComponent(row.id)}/post`, undefined, "Journal posted", `${row.id} passed balance validation and was posted.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Validate and post journal</button>
+                    <button onClick={() => void runAction(`/v1/accounting/journal-entries/${encodeURIComponent(row.id)}/post`, undefined, "Journal posted", `${displayId} passed balance validation and was posted.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Validate and post journal</button>
                     <Link href={`/accounting/journal-entries/new?reverse=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-amber-50 px-3 py-3 text-xs font-bold text-amber-700"><RefreshCcw size={15}/> Create reversing entry</Link>
                   </>
                 ) : null}
@@ -334,13 +392,13 @@ export function ResourceDetailsPage({
                   <Link href={`/accounting/budgets/new?revision=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-[#eaf5fc] px-3 py-3 text-xs font-bold text-[#007DCC]"><Copy size={15}/> Create budget revision</Link>
                 ) : null}
                 {config.module === "accounting" && config.slug === "fixed-assets" ? (
-                  <button onClick={() => notify("Depreciation posted", "success", `${row.id} depreciation was added to a balanced journal entry.`)} className="flex w-full items-center gap-3 rounded-xl bg-indigo-50 px-3 py-3 text-xs font-bold text-indigo-700"><CheckCircle2 size={15}/> Post asset depreciation</button>
+                  <button onClick={() => notify("Depreciation posted", "success", `${displayId} depreciation was added to a balanced journal entry.`)} className="flex w-full items-center gap-3 rounded-xl bg-indigo-50 px-3 py-3 text-xs font-bold text-indigo-700"><CheckCircle2 size={15}/> Post asset depreciation</button>
                 ) : null}
                 {config.module === "projects" && config.slug === "progress-billing" ? (
                   <Link href={`/sales/invoices/new?projectBilling=${encodeURIComponent(row.id)}`} className="flex w-full items-center gap-3 rounded-xl bg-[#eaf5fc] px-3 py-3 text-xs font-bold text-[#007DCC]"><ArrowRight size={15}/> Create progress invoice</Link>
                 ) : null}
                 {config.module === "payroll" && config.slug === "pay-runs" ? (
-                  <button onClick={() => void runAction(`/v1/payroll/pay-runs/${encodeURIComponent(row.id)}/approve`, undefined, "Payroll approved", `${row.id} is ready for payment and liability posting.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Approve payroll</button>
+                  <button onClick={() => void runAction(`/v1/payroll/pay-runs/${encodeURIComponent(row.id)}/approve`, undefined, "Payroll approved", `${displayId} is ready for payment and liability posting.`)} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"><CheckCircle2 size={15}/> Approve payroll</button>
                 ) : null}
                 <Link
                   href={`${listHref}/new?edit=${encodeURIComponent(row.id)}`}
@@ -427,24 +485,24 @@ export function ResourceDetailsPage({
       </div>
       <ConfirmDeleteDialog
         open={deleteOpen}
-        title={`Delete ${row.id}?`}
-        recordName={`${row.id} · ${row.cells[0] ?? config.title}`}
+        title={`Delete ${displayId}?`}
+        recordName={`${displayId} · ${row.cells[0] ?? config.title}`}
         description={`This ${config.title.toLowerCase()} record will move to Trash. It can be restored later and will never be permanently removed.`}
         onClose={() => setDeleteOpen(false)}
         onConfirm={async () => {
           await mutations.remove.mutateAsync(row.id)
-          router.push(`${listHref}?deleted=${encodeURIComponent(row.id)}`)
+          router.push(`${listHref}?deleted=${encodeURIComponent(displayId)}`)
         }}
       />
       {config.module === "sales" ? (
         <InvoicePreviewDialog
           open={previewOpen}
-          row={row}
+          row={{ ...row, id: displayId }}
           title={config.title}
           onClose={() => setPreviewOpen(false)}
           onEmail={() => {
             setPreviewOpen(false)
-            notify("Email queued", "success", `${row.id} will be delivered to the customer.`)
+            notify("Email queued", "success", `${displayId} will be delivered to the customer.`)
           }}
         />
       ) : null}

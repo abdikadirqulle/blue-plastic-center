@@ -3,6 +3,7 @@ import {
   firstValue,
   recordAmount,
   recordDate,
+  recordIdentifier,
   recordTitle,
 } from "../../resources/resource-api"
 import type {
@@ -13,11 +14,20 @@ import type {
   SalesResource,
 } from "../domain/sales-record"
 
-function toDomain(resource: SalesResource, record: ApiRecord): SalesRecord {
+function toDomain(
+  resource: SalesResource,
+  record: ApiRecord,
+  customerNames: Map<string, string> = new Map(),
+): SalesRecord {
+  const customerId = String(record.data.customerId ?? "")
   return {
     id: record.id,
+    displayId: recordIdentifier(record),
     resource,
-    customer: recordTitle(record),
+    customer:
+      resource === "customers"
+        ? recordTitle(record)
+        : customerNames.get(customerId) ?? "Customer not assigned",
     amount: recordAmount(record),
     date: recordDate(record),
     status: record.status,
@@ -30,17 +40,31 @@ function toDomain(resource: SalesResource, record: ApiRecord): SalesRecord {
 }
 
 export class ApiSalesRepository implements SalesRepository {
+  private async customerNames() {
+    const response = await apiClient.list("sales", "customers", "page=1&pageSize=100")
+    return new Map(
+      response.data.map((customer) => [customer.id, recordTitle(customer)]),
+    )
+  }
+
   async list(resource: SalesResource, query: SalesQuery = {}) {
     const params = new URLSearchParams()
     if (query.search) params.set("search", query.search)
     if (query.status && query.status !== "All statuses")
       params.set("status", query.status)
-    const response = await apiClient.list("sales", resource, params.toString())
-    return response.data.map((record) => toDomain(resource, record))
+    const [response, customerNames] = await Promise.all([
+      apiClient.list("sales", resource, params.toString()),
+      resource === "customers" ? Promise.resolve(new Map<string, string>()) : this.customerNames(),
+    ])
+    return response.data.map((record) => toDomain(resource, record, customerNames))
   }
 
   async get(resource: SalesResource, id: string) {
-    return toDomain(resource, (await apiClient.get("sales", resource, id)).data)
+    const [response, customerNames] = await Promise.all([
+      apiClient.get("sales", resource, id),
+      resource === "customers" ? Promise.resolve(new Map<string, string>()) : this.customerNames(),
+    ])
+    return toDomain(resource, response.data, customerNames)
   }
 
   async create(resource: SalesResource, input: SalesRecordInput) {

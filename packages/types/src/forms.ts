@@ -28,6 +28,7 @@ export interface FormSection {
 
 export interface ResourceRow {
   id: string
+  displayId?: string
   cells: string[]
   status: string
 }

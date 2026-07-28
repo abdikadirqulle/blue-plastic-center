@@ -19,7 +19,8 @@ import { Toast, type ToastMessage } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
 import { ApiError } from "../../lib/api-client";
 import type { FormField, ResourceConfig } from "./resource-config";
-import { recordTitle, useResourceDetail, useResourceList, useResourceMutations } from "./resource-api";
+import { useResourceDetail, useResourceMutations } from "./resource-api";
+import { useReferenceData } from "./reference-data";
 
 interface LineItem {
   id: number;
@@ -87,7 +88,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
   const editId = searchParams.get("edit") ?? "";
   const detail = useResourceDetail(config.module, config.slug, editId);
   const mutations = useResourceMutations(config.module, config.slug);
-  const customers = useResourceList("sales", "customers", { page: 1, pageSize: 100 });
+  const references = useReferenceData();
   const [lineItems, setLineItems] = useState<LineItem[]>([blankLine()]);
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -96,10 +97,10 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
   const [saveMode, setSaveMode] = useState<"new" | "close">("close");
   const saving = mutations.create.isPending || mutations.update.isPending;
   const listHref = `/${config.module}/${config.slug}`;
-  const customerOptions: SelectOption[] = (customers.data?.data ?? []).map((record) => ({
-    label: recordTitle(record),
-    value: record.id,
-  }));
+  const lineReferenceOptions =
+    config.module === "accounting"
+      ? references.accountOptions
+      : references.itemOptions;
   const allFields = config.formSections.flatMap((section) => section.fields);
   const requiredFields = essentialFormFields(allFields);
 
@@ -171,7 +172,9 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
     }
     if (config.hasLineItems) {
       data.lines = lineItems.map((line) => ({
-        accountId: line.item || "4000",
+        ...(config.module === "accounting"
+          ? { accountId: line.item }
+          : { itemId: line.item }),
         description: line.description || line.item || "Transaction line",
         quantity: line.quantity || "1",
         unitPrice: line.rate || "0",
@@ -272,7 +275,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                           return next;
                         });
                       }}
-                      options={/customer(Id|Name)?$/i.test(field.name) && customerOptions.length ? customerOptions : undefined}
+                      options={references.optionsFor(field)}
                       invalid={Boolean(errors[field.name])}
                     />
                     {errors[field.name] ? <span className="mt-1.5 block text-[11px] font-semibold text-red-600">{errors[field.name]}</span> : null}
@@ -296,7 +299,17 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                       const update = (key: keyof LineItem, value: string) => setLineItems((current) => current.map((item) => item.id === line.id ? { ...item, [key]: value } : item));
                       return (
                         <tr key={line.id} className="border-t border-[#edf1f4]">
-                          <td className="p-2"><input value={line.item} onChange={(event) => update("item", event.target.value)} placeholder="Select item" className="h-10 w-full rounded-lg border border-[#dce6ed] px-2 text-xs"/></td>
+                          <td className="min-w-56 p-2">
+                            <Select
+                              value={line.item || undefined}
+                              onValueChange={(value) => update("item", value)}
+                              options={lineReferenceOptions}
+                              placeholder={config.module === "accounting" ? "Select account" : "Select item"}
+                              allowAddNew={config.module !== "accounting"}
+                              addNewLabel={config.module === "accounting" ? "account" : "item"}
+                              className="h-10 text-xs"
+                            />
+                          </td>
                           <td className="p-2"><input value={line.description} onChange={(event) => update("description", event.target.value)} placeholder="Description" className="h-10 w-full rounded-lg border border-[#dce6ed] px-2 text-xs"/></td>
                           <td className="p-2"><input type="number" min="0" value={line.quantity} onChange={(event) => update("quantity", event.target.value)} className="h-10 w-20 rounded-lg border border-[#dce6ed] px-2 text-xs"/></td>
                           <td className="p-2"><Select value={line.unit} onValueChange={(value) => update("unit", value)} options={["Each","Box","Kg","Hour"]} className="h-10 text-xs"/></td>

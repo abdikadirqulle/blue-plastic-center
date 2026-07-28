@@ -54,3 +54,20 @@ test("uses the live REST API and React Query integration", async () => {
   expect(trash).toMatch(/apiClient\.restore/);
   expect(`${env}\n${sales}`).not.toMatch(/NEXT_PUBLIC|process\.env/);
 });
+
+test("details never fabricate missing database values and line items use searchable selects", async () => {
+  const [details, form, select] = await Promise.all([
+    read("../features/resources/resource-details-page.tsx"),
+    read("../features/resources/resource-form-page.tsx"),
+    read("../components/ui/select.tsx"),
+  ])
+
+  expect(details).not.toMatch(/accounts@blueplastic\.example/)
+  expect(details).not.toMatch(/Maka Al Mukarama Road/)
+  expect(details).not.toMatch(/Verified against the original transaction/)
+  expect(details).toMatch(/recordIdentifier/)
+  expect(details).toMatch(/references\.resolve/)
+  expect(form).toMatch(/options=\{lineReferenceOptions\}/)
+  expect(form).toMatch(/\{ itemId: line\.item \}/)
+  expect(select).toMatch(/Search options/)
+})

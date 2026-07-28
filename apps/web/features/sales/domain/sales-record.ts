@@ -13,6 +13,7 @@ export type SalesResource =
 
 export interface SalesRecord {
   id: string;
+  displayId: string;
   resource: SalesResource;
   customer: string;
   amount: string;

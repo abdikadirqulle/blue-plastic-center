@@ -96,13 +96,31 @@ export function recordTitle(record: ApiRecord) {
       "name",
       "accountName",
       "projectName",
-      "firstName",
-      "customerId",
-      "vendorId",
-      "description",
       "documentNumber",
+      "description",
+      "firstName",
     ],
-    record.id,
+    "Untitled record",
+  )
+}
+
+export function recordIdentifier(record: ApiRecord) {
+  return firstValue(
+    record,
+    [
+      "documentNumber",
+      "accountNumber",
+      "sku",
+      "code",
+      "employeeId",
+      "checkNumber",
+      "reference",
+      "displayName",
+      "name",
+      "accountName",
+      "projectName",
+    ],
+    recordTitle(record),
   )
 }
 

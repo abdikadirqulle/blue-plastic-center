@@ -33,6 +33,7 @@ import {
 import {
   recordAmount,
   recordDate,
+  recordIdentifier,
   recordTitle,
   useResourceList,
   useResourceMutations,
@@ -71,6 +72,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
     if (!apiRows.data) return;
     setRows(apiRows.data.data.map((record) => ({
       id: record.id,
+      displayId: recordIdentifier(record),
       status: record.status,
       cells: [recordTitle(record), recordAmount(record), recordDate(record)],
     })));
@@ -93,7 +95,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
   const filteredRows = useMemo(
     () =>
       rows.filter((row) => {
-        const text = `${row.id} ${row.cells.join(" ")}`.toLowerCase();
+        const text = `${row.displayId ?? ""} ${row.cells.join(" ")}`.toLowerCase();
         const rowDate = dateColumnIndex >= 0 ? Date.parse(row.cells[dateColumnIndex] ?? "") : Number.NaN;
         const afterFrom = !dateFrom || (dateColumnIndex >= 0 && !Number.isNaN(rowDate) && rowDate >= Date.parse(dateFrom));
         const beforeTo = !dateTo || (dateColumnIndex >= 0 && !Number.isNaN(rowDate) && rowDate <= Date.parse(dateTo));
@@ -114,7 +116,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
   const exportRows = () => {
     const csv = [
       ["ID", ...config.columns, "Status"].join(","),
-      ...filteredRows.map((row) => [row.id, ...row.cells, row.status].map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")),
+      ...filteredRows.map((row) => [row.displayId ?? row.cells[0], ...row.cells, row.status].map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")),
     ].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -210,7 +212,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#7b8e98]">{config.columns[0]}</p>
-                        <h3 className="mt-1 text-sm font-bold text-[#007DCC]">{row.id}</h3>
+                        <h3 className="mt-1 text-sm font-bold text-[#007DCC]">{row.displayId ?? row.cells[0]}</h3>
                       </div>
                       <Badge variant={badgeVariant(row.status)}>{row.status}</Badge>
                     </div>
@@ -250,7 +252,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                     onKeyDown={(event) => { if (event.key === "Enter") router.push(`/${config.module}/${config.slug}/${encodeURIComponent(row.id)}`); }}
                     className="cursor-pointer border-b border-[#edf1f4] outline-none hover:bg-[#f0f8fd] focus:bg-[#f0f8fd]"
                   >
-                    <td className="px-5 py-4 text-xs font-bold text-[#007DCC]">{row.id}</td>
+                    <td className="px-5 py-4 text-xs font-bold text-[#007DCC]">{row.displayId ?? row.cells[0]}</td>
                     {row.cells.slice(0, config.columns.length - 1).map((cell, index) => (
                       <td key={`${row.id}-${index}`} className="px-5 py-4 text-xs font-semibold text-[#334b57]">
                         {index === 0 ? <><p>{cell}</p><p className="mt-1 text-[10px] font-normal text-[#83949e]">{keyFilterLabel} · {row.status}</p></> : cell}
@@ -289,7 +291,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
       <ConfirmDeleteDialog
         open={Boolean(deleteTarget)}
         title={`Delete ${config.columns[0].toLowerCase()}?`}
-        recordName={deleteTarget ? `${deleteTarget.id} · ${deleteTarget.cells[0] ?? config.title}` : undefined}
+        recordName={deleteTarget ? `${deleteTarget.displayId ?? deleteTarget.cells[0]} · ${deleteTarget.cells[0] ?? config.title}` : undefined}
         description={`This moves the selected ${config.title.toLowerCase()} record to Trash. It can be restored later.`}
         onClose={() => setDeleteTarget(null)}
         onConfirm={async () => {
@@ -298,7 +300,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
           await mutations.remove.mutateAsync(deletedId);
           setRows((current) => current.filter((item) => item.id !== deletedId));
           setDeleteTarget(null);
-          notify("Record deleted", "success", `${deletedId} was removed successfully.`);
+          notify("Record deleted", "success", `${deleteTarget.displayId ?? deleteTarget.cells[0]} was removed successfully.`);
         }}
       />
     </AppShell>
