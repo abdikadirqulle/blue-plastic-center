@@ -415,6 +415,15 @@ async function seed() {
   for (const [id, module, resource, status, data] of genericDemo)
     await demo(id, module, resource, status, data)
 
+  const notificationData: Array<[string, string, Record<string, unknown>]> = [
+    ["59000000-0000-4000-8000-000000000001", "unread", { title: "Invoice INV-01003 is overdue", message: "Horn Logistics has an outstanding balance of $1,800.00 requiring collection follow-up.", category: "Customers & Receivables", severity: "critical", href: `/sales/invoices/${invoiceData[2][0]}`, actionRequired: true, occurredAt: "2026-07-28T08:15:00.000Z", recipientUserId: userId, readAt: null }],
+    ["59000000-0000-4000-8000-000000000002", "unread", { title: "Inventory requires attention", message: "Review stock availability and reorder requirements before confirming new sales orders.", category: "Inventory", severity: "warning", href: "/inventory/stock-levels", actionRequired: true, occurredAt: "2026-07-28T07:40:00.000Z", recipientUserId: userId, readAt: null }],
+    ["59000000-0000-4000-8000-000000000003", "unread", { title: "Vendor bill BILL-02001 is awaiting payment", message: "SomPolymer Supplies has $12,400.00 due on 11 Aug 2026.", category: "Vendors & Payables", severity: "warning", href: "/purchasing/bills/54000000-0000-4000-8000-000000000001", actionRequired: true, occurredAt: "2026-07-28T06:20:00.000Z", recipientUserId: userId, readAt: null }],
+    ["59000000-0000-4000-8000-000000000004", "read", { title: "Payment PAY-01001 was applied", message: "$2,220.00 from Banaadir Trading Co. was applied to INV-01001.", category: "Customers & Receivables", severity: "success", href: "/sales/payments/52000000-0000-4000-8000-000000000001", actionRequired: false, occurredAt: "2026-07-27T16:10:00.000Z", recipientUserId: userId, readAt: "2026-07-27T16:30:00.000Z" }],
+  ]
+  for (const [id, status, data] of notificationData)
+    await demo(id, "setup", "notifications", status, data)
+
   await db
     .insert(fiscalPeriods)
     .values({

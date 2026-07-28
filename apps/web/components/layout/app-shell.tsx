@@ -14,6 +14,8 @@ import {
   X,
 } from "lucide-react"
 import { Sidebar } from "./sidebar"
+import { useNotificationActions, useNotifications } from "../../features/notifications/notification-api"
+import { cn } from "../../lib/utils"
 
 const createGroups = [
   {
@@ -89,6 +91,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [search, setSearch] = useState("")
   const searchRef = useRef<HTMLInputElement>(null)
+  const notificationQuery = useNotifications()
+  const notificationActions = useNotificationActions()
+  const notificationRecords = notificationQuery.data?.data ?? []
+  const unreadNotifications = notificationRecords.filter((record) => record.status !== "read")
 
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
@@ -171,7 +177,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               className="relative grid size-9 place-items-center rounded-full text-[#b8c7d2] transition hover:bg-white/10 hover:text-white"
             >
               <Bell size={17} />
-              <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-red-500 ring-2 ring-[#071f33]" />
+              {unreadNotifications.length ? <span className="absolute right-0.5 top-0.5 grid min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white ring-2 ring-[#071f33]">{Math.min(unreadNotifications.length, 9)}</span> : null}
             </button>
             <button
               type="button"
@@ -239,7 +245,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               className="relative grid size-9 place-items-center rounded-full border border-[#dfe7ed] bg-white text-[#536a78] hover:bg-[#f6f9fb]"
             >
               <Bell size={18} />
-              <span className="absolute right-2 top-2 size-2 rounded-full bg-red-500 ring-2 ring-white" />
+              {unreadNotifications.length ? <span className="absolute right-0 top-0 grid min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white ring-2 ring-white">{Math.min(unreadNotifications.length, 9)}</span> : null}
             </button>
             <button
               type="button"
@@ -285,7 +291,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {notifications ? (
           <div className="fixed right-4 top-[68px] z-50 w-[330px] rounded-2xl border border-[#dfe7ed] bg-white p-3 shadow-2xl md:right-7">
             <div className="flex items-center justify-between px-2 py-1">
-              <h3 className="text-sm font-bold">Notifications</h3>
+              <div><h3 className="text-sm font-bold">Notifications</h3><p className="text-[10px] text-[#80919b]">{unreadNotifications.length} unread</p></div>
               <button
                 aria-label="Close notifications"
                 onClick={() => setNotifications(false)}
@@ -293,27 +299,21 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <X size={17} />
               </button>
             </div>
-            {[
-              "3 invoices are overdue",
-              "5 items are below reorder level",
-              "Payroll approval is pending",
-            ].map((text) => (
+            {notificationQuery.isLoading ? <div className="space-y-2 py-2">{Array.from({length: 3}, (_, index) => <div key={index} className="h-14 animate-pulse rounded-xl bg-[#eef3f6]"/>)}</div> : notificationRecords.slice(0, 4).map((record) => (
               <Link
-                href={
-                  text.includes("invoice")
-                    ? "/sales/invoices"
-                    : text.includes("items")
-                      ? "/inventory/stock-levels"
-                      : "/payroll/pay-runs"
-                }
-                key={text}
-                onClick={() => setNotifications(false)}
-                className="mt-2 flex items-start gap-3 rounded-xl bg-[#f5f9fc] p-3 text-xs font-medium text-[#405561] hover:bg-[#eaf4fb]"
+                href={record.data.href}
+                key={record.id}
+                onClick={() => {
+                  if (record.status !== "read") notificationActions.markRead.mutate(record)
+                  setNotifications(false)
+                }}
+                className="mt-2 flex items-start gap-3 rounded-xl bg-[#f5f9fc] p-3 text-xs text-[#405561] hover:bg-[#eaf4fb]"
               >
-                <span className="mt-1 size-2 rounded-full bg-[#007DCC]" />
-                {text}
+                <span className={cn("mt-1 size-2 shrink-0 rounded-full", record.status === "read" ? "bg-[#bdc9cf]" : record.data.severity === "critical" ? "bg-red-500" : "bg-[#007DCC]")} />
+                <span><strong className="block font-semibold">{record.data.title}</strong><span className="mt-1 line-clamp-2 block text-[10px] leading-4 text-[#7b8d97]">{record.data.message}</span></span>
               </Link>
             ))}
+            {!notificationQuery.isLoading && !notificationRecords.length ? <p className="py-8 text-center text-xs text-[#80919b]">No notifications.</p> : null}
             <Link
               href="/notifications"
               onClick={() => setNotifications(false)}

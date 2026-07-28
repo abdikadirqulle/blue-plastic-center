@@ -88,6 +88,17 @@ export const modules: Record<string, ModuleDefinition> = {
         "to",
         "basis",
       ]),
+      notifications: resource("notifications", "Notifications", [
+        "title",
+        "message",
+        "category",
+        "severity",
+        "href",
+        "actionRequired",
+        "occurredAt",
+        "recipientUserId",
+        "readAt",
+      ]),
     },
   },
   sales: {
