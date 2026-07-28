@@ -29,9 +29,25 @@ export function resourceFieldValue(
   return key ? data[key] : undefined;
 }
 
-export function normalizeResourceData(
-  values: Record<string, unknown>,
+export function hydrateResourceFormValues(
+  fieldNames: string[],
+  data: Record<string, unknown>,
+  defaults: Record<string, string> = {},
 ) {
+  return Object.fromEntries(
+    fieldNames.map((fieldName) => {
+      const value = resourceFieldValue(fieldName, data);
+      if (value === undefined || value === null || value === "")
+        return [fieldName, defaults[fieldName] ?? ""];
+      return [
+        fieldName,
+        typeof value === "object" ? JSON.stringify(value) : String(value),
+      ];
+    }),
+  );
+}
+
+export function normalizeResourceData(values: Record<string, unknown>) {
   const data = { ...values };
   const targets: Record<string, string[]> = {
     customerId: ["customerId", "customer", "customerName"],
@@ -40,7 +56,14 @@ export function normalizeResourceData(
     employeeId: ["employeeId", "employee"],
     warehouseId: ["warehouseId", "warehouse"],
     accountId: ["accountId", "account"],
-    displayName: ["displayName", "customerName", "vendorName", "customer", "vendor", "name"],
+    displayName: [
+      "displayName",
+      "customerName",
+      "vendorName",
+      "customer",
+      "vendor",
+      "name",
+    ],
     customerPurchaseOrder: ["customerPurchaseOrder", "poNumber"],
   };
   for (const [target, sources] of Object.entries(targets)) {

@@ -127,7 +127,10 @@ export function DashboardPage() {
       new Date(new Date().getFullYear(), new Date().getMonth(), 1),
       "yyyy-MM-dd",
     ),
-    to: today,
+    to: format(
+      new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
+      "yyyy-MM-dd",
+    ),
     label: "This month",
   });
   const invoices = useResourceList("sales", "invoices", {
