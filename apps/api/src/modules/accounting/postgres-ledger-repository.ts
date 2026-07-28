@@ -260,8 +260,8 @@ export class PostgresLedgerRepository implements LedgerRepository {
         and(
           eq(accountingTransactions.companyId, companyId),
           eq(accountingTransactions.status, "posted"),
-          gte(accountingTransactions.transactionDate, new Date(from)),
-          lte(accountingTransactions.transactionDate, new Date(to)),
+          gte(accountingTransactions.transactionDate, new Date(`${from}T00:00:00.000Z`)),
+          lte(accountingTransactions.transactionDate, new Date(`${to}T23:59:59.999Z`)),
         ),
       )
       .groupBy(

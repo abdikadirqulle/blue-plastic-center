@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { format, startOfMonth } from "date-fns";
-import { ArrowLeft, Download, Printer, RefreshCw } from "lucide-react";
+import { ArrowLeft, FileDown, FileSpreadsheet, Printer, RefreshCw } from "lucide-react";
 import { Link } from "@/components/routing";
 import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
@@ -9,6 +9,9 @@ import { DatePicker } from "../../components/ui/date-picker";
 import { DataTableSkeleton } from "../../components/ui/skeleton";
 import { Select } from "../../components/ui/select";
 import { apiClient } from "../../lib/api-client";
+import { FinancialReportTable } from "./financial-report-table";
+import { buildFinancialLines, type TrialBalanceRow } from "./financial-report-model";
+import { exportReportExcel, exportReportPdf, printReportPdf } from "./report-export";
 
 interface ReportResult {
   reportId: string;
@@ -38,10 +41,6 @@ function display(value: unknown) {
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
-}
-
-function csvCell(value: unknown) {
-  return `"${display(value).replaceAll('"', '""')}"`;
 }
 
 export function ReportViewerPage() {
@@ -80,15 +79,17 @@ export function ReportViewerPage() {
     setParameters({ from, to, basis });
   };
 
-  const exportCsv = () => {
-    if (!result) return;
-    const csv = [columns.map((column) => csvCell(labels[column] ?? column)).join(","), ...result.rows.map((row) => columns.map((column) => csvCell(row[column])).join(","))].join("\n");
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    link.download = `${name.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-  };
+  const financialLines = useMemo(
+    () => result ? buildFinancialLines(kind, result.rows as TrialBalanceRow[]) : null,
+    [kind, result],
+  );
+  const exportData = financialLines ? {
+    company: "BLUE PLASTIC CENTER",
+    title: name,
+    period: kind === "balance-sheet" ? `As of ${parameters.to}` : `${parameters.from} through ${parameters.to}`,
+    basis: parameters.basis === "cash" ? "Cash" : "Accrual",
+    lines: financialLines,
+  } : null;
 
   return (
     <AppShell>
@@ -96,8 +97,9 @@ export function ReportViewerPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
           <Link href="/reports/financial" className="inline-flex items-center gap-2 text-xs font-medium text-[#526a76]"><ArrowLeft size={15}/> All reports</Link>
           <div className="flex items-center gap-2">
-            <button onClick={exportCsv} disabled={!result || loading} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#d9e3e9] bg-white px-3 text-xs font-medium disabled:opacity-40"><Download size={14}/> Export</button>
-            <button onClick={() => window.print()} disabled={!result || loading} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#d9e3e9] bg-white px-3 text-xs font-medium disabled:opacity-40"><Printer size={14}/> Print</button>
+            <button onClick={() => exportData && void exportReportPdf(exportData)} disabled={!exportData || loading} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#d9e3e9] bg-white px-3 text-xs font-medium disabled:opacity-40"><FileDown size={14}/> PDF</button>
+            <button onClick={() => exportData && exportReportExcel(exportData)} disabled={!exportData || loading} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#d9e3e9] bg-white px-3 text-xs font-medium disabled:opacity-40"><FileSpreadsheet size={14}/> Excel</button>
+            <button onClick={() => exportData && void printReportPdf(exportData)} disabled={!exportData || loading} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#d9e3e9] bg-white px-3 text-xs font-medium disabled:opacity-40"><Printer size={14}/> Print</button>
           </div>
         </div>
 
@@ -105,7 +107,7 @@ export function ReportViewerPage() {
           <div className="border-b border-[#e4eaee] px-6 py-5 text-center">
             <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#71838d]">BLUE PLASTIC CENTER</p>
             <h1 className="mt-1 text-xl font-semibold text-[#18313e]">{name}</h1>
-            <p className="mt-1 text-xs text-[#71838d]">{parameters.from} through {parameters.to} · {parameters.basis === "cash" ? "Cash" : "Accrual"} basis</p>
+            <p className="mt-1 text-xs text-[#71838d]">{kind === "balance-sheet" ? `As of ${parameters.to}` : `${parameters.from} through ${parameters.to}`} · {parameters.basis === "cash" ? "Cash" : "Accrual"} basis</p>
           </div>
 
           <div className="flex flex-wrap items-end gap-2 border-b border-[#e4eaee] bg-[#f8fafb] p-3 print:hidden">
@@ -115,7 +117,11 @@ export function ReportViewerPage() {
             <button onClick={updateParameters} disabled={loading} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#007DCC] px-4 text-xs font-medium text-white disabled:opacity-60"><RefreshCw size={14} className={loading ? "animate-spin" : ""}/> Run report</button>
           </div>
 
-          {loading ? <DataTableSkeleton columns={columns.length ? columns.map((column) => labels[column] ?? column.replace(/([A-Z])/g, " $1")) : ["Account", "Description", "Amount"]}/> : error ? <div className="m-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div> : (
+          {loading ? <DataTableSkeleton columns={columns.length ? columns.map((column) => labels[column] ?? column.replace(/([A-Z])/g, " $1")) : ["Account", "Description", "Amount"]}/> : error ? <div className="m-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div> : financialLines ? (
+            financialLines.some((line) => line.style === "account")
+              ? <FinancialReportTable lines={financialLines}/>
+              : <div className="px-6 py-16 text-center text-sm text-[#71838d]">No posted transactions were found for this report period.</div>
+          ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-xs">
                 <thead className="border-b-2 border-[#7d8e97] bg-[#f7f9fa]"><tr>{columns.map((column) => <th key={column} className="px-4 py-2.5 font-semibold text-[#405762]">{labels[column] ?? column.replace(/([A-Z])/g, " $1")}</th>)}</tr></thead>

@@ -120,9 +120,12 @@ export async function reportRoutes(
         },
       })
     }
+    const reportFrom = request.params.kind === "balance-sheet"
+      ? "2000-01-01"
+      : parameters.from
     const rows = filterRows(
       request.params.kind,
-      await ledger.trialBalance(request.requestContext.companyId, parameters.from, parameters.to),
+      await ledger.trialBalance(request.requestContext.companyId, reportFrom, parameters.to),
     )
     const totals = rows.reduce((result, row) => ({
       debit: result.debit + decimalToMinor(row.debit),

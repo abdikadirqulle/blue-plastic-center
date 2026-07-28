@@ -81,6 +81,13 @@ export const modules: Record<string, ModuleDefinition> = {
         "debit",
         "credit",
       ]),
+      "memorized-reports": resource("memorized-reports", "Memorized reports", [
+        "name",
+        "kind",
+        "from",
+        "to",
+        "basis",
+      ]),
     },
   },
   sales: {

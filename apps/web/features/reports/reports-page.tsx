@@ -13,6 +13,8 @@ import {
   Play,
   Search,
   Star,
+  X,
+  Trash2,
 } from "lucide-react";
 import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
@@ -85,6 +87,11 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
   const [favorites, setFavorites] = useState<string[]>(["Profit and Loss", "Balance Sheet"]);
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const [runningReport, setRunningReport] = useState("");
+  const [memorizedOpen, setMemorizedOpen] = useState(false);
+  const [memorized, setMemorized] = useState<Array<{ name: string; kind: string; from: string; to: string; basis: string }>>(() => {
+    try { return JSON.parse(localStorage.getItem("blue-plastic-memorized-reports") ?? "[]") }
+    catch { return [] }
+  });
 
   const groups = reportGroups[currentTab]
     .map((group) => ({ ...group, reports: group.reports.filter((report) => report.toLowerCase().includes(query.toLowerCase())) }))
@@ -141,6 +148,21 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
     navigate(`/reports/view?${new URLSearchParams({ name: report, kind, from, to, basis: basis.toLowerCase() })}`);
   };
 
+  const memorize = (report: string) => {
+    const kinds: Record<string, string> = {
+      "Profit and Loss": "profit-and-loss", "Balance Sheet": "balance-sheet",
+      "Statement of Cash Flows": "cash-flow", "Trial Balance": "trial-balance",
+      "General Ledger": "general-ledger",
+    }
+    const next = [
+      ...memorized.filter((item) => item.name !== report),
+      { name: report, kind: kinds[report] ?? "trial-balance", from, to, basis: basis.toLowerCase() },
+    ]
+    setMemorized(next)
+    localStorage.setItem("blue-plastic-memorized-reports", JSON.stringify(next))
+    setMessage({ title: "Report memorized", description: `${report} and its current filters were saved.`, variant: "success" })
+  }
+
   return (
     <AppShell>
       <div className="mx-auto max-w-[1500px]">
@@ -150,7 +172,7 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
             <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[#142735]">Reports</h1>
             <p className="mt-1.5 text-sm text-[#6b7e8a]">QuickBooks-style financial and operational reporting across every company and branch.</p>
           </div>
-          <button onClick={() => setMessage({ title: "Report preferences saved", description: "Your memorized reports are up to date.", variant: "success" })} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"><Star size={16}/> Memorized reports</button>
+          <button onClick={() => setMemorizedOpen(true)} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"><Star size={16}/> Memorized reports <span className="rounded-full bg-white/20 px-1.5">{memorized.length}</span></button>
         </div>
 
         <Card className="mt-6 overflow-hidden">
@@ -191,6 +213,7 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
                       <BarChart3 size={16} className="text-[#738894]"/>
                       <button onClick={() => run(report)} className="flex-1 text-left text-xs font-medium text-[#304954]">{report}</button>
                       <button aria-label={`${favorite ? "Remove" : "Add"} ${report} favorite`} onClick={() => setFavorites((current) => favorite ? current.filter((item) => item !== report) : [...current, report])} className={favorite ? "text-amber-500" : "text-[#a0adb5]"}><Heart size={15} fill={favorite ? "currentColor" : "none"}/></button>
+                      <button aria-label={`Memorize ${report}`} title="Memorize report" onClick={() => memorize(report)} className="rounded-lg p-2 text-[#758995] hover:bg-amber-50 hover:text-amber-600"><Star size={15}/></button>
                       <button aria-label={`Export ${report}`} onClick={() => setMessage({ title: "Export prepared", description: `${report} is ready to download.`, variant: "success" })} className="rounded-lg p-2 text-[#758995] hover:bg-[#eaf5fc] hover:text-[#007DCC]"><Download size={15}/></button>
                       <button onClick={() => run(report)} className="flex items-center gap-1 rounded-lg bg-[#eaf5fc] px-2.5 py-2 text-[11px] font-medium text-[#007DCC]">{runningReport === report ? <span className="size-3 animate-spin rounded-full border-2 border-[#9bcdeb] border-t-[#007DCC]"/> : <Play size={13}/>} Run</button>
                       <ChevronRight size={14} className="text-[#a0adb5]"/>
@@ -201,6 +224,26 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
             </Card>
           ))}
         </div>
+        {memorizedOpen ? (
+          <div className="fixed inset-0 z-[100] grid place-items-center bg-[#102b3a]/45 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setMemorizedOpen(false) }}>
+            <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+              <div className="flex items-center justify-between border-b border-[#e5ecf1] px-5 py-4">
+                <div><h2 className="text-base font-semibold text-[#18313e]">Memorized reports</h2><p className="mt-0.5 text-xs text-[#71848f]">Saved report filters ready to run again.</p></div>
+                <button onClick={() => setMemorizedOpen(false)} className="rounded-lg p-2 text-[#6f838e] hover:bg-[#f0f5f8]"><X size={18}/></button>
+              </div>
+              <div className="max-h-[55vh] divide-y divide-[#edf1f4] overflow-y-auto">
+                {memorized.length ? memorized.map((item) => (
+                  <div key={item.name} className="flex items-center gap-3 px-5 py-4">
+                    <Star size={16} className="text-amber-500"/>
+                    <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-[#29434f]">{item.name}</p><p className="text-[11px] text-[#7a8d97]">{item.from} — {item.to} · {item.basis}</p></div>
+                    <button onClick={() => { setMemorizedOpen(false); navigate(`/reports/view?${new URLSearchParams(item)}`) }} className="rounded-lg bg-[#eaf5fc] px-3 py-2 text-xs font-semibold text-[#007DCC]">Run</button>
+                    <button onClick={() => { const next = memorized.filter((saved) => saved.name !== item.name); setMemorized(next); localStorage.setItem("blue-plastic-memorized-reports", JSON.stringify(next)) }} className="rounded-lg p-2 text-red-500 hover:bg-red-50"><Trash2 size={16}/></button>
+                  </div>
+                )) : <div className="px-6 py-14 text-center text-sm text-[#71848f]">No memorized reports yet. Use the star beside a report to save it.</div>}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </AppShell>
   );

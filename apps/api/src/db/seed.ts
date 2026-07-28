@@ -2,6 +2,8 @@ import "dotenv/config"
 import { createDatabase } from "./client.js"
 import {
   accounts,
+  accountingLines,
+  accountingTransactions,
   branches,
   companies,
   fiscalPeriods,
@@ -295,6 +297,65 @@ async function seed() {
     const id = accountIds.get(number)
     if (!id) throw new Error(`Seed account ${number} was not found`)
     return id
+  }
+
+  const ledgerEntries = [
+    ["2026-01-02", "Opening owner investment", [["1020", "150000.00", "0"], ["3000", "0", "150000.00"]]],
+    ["2026-01-18", "January product sales", [["1100", "23800.00", "0"], ["4010", "0", "23800.00"]]],
+    ["2026-01-18", "January cost of sales", [["5000", "11200.00", "0"], ["1200", "0", "11200.00"]]],
+    ["2026-01-28", "January salaries and rent", [["6000", "4600.00", "0"], ["6010", "2800.00", "0"], ["1020", "0", "7400.00"]]],
+    ["2026-02-14", "February product sales", [["1100", "28650.00", "0"], ["4010", "0", "28650.00"]]],
+    ["2026-02-14", "February cost of sales", [["5000", "13400.00", "0"], ["1200", "0", "13400.00"]]],
+    ["2026-02-25", "February operating expenses", [["6000", "4800.00", "0"], ["6020", "940.00", "0"], ["1020", "0", "5740.00"]]],
+    ["2026-03-12", "March cash sales", [["1020", "32200.00", "0"], ["4010", "0", "32200.00"]]],
+    ["2026-03-12", "March cost of sales", [["5000", "15100.00", "0"], ["1200", "0", "15100.00"]]],
+    ["2026-03-27", "March operating expenses", [["6000", "5000.00", "0"], ["6010", "2800.00", "0"], ["6030", "1100.00", "0"], ["1020", "0", "8900.00"]]],
+    ["2026-04-16", "April product sales", [["1100", "35750.00", "0"], ["4010", "0", "35750.00"]]],
+    ["2026-04-16", "April cost of sales", [["5000", "16800.00", "0"], ["1200", "0", "16800.00"]]],
+    ["2026-04-29", "April operating expenses", [["6000", "5200.00", "0"], ["6020", "1020.00", "0"], ["1020", "0", "6220.00"]]],
+    ["2026-05-15", "May product sales", [["1100", "39100.00", "0"], ["4010", "0", "39100.00"]]],
+    ["2026-05-15", "May cost of sales", [["5000", "18450.00", "0"], ["1200", "0", "18450.00"]]],
+    ["2026-05-30", "May operating expenses", [["6000", "5400.00", "0"], ["6010", "2800.00", "0"], ["6030", "1250.00", "0"], ["1020", "0", "9450.00"]]],
+    ["2026-06-13", "June cash sales", [["1020", "42800.00", "0"], ["4010", "0", "42800.00"]]],
+    ["2026-06-13", "June cost of sales", [["5000", "20100.00", "0"], ["1200", "0", "20100.00"]]],
+    ["2026-06-28", "June operating expenses", [["6000", "5600.00", "0"], ["6020", "1180.00", "0"], ["1020", "0", "6780.00"]]],
+    ["2026-07-10", "July product sales", [["1100", "48250.00", "0"], ["4010", "0", "48250.00"]]],
+    ["2026-07-10", "July cost of sales", [["5000", "22600.00", "0"], ["1200", "0", "22600.00"]]],
+    ["2026-07-25", "July operating expenses", [["6000", "5800.00", "0"], ["6010", "2800.00", "0"], ["6020", "1240.00", "0"], ["1020", "0", "9840.00"]]],
+  ] as const
+  for (const [entryIndex, [date, memo, lines]] of ledgerEntries.entries()) {
+    const transactionId = `60000000-0000-4000-8000-${String(entryIndex + 1).padStart(12, "0")}`
+    await db.insert(accountingTransactions).values({
+      id: transactionId,
+      companyId: "00000000-0000-4000-8000-000000000001",
+      branchId: "00000000-0000-4000-8000-000000000011",
+      transactionNumber: `SEED-JE-${String(entryIndex + 1).padStart(4, "0")}`,
+      transactionDate: new Date(`${date}T12:00:00.000Z`),
+      sourceModule: "seed",
+      status: "posted",
+      currency: "USD",
+      memo,
+      postedAt: new Date(`${date}T12:00:00.000Z`),
+      postedBy: "00000000-0000-4000-8000-000000000001",
+    }).onConflictDoUpdate({
+      target: accountingTransactions.id,
+      set: { transactionDate: new Date(`${date}T12:00:00.000Z`), memo, status: "posted" },
+    })
+    for (const [lineIndex, [accountNumber, debit, credit]] of lines.entries()) {
+      const lineId = `61000000-0000-4000-8000-${String((entryIndex + 1) * 10 + lineIndex + 1).padStart(12, "0")}`
+      await db.insert(accountingLines).values({
+        id: lineId,
+        transactionId,
+        accountId: accountId(accountNumber),
+        description: memo,
+        debit,
+        credit,
+        lineNumber: lineIndex + 1,
+      }).onConflictDoUpdate({
+        target: accountingLines.id,
+        set: { accountId: accountId(accountNumber), description: memo, debit, credit },
+      })
+    }
   }
   const itemData = [
     ["40000000-0000-4000-8000-000000000001", "BPC-HDPE-25", "HDPE Blue Container 25L", "18.50", "12.25", "240"],
