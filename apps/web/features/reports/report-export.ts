@@ -71,21 +71,13 @@ export async function exportReportPdf(report: ExportReport) {
   pdf.save(`${report.title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}.pdf`)
 }
 
-export async function printReportPdf(report: ExportReport) {
+export async function printReportPdf(report: ExportReport, printWindow: Window | null) {
   const pdf = await createPdf(report)
+  pdf.autoPrint()
   const url = URL.createObjectURL(pdf.output("blob"))
-  const frame = document.createElement("iframe")
-  frame.style.position = "fixed"
-  frame.style.width = "1px"
-  frame.style.height = "1px"
-  frame.style.opacity = "0"
-  frame.src = url
-  document.body.appendChild(frame)
-  frame.onload = () => {
-    frame.contentWindow?.focus()
-    frame.contentWindow?.print()
-    window.setTimeout(() => { URL.revokeObjectURL(url); frame.remove() }, 60_000)
-  }
+  if (printWindow) printWindow.location.href = url
+  else window.location.href = url
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
 export function exportReportExcel(report: ExportReport) {
@@ -101,8 +93,11 @@ export function exportReportExcel(report: ExportReport) {
   </style></head><body><h2>${report.company}</h2><h1>${report.title}</h1><p>${report.period} · ${report.basis} basis</p>
   <table><thead><tr><th>Account</th><th>Total (USD)</th></tr></thead><tbody>${rows}</tbody></table></body></html>`
   const link = document.createElement("a")
-  link.href = URL.createObjectURL(new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" }))
+  const url = URL.createObjectURL(new Blob([`\uFEFF${html}`], { type: "application/vnd.ms-excel;charset=utf-8" }))
+  link.href = url
   link.download = `${report.title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}.xls`
+  document.body.appendChild(link)
   link.click()
-  URL.revokeObjectURL(link.href)
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
 }

@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { format, startOfMonth } from "date-fns";
-import { ArrowLeft, FileDown, FileSpreadsheet, Printer, RefreshCw } from "lucide-react";
+import { endOfMonth, endOfQuarter, endOfYear, format, startOfMonth, startOfQuarter, startOfYear, subMonths, subYears } from "date-fns";
+import { ArrowLeft, FileDown, FileSpreadsheet, LoaderCircle, Printer, RefreshCw } from "lucide-react";
 import { Link } from "@/components/routing";
 import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
 import { DatePicker } from "../../components/ui/date-picker";
-import { DataTableSkeleton } from "../../components/ui/skeleton";
 import { Select } from "../../components/ui/select";
 import { apiClient } from "../../lib/api-client";
 import { FinancialReportTable } from "./financial-report-table";
-import { buildFinancialLines, type TrialBalanceRow } from "./financial-report-model";
+import { buildFinancialLines, type FinancialLine, type TrialBalanceRow } from "./financial-report-model";
 import { exportReportExcel, exportReportPdf, printReportPdf } from "./report-export";
 
 interface ReportResult {
@@ -54,6 +53,8 @@ export function ReportViewerPage() {
   const [result, setResult] = useState<ReportResult | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState("Custom");
+  const [exporting, setExporting] = useState<"pdf" | "excel" | "print" | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -79,27 +80,76 @@ export function ReportViewerPage() {
     setParameters({ from, to, basis });
   };
 
+  const choosePeriod = (value: string) => {
+    setPeriod(value);
+    const today = new Date();
+    const presets: Record<string, [Date, Date]> = {
+      "All": [new Date("2000-01-01T00:00:00"), today],
+      "Today": [today, today],
+      "This month": [startOfMonth(today), today],
+      "Last month": [startOfMonth(subMonths(today, 1)), endOfMonth(subMonths(today, 1))],
+      "This quarter": [startOfQuarter(today), today],
+      "Last quarter": [startOfQuarter(subMonths(today, 3)), endOfQuarter(subMonths(today, 3))],
+      "This year": [startOfYear(today), today],
+      "Last year": [startOfYear(subYears(today, 1)), endOfYear(subYears(today, 1))],
+    };
+    const range = presets[value];
+    if (range) {
+      setFrom(format(range[0], "yyyy-MM-dd"));
+      setTo(format(range[1], "yyyy-MM-dd"));
+    }
+  };
+
   const financialLines = useMemo(
     () => result ? buildFinancialLines(kind, result.rows as TrialBalanceRow[]) : null,
     [kind, result],
   );
-  const exportData = financialLines ? {
+  const exportLines = useMemo<FinancialLine[]>(() => {
+    if (financialLines) return financialLines;
+    return (result?.rows ?? []).map((row, index) => {
+      const label = row.accountName ?? row.customer ?? row.vendor ?? row.documentNumber ?? row.name ?? row.description ?? row.id ?? `Row ${index + 1}`;
+      const amountKey = Object.keys(row).find((key) => /total|amount|balance|value|debit|credit/i.test(key) && Number.isFinite(Number(row[key])));
+      return { label: String(label), amount: amountKey ? Number(row[amountKey]) : undefined, level: 0, style: "account" };
+    });
+  }, [financialLines, result]);
+  const exportData = result ? {
     company: "BLUE PLASTIC CENTER",
     title: name,
     period: kind === "balance-sheet" ? `As of ${parameters.to}` : `${parameters.from} through ${parameters.to}`,
     basis: parameters.basis === "cash" ? "Cash" : "Accrual",
-    lines: financialLines,
+    lines: exportLines,
   } : null;
+
+  const runExport = async (type: "pdf" | "excel" | "print") => {
+    if (!exportData || exporting) return;
+    setExporting(type);
+    try {
+      if (type === "pdf") await exportReportPdf(exportData);
+      if (type === "excel") exportReportExcel(exportData);
+      if (type === "print") {
+        const printWindow = window.open("", "_blank");
+        await printReportPdf(exportData, printWindow);
+      }
+    } finally {
+      window.setTimeout(() => setExporting(null), 350);
+    }
+  };
 
   return (
     <AppShell>
       <div className="mx-auto max-w-[1320px]">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 print:hidden">
           <Link href="/reports/financial" className="inline-flex items-center gap-2 text-xs font-medium text-[#526a76]"><ArrowLeft size={15}/> All reports</Link>
-          <div className="flex items-center gap-2">
-            <button onClick={() => exportData && void exportReportPdf(exportData)} disabled={!exportData || loading} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#d9e3e9] bg-white px-3 text-xs font-medium disabled:opacity-40"><FileDown size={14}/> PDF</button>
-            <button onClick={() => exportData && exportReportExcel(exportData)} disabled={!exportData || loading} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#d9e3e9] bg-white px-3 text-xs font-medium disabled:opacity-40"><FileSpreadsheet size={14}/> Excel</button>
-            <button onClick={() => exportData && void printReportPdf(exportData)} disabled={!exportData || loading} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#d9e3e9] bg-white px-3 text-xs font-medium disabled:opacity-40"><Printer size={14}/> Print</button>
+          <div className="flex flex-wrap items-end justify-end gap-2">
+            <label className="w-36 text-[10px] font-medium text-[#607681]"><span className="mb-1 block">Report period</span><Select value={period} onValueChange={choosePeriod} options={["All","Today","This month","Last month","This quarter","Last quarter","This year","Last year","Custom"]} className="h-9"/></label>
+            <label className="w-36 text-[10px] font-medium text-[#607681]"><span className="mb-1 block">From</span><DatePicker value={from} onChange={(value) => { setFrom(value); setPeriod("Custom"); }} className="h-9"/></label>
+            <label className="w-36 text-[10px] font-medium text-[#607681]"><span className="mb-1 block">To</span><DatePicker value={to} onChange={(value) => { setTo(value); setPeriod("Custom"); }} className="h-9"/></label>
+            <label className="w-32 text-[10px] font-medium text-[#607681]"><span className="mb-1 block">Accounting method</span><Select value={basis} onValueChange={setBasis} options={[{label:"Accrual",value:"accrual"},{label:"Cash",value:"cash"}]} className="h-9"/></label>
+            <button onClick={updateParameters} disabled={loading} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#007DCC] px-3 text-xs font-medium text-white disabled:opacity-60"><RefreshCw size={14} className={loading ? "animate-spin" : ""}/> Run report</button>
+            <span className="mx-1 h-8 w-px bg-[#dbe4e9]"/>
+            <button onClick={() => void runExport("pdf")} disabled={!exportData || loading || Boolean(exporting)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#d9e3e9] bg-white px-3 text-xs font-medium disabled:opacity-40">{exporting === "pdf" ? <LoaderCircle size={14} className="animate-spin"/> : <FileDown size={14}/>} PDF</button>
+            <button onClick={() => void runExport("excel")} disabled={!exportData || loading || Boolean(exporting)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#d9e3e9] bg-white px-3 text-xs font-medium disabled:opacity-40">{exporting === "excel" ? <LoaderCircle size={14} className="animate-spin"/> : <FileSpreadsheet size={14}/>} Excel</button>
+            <button onClick={() => void runExport("print")} disabled={!exportData || loading || Boolean(exporting)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#d9e3e9] bg-white px-3 text-xs font-medium disabled:opacity-40">{exporting === "print" ? <LoaderCircle size={14} className="animate-spin"/> : <Printer size={14}/>} Print</button>
           </div>
         </div>
 
@@ -110,14 +160,7 @@ export function ReportViewerPage() {
             <p className="mt-1 text-xs text-[#71838d]">{kind === "balance-sheet" ? `As of ${parameters.to}` : `${parameters.from} through ${parameters.to}`} · {parameters.basis === "cash" ? "Cash" : "Accrual"} basis</p>
           </div>
 
-          <div className="flex flex-wrap items-end gap-2 border-b border-[#e4eaee] bg-[#f8fafb] p-3 print:hidden">
-            <label className="w-40 text-[11px] text-[#607681]"><span className="mb-1 block">From</span><DatePicker value={from} onChange={setFrom} className="h-9"/></label>
-            <label className="w-40 text-[11px] text-[#607681]"><span className="mb-1 block">To</span><DatePicker value={to} onChange={setTo} className="h-9"/></label>
-            <label className="w-32 text-[11px] text-[#607681]"><span className="mb-1 block">Accounting method</span><Select value={basis} onValueChange={setBasis} options={[{label:"Accrual",value:"accrual"},{label:"Cash",value:"cash"}]} className="h-9"/></label>
-            <button onClick={updateParameters} disabled={loading} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#007DCC] px-4 text-xs font-medium text-white disabled:opacity-60"><RefreshCw size={14} className={loading ? "animate-spin" : ""}/> Run report</button>
-          </div>
-
-          {loading ? <DataTableSkeleton columns={columns.length ? columns.map((column) => labels[column] ?? column.replace(/([A-Z])/g, " $1")) : ["Account", "Description", "Amount"]}/> : error ? <div className="m-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div> : financialLines ? (
+          {loading ? <div className="flex min-h-[420px] flex-col items-center justify-center gap-3"><span className="grid size-12 place-items-center rounded-full bg-[#eaf5fc] text-[#007DCC]"><LoaderCircle size={24} className="animate-spin"/></span><div className="text-center"><p className="text-sm font-semibold text-[#29434f]">Generating {name}</p><p className="mt-1 text-xs text-[#7b8d97]">Preparing accounts and calculating report totals…</p></div></div> : error ? <div className="m-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div> : financialLines ? (
             financialLines.some((line) => line.style === "account")
               ? <FinancialReportTable lines={financialLines}/>
               : <div className="px-6 py-16 text-center text-sm text-[#71838d]">No posted transactions were found for this report period.</div>
@@ -130,7 +173,7 @@ export function ReportViewerPage() {
               </table>
             </div>
           )}
-          <div className="flex justify-between border-t border-[#e4eaee] px-5 py-3 text-[10px] text-[#80919a]"><span>{result?.rows.length ?? 0} rows</span><span>{result ? `Generated ${new Date(result.generatedAt).toLocaleString()}` : ""}</span></div>
+          <div className="flex flex-wrap justify-between gap-2 border-t border-[#e4eaee] px-5 py-3 text-[10px] text-[#80919a]"><span>Generated by: <strong className="font-semibold text-[#536a76]">BLUE PLASTIC CENTER</strong></span><span>{result ? `Generated ${new Date(result.generatedAt).toLocaleString()} · ${result.rows.length} source rows` : ""}</span></div>
         </Card>
       </div>
     </AppShell>
