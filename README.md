@@ -23,7 +23,7 @@ being built with the functional breadth of enterprise accounting software.
 - Phase 3 general ledger, month-end close, budgets, fixed assets, job costing,
   payroll approval/liabilities, and expanded enterprise reports
 - Swappable mock/API enterprise repository for accounting, projects, and payroll
-- Typed API client boundaries and realistic frontend mock data
+- Typed API client boundaries and idempotent PostgreSQL presentation data
 - Fastify REST API with Zod validation and RBAC
 - PostgreSQL/Drizzle schema, migrations, seed data, audit events, and optimistic locking
 - Product, architecture, frontend, roadmap, and accounting documentation
@@ -86,3 +86,4 @@ docs/                 Product and engineering documentation
 Read `AGENTS.md` before making changes. Product scope and delivery decisions are
 recorded in `docs/`. Backend setup and phases are documented in
 `docs/BACKEND.md` and `docs/BACKEND_PLAN.md`.
+Deployment configuration is documented in `docs/DEPLOYMENT.md`.

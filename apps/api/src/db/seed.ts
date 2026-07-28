@@ -10,6 +10,8 @@ import {
   users,
 } from "./schema.js"
 import { hashPassword } from "../modules/auth/password.js"
+import { PostgresResourceRepository } from "../repositories/postgres-resource-repository.js"
+import type { ResourceRecord } from "../platform/types.js"
 
 const uuidOrNull = (value: unknown) =>
   typeof value === "string" &&
@@ -232,6 +234,121 @@ async function seed() {
     }
   }
 
+  const repository = new PostgresResourceRepository(db)
+  const companyId = "00000000-0000-4000-8000-000000000001"
+  const branchId = "00000000-0000-4000-8000-000000000011"
+  const userId = "00000000-0000-4000-8000-000000000001"
+  const createdAt = "2026-07-01T08:00:00.000Z"
+  const demo = async (
+    id: string,
+    module: string,
+    resource: string,
+    status: string,
+    data: Record<string, unknown>,
+  ) => {
+    const record: ResourceRecord = {
+      id,
+      module,
+      resource,
+      companyId,
+      branchId,
+      status,
+      version: 1,
+      data,
+      createdAt,
+      createdBy: userId,
+      updatedAt: createdAt,
+      updatedBy: userId,
+      isDeleted: false,
+    }
+    const current = await repository.findById({ companyId, module, resource }, id)
+    if (current) {
+      await repository.update({
+        ...record,
+        version: current.version + 1,
+        createdAt: current.createdAt,
+      })
+    } else {
+      await repository.create(record)
+    }
+  }
+
+  const customerData = [
+    ["30000000-0000-4000-8000-000000000001", "Banaadir Trading Co.", "accounts@banaadir.so", "+252 61 555 1001"],
+    ["30000000-0000-4000-8000-000000000002", "Sahal Distributors", "finance@sahal.so", "+252 61 555 1002"],
+    ["30000000-0000-4000-8000-000000000003", "Horn Logistics", "billing@hornlogistics.so", "+252 61 555 1003"],
+    ["30000000-0000-4000-8000-000000000004", "Dayax Retail", "accounts@dayax.so", "+252 61 555 1004"],
+  ] as const
+  for (const [id, displayName, email, phone] of customerData)
+    await demo(id, "sales", "customers", "active", {
+      displayName, companyName: displayName, email, phone, currency: "USD",
+      paymentTerms: "Net 30", openingBalance: "0",
+    })
+
+  const accountRows = await db
+    .select({ id: accounts.id, accountNumber: accounts.accountNumber })
+    .from(accounts)
+  const accountIds = new Map(
+    accountRows.map((account) => [account.accountNumber, account.id]),
+  )
+  const accountId = (number: string) => {
+    const id = accountIds.get(number)
+    if (!id) throw new Error(`Seed account ${number} was not found`)
+    return id
+  }
+  const itemData = [
+    ["40000000-0000-4000-8000-000000000001", "BPC-HDPE-25", "HDPE Blue Container 25L", "18.50", "12.25", "240"],
+    ["40000000-0000-4000-8000-000000000002", "BPC-HDPE-50", "HDPE Blue Drum 50L", "32.00", "22.40", "165"],
+    ["40000000-0000-4000-8000-000000000003", "BPC-PET-01", "PET Bottle 1L", "1.20", "0.68", "2400"],
+    ["40000000-0000-4000-8000-000000000004", "BPC-CAP-01", "Tamper-proof Cap", "0.18", "0.08", "7800"],
+    ["40000000-0000-4000-8000-000000000005", "BPC-DELIVERY", "Customer Delivery Service", "35.00", "18.00", "0"],
+  ] as const
+  for (const [id, sku, name, salesPrice, purchaseCost, openingQuantity] of itemData)
+    await demo(id, "inventory", "items", "active", {
+      sku, name, type: sku === "BPC-DELIVERY" ? "service" : "inventory",
+      unit: "Each", salesDescription: name, salesPrice, purchaseCost,
+      openingQuantity, incomeAccountId: accountId("4010"),
+      expenseAccountId: accountId("5000"),
+      inventoryAccountId: accountId("1200"),
+    })
+
+  const invoiceData = [
+    ["50000000-0000-4000-8000-000000000001", "INV-01001", customerData[0][0], "2026-07-03", "2026-08-02", "paid", itemData[0][0], "120", "18.50", "2220.00", "0.00"],
+    ["50000000-0000-4000-8000-000000000002", "INV-01002", customerData[1][0], "2026-07-10", "2026-08-09", "open", itemData[1][0], "80", "32.00", "2560.00", "2560.00"],
+    ["50000000-0000-4000-8000-000000000003", "INV-01003", customerData[2][0], "2026-06-15", "2026-07-15", "overdue", itemData[2][0], "1500", "1.20", "1800.00", "1800.00"],
+    ["50000000-0000-4000-8000-000000000004", "INV-01004", customerData[3][0], "2026-07-24", "2026-08-23", "draft", itemData[3][0], "5000", "0.18", "900.00", "900.00"],
+  ] as const
+  for (const [id, documentNumber, customerId, invoiceDate, dueDate, status, itemId, quantity, unitPrice, total, balanceDue] of invoiceData)
+    await demo(id, "sales", "invoices", status, {
+      documentNumber, customerId, invoiceDate, dueDate, currency: "USD",
+      exchangeRate: "1", terms: "Net 30", template: "Product invoice",
+      subtotal: total, taxTotal: "0", total,
+      amountPaid: status === "paid" ? total : "0", balanceDue,
+      memo: "BLUE PLASTIC CENTER demonstration transaction",
+      lines: [{ itemId, description: "Plastic products", quantity, unitPrice }],
+    })
+
+  const genericDemo: Array<[string, string, string, string, Record<string, unknown>]> = [
+    ["51000000-0000-4000-8000-000000000001", "sales", "sales-receipts", "paid", { documentNumber: "SR-01001", customerId: customerData[3][0], saleDate: "2026-07-26", paymentMethod: "Cash", depositToAccountId: accountId("1000"), currency: "USD", total: "640.00", lines: [{ itemId: itemData[2][0], description: "PET Bottle 1L", quantity: "500", unitPrice: "1.20" }] }],
+    ["51000000-0000-4000-8000-000000000002", "sales", "sales-receipts", "paid", { documentNumber: "SR-01002", customerId: customerData[0][0], saleDate: "2026-07-27", paymentMethod: "Mobile money", depositToAccountId: accountId("1030"), currency: "USD", total: "925.00", lines: [{ itemId: itemData[0][0], description: "HDPE Blue Container 25L", quantity: "50", unitPrice: "18.50" }] }],
+    ["52000000-0000-4000-8000-000000000001", "sales", "payments", "applied", { documentNumber: "PAY-01001", customerId: customerData[0][0], paymentDate: "2026-07-20", amount: "2220.00", currency: "USD", depositToAccountId: accountId("1020"), paymentMethod: "Bank transfer", reference: "TRX-784521", allocations: [{ invoiceId: invoiceData[0][0], amount: "2220.00" }] }],
+    ["52000000-0000-4000-8000-000000000002", "sales", "payments", "unapplied", { documentNumber: "PAY-01002", customerId: customerData[1][0], paymentDate: "2026-07-27", amount: "1000.00", currency: "USD", depositToAccountId: accountId("1020"), paymentMethod: "Cheque", reference: "CHQ-1048", allocations: [] }],
+    ["53000000-0000-4000-8000-000000000001", "purchasing", "vendors", "active", { displayName: "SomPolymer Supplies", companyName: "SomPolymer Supplies", email: "accounts@sompolymer.so", phone: "+252 61 555 2001", currency: "USD", openingBalance: "0" }],
+    ["53000000-0000-4000-8000-000000000002", "purchasing", "vendors", "active", { displayName: "Gulf Resin Trading", companyName: "Gulf Resin Trading", email: "finance@gulfresin.com", phone: "+971 50 555 2002", currency: "USD", openingBalance: "0" }],
+    ["54000000-0000-4000-8000-000000000001", "purchasing", "bills", "open", { documentNumber: "BILL-02001", vendorId: "53000000-0000-4000-8000-000000000001", billDate: "2026-07-12", dueDate: "2026-08-11", currency: "USD", total: "12400.00", balanceDue: "12400.00", memo: "Raw materials purchase", lines: [{ accountId: accountId("5010"), description: "HDPE resin", quantity: "1", unitPrice: "12400.00" }] }],
+    ["54000000-0000-4000-8000-000000000002", "purchasing", "bills", "paid", { documentNumber: "BILL-02002", vendorId: "53000000-0000-4000-8000-000000000002", billDate: "2026-06-28", dueDate: "2026-07-28", currency: "USD", total: "6850.00", balanceDue: "0", memo: "PET raw material" }],
+    ["55000000-0000-4000-8000-000000000001", "banking", "accounts", "active", { accountName: "Premier Operating Account", accountType: "Bank", bankName: "Premier Bank", accountNumber: "2048", currency: "USD", openingBalance: "284420.00", asOf: "2026-07-28", glAccount: accountId("1020") }],
+    ["55000000-0000-4000-8000-000000000002", "banking", "accounts", "active", { accountName: "EVC Plus Collections", accountType: "Mobile money", bankName: "Hormuud", accountNumber: "7712", currency: "USD", openingBalance: "42680.00", asOf: "2026-07-28", glAccount: accountId("1030") }],
+    ["55000000-0000-4000-8000-000000000003", "banking", "accounts", "active", { accountName: "Petty Cash", accountType: "Cash", accountNumber: "PC-01", currency: "USD", openingBalance: "3850.00", asOf: "2026-07-28", glAccount: accountId("1010") }],
+    ["56000000-0000-4000-8000-000000000001", "banking", "transactions", "cleared", { documentNumber: "BT-03001", account: "Premier Operating Account", type: "Deposit", date: "2026-07-20", payee: "Banaadir Trading Co.", reference: "TRX-784521", category: "Accounts Receivable", amount: "2220.00" }],
+    ["56000000-0000-4000-8000-000000000002", "banking", "transactions", "cleared", { documentNumber: "BT-03002", account: "Premier Operating Account", type: "Withdrawal", date: "2026-07-22", payee: "SomPolymer Supplies", reference: "WIRE-8821", category: "Accounts Payable", amount: "-6200.00" }],
+    ["57000000-0000-4000-8000-000000000001", "debts", "receivables", "open", { documentNumber: "AR-04001", customerId: customerData[1][0], invoiceId: invoiceData[1][0], dueDate: "2026-08-09", originalAmount: "2560.00", outstanding: "2560.00", agingBucket: "Current" }],
+    ["57000000-0000-4000-8000-000000000002", "debts", "receivables", "overdue", { documentNumber: "AR-04002", customerId: customerData[2][0], invoiceId: invoiceData[2][0], dueDate: "2026-07-15", originalAmount: "1800.00", outstanding: "1800.00", agingBucket: "1-30 days" }],
+    ["58000000-0000-4000-8000-000000000001", "debts", "payables", "open", { documentNumber: "AP-05001", vendorId: "53000000-0000-4000-8000-000000000001", billId: "54000000-0000-4000-8000-000000000001", dueDate: "2026-08-11", originalAmount: "12400.00", outstanding: "12400.00", agingBucket: "Current" }],
+  ]
+  for (const [id, module, resource, status, data] of genericDemo)
+    await demo(id, module, resource, status, data)
+
   await db
     .insert(fiscalPeriods)
     .values({
@@ -251,4 +368,4 @@ async function seed() {
   console.log("BLUE PLASTIC CENTER database seed completed")
 }
 
-void seed()
+await seed()

@@ -32,6 +32,14 @@ function requireAdministrator(role: string) {
 }
 
 export async function authRoutes(app: FastifyInstance, authService: AuthService, env: AppEnv) {
+  const secureCookie = env.COOKIE_SECURE ?? env.NODE_ENV === "production"
+  const cookieOptions = {
+    path: "/",
+    httpOnly: true,
+    sameSite: secureCookie ? ("none" as const) : ("lax" as const),
+    secure: secureCookie,
+  }
+
   app.post("/login", {
     config: { rateLimit: { max: 5, timeWindow: "15 minutes" } },
   }, async (request, reply) => {
@@ -41,10 +49,7 @@ export async function authRoutes(app: FastifyInstance, authService: AuthService,
       ipAddress: request.ip,
     })
     reply.setCookie("blue_session", result.token, {
-      path: "/",
-      httpOnly: true,
-      sameSite: "strict",
-      secure: env.COOKIE_SECURE ?? env.NODE_ENV === "production",
+      ...cookieOptions,
       maxAge: env.SESSION_TTL_HOURS * 60 * 60,
     })
     return { data: { user: result.user, csrfToken: result.csrfToken } }
@@ -77,7 +82,7 @@ export async function authRoutes(app: FastifyInstance, authService: AuthService,
 
   app.post("/logout", async (request, reply) => {
     await authService.logout(request.cookies.blue_session)
-    reply.clearCookie("blue_session", { path: "/" })
+    reply.clearCookie("blue_session", cookieOptions)
     return reply.code(204).send()
   })
 }

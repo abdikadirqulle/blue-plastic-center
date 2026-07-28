@@ -1,40 +1,58 @@
 # Deployment
 
-## Vercel
+## Vercel frontend
 
-The web workspace has a dedicated Vercel build:
+Create the Vercel project with `apps/web` as its Root Directory.
 
-- Runtime: Node.js 22
-- Framework: Vite and React
-- Build command: `npm run build:vercel`
-- Output: static `dist` application
-
-`apps/web/vercel.json` selects the Vite build automatically. Linux native
-bindings used by Rolldown, Tailwind, and Lightning CSS are explicit optional
-dependencies so npm installs them when the lockfile was generated on macOS.
-
-Recommended Vercel project settings:
-
-- Root Directory: `apps/web`
-- Framework Preset: Vite
-- Install Command: `npm install --prefix=../..`
-- Build Command: leave empty so `vercel.json` is authoritative
-
-## Local and Sites build
-
-Run the root build for the Vite target:
+Set this production environment variable:
 
 ```text
-npm run build
+VITE_API_URL=https://YOUR-RENDER-SERVICE.onrender.com
 ```
 
-The Vite output ending in `built in` is
-informational. It is not a failed build.
-# Frontend/API connectivity
+The checked-in `apps/web/vercel.json` installs the complete npm workspace,
+builds the Vite application, and rewrites React Router URLs to `index.html`.
 
-Set `VITE_API_URL` to the public HTTPS API URL when deploying the React
-application. Set `WEB_ORIGIN` or `WEB_ORIGINS` on the API to the exact public
-frontend origin. Cookies require HTTPS in production.
+## Render API
 
-Local development automatically supports localhost and 127.0.0.1 on ports
-3000, 3001, 5173, and 5174.
+The root `render.yaml` builds the shared contracts before the API and starts
+the compiled Fastify server. Configure these secret environment variables:
+
+```text
+DATABASE_URL=postgresql://...
+WEB_ORIGIN=https://YOUR-VERCEL-PROJECT.vercel.app
+WEB_ORIGINS=https://YOUR-CUSTOM-DOMAIN.example
+```
+
+`WEB_ORIGINS` is optional and may contain a comma-separated list. Do not add a
+trailing slash to origins. Production authentication uses an HTTP-only,
+`Secure`, `SameSite=None` cookie so credentials work between Vercel and Render.
+
+The Render health check is:
+
+```text
+GET /health
+```
+
+## Presentation database
+
+Apply migrations, then run the idempotent seed from a trusted machine:
+
+```bash
+npm run db:migrate --workspace @blue-plastic/api
+npm run db:seed --workspace @blue-plastic/api
+```
+
+The seed creates company users, the chart of accounts, customers, inventory
+items, invoices, sales receipts, customer payments, vendors, bills, bank
+accounts, bank transactions, receivables, and payables. It updates the same
+stable records when run again instead of duplicating them.
+
+Demo administrator:
+
+```text
+admin@blueplastic.local
+Admin123!
+```
+
+Change all seeded passwords before using the database for real operations.

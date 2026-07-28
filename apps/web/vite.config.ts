@@ -8,6 +8,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname),
+      "@blue-plastic/types": path.resolve(
+        import.meta.dirname,
+        "../../packages/types/src/index.ts",
+      ),
     },
   },
   server: {
