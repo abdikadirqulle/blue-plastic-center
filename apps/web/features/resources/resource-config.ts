@@ -326,7 +326,7 @@ const salesResources: ResourceConfig[] = [
     description: "Create, send, post, and collect customer invoices.",
     primaryAction: "New invoice",
     searchPlaceholder: "Search invoice number, customer, PO, or memo",
-    columns: ["Invoice", "Customer", "Amount", "Due date"],
+    columns: ["Invoice", "Customer", "Invoice date", "Due date", "Amount", "Balance due"],
     stats: [
       { label: "Open invoices", value: "$92,750", helper: "46 invoices" },
       { label: "Overdue", value: "$18,240", helper: "9 invoices" },
@@ -2364,7 +2364,7 @@ const commonResourceSpecs: Array<{
     "items",
     "Items & services",
     "New item",
-    ["SKU", "Item", "On hand", "Sales price"],
+    ["SKU", "Item", "Type", "On hand", "Sales price", "Cost price"],
     [
       {
         name: "type",

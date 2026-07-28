@@ -18,6 +18,7 @@ import { TableToolbar } from "../../../components/ui/table-toolbar";
 import { LoadingState } from "../../../components/ui/loading-state";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
+import { tableCellValue } from "../../resources/table-cell-value";
 import type {
   OperationRecord,
   OperationsModule,
@@ -76,6 +77,19 @@ export function OperationsWorkspacePage({ config }: { config: ResourceConfig }) 
     { label: "Active / complete", value: activeCount.toLocaleString(), helper: "Completed or active records" },
     { label: "Needs attention", value: attentionCount.toLocaleString(), helper: "Open, pending, or exception" },
   ];
+  const operationCell = (record: OperationRecord, column: string) =>
+    tableCellValue(column, record.data, {
+      document: record.reference || record.id,
+      sku: record.reference || record.id,
+      item: record.name,
+      name: record.name,
+      vendor: record.name,
+      account: record.name,
+      amount: record.amount,
+      total: record.amount,
+      date: record.date,
+      type: record.secondary,
+    });
 
   const notify = (title: string, description: string, toastVariant: ToastMessage["variant"] = "success") => {
     setToast({ title, description, variant: toastVariant });
@@ -109,7 +123,7 @@ export function OperationsWorkspacePage({ config }: { config: ResourceConfig }) 
         </section>
 
         <Card className="mt-4 overflow-hidden">
-          <TableToolbar search={search} onSearchChange={setSearch} searchPlaceholder={config.searchPlaceholder} filterTitle={`Filter ${config.title}`} filterDescription={`Filter ${config.title.toLowerCase()} by operational status and date range.`} activeFilterCount={[status !== "All statuses", Boolean(from), Boolean(to)].filter(Boolean).length} onResetFilters={() => { setStatus("All statuses"); setFrom(""); setTo(""); }} columns={["Document", "Name", "Detail", "Amount", "Date", "Status"]} rows={records.map((record) => [record.id, record.name, record.secondary, record.amount, record.date, record.status])} fileName={`blue-plastic-${opsModule}-${resource}`} filterContent={<><label className="text-xs font-semibold text-[#405762] sm:col-span-2"><span className="mb-1.5 block">Operational status</span><Select value={status} onValueChange={setStatus} options={statuses.length ? statuses : ["All statuses"]}/></label><label className="text-xs font-semibold text-[#405762]"><span className="mb-1.5 block">From date</span><DatePicker value={from} onChange={setFrom}/></label><label className="text-xs font-semibold text-[#405762]"><span className="mb-1.5 block">To date</span><DatePicker value={to} onChange={setTo}/></label></>}/>
+          <TableToolbar search={search} onSearchChange={setSearch} searchPlaceholder={config.searchPlaceholder} filterTitle={`Filter ${config.title}`} filterDescription={`Filter ${config.title.toLowerCase()} by operational status and date range.`} activeFilterCount={[status !== "All statuses", Boolean(from), Boolean(to)].filter(Boolean).length} onResetFilters={() => { setStatus("All statuses"); setFrom(""); setTo(""); }} columns={[...config.columns, "Status"]} rows={records.map((record) => [...config.columns.map((column) => operationCell(record, column)), record.status])} fileName={`blue-plastic-${opsModule}-${resource}`} filterContent={<><label className="text-xs font-semibold text-[#405762] sm:col-span-2"><span className="mb-1.5 block">Operational status</span><Select value={status} onValueChange={setStatus} options={statuses.length ? statuses : ["All statuses"]}/></label><label className="text-xs font-semibold text-[#405762]"><span className="mb-1.5 block">From date</span><DatePicker value={from} onChange={setFrom}/></label><label className="text-xs font-semibold text-[#405762]"><span className="mb-1.5 block">To date</span><DatePicker value={to} onChange={setTo}/></label></>}/>
           {error ? <div className="p-10 text-center text-sm text-red-600">{error}</div> : loading ? <LoadingState label={`Loading ${config.title.toLowerCase()}…`} className="m-4"/> :
             resource === "vendors" ? <VendorCenter records={records} onOpen={(id) => router.push(`/${opsModule}/${resource}/${id}`)}/> :
             resource === "approvals" ? <ApprovalCenter records={records} onAction={(record, action) => { void updateStatus(record.id, action === "Approve" ? "Approved" : "Changes requested"); notify(`Request ${action.toLowerCase()}d`, `${record.id} was updated.`); }}/> :
@@ -117,7 +131,7 @@ export function OperationsWorkspacePage({ config }: { config: ResourceConfig }) 
             resource === "bank-feeds" ? <BankFeeds records={records} onAction={(record, action) => { void updateStatus(record.id, action); notify(`Transaction ${action.toLowerCase()}`, `${record.name} was updated.`); }}/> :
             resource === "reconciliation" ? <Reconciliation records={records} onFinish={() => notify("Reconciliation finished", "The statement difference is $0.00.")}/> :
             resource === "reorder-planning" ? <ReorderPlanning records={records} onOrder={(record) => notify("Purchase order prepared", `${record.name} was added to a draft purchase order.`)}/> :
-            <OperationsTable config={config} records={records} onOpen={(id) => router.push(`/${opsModule}/${resource}/${id}`)} onDelete={setDeleteTarget}/>
+            <OperationsTable config={config} records={records} cellValue={operationCell} onOpen={(id) => router.push(`/${opsModule}/${resource}/${id}`)} onDelete={setDeleteTarget}/>
           }
         </Card>
       </div>
@@ -158,6 +172,6 @@ function ReorderPlanning({ records, onOrder }: { records: OperationRecord[]; onO
   return <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">{records.map((record) => <article key={record.id} className="rounded-2xl border border-[#dfe8e4] p-4"><div className="flex items-start justify-between"><span className="grid size-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><Factory size={18}/></span><Badge variant={variant(record.status)}>{record.status}</Badge></div><h3 className="mt-3 text-sm font-bold">{record.name}</h3><p className="mt-1 text-[10px] text-[#82949e]">{record.secondary}</p><div className="mt-4 rounded-xl bg-[#f5f8f7] p-3"><p className="text-[10px] text-[#82949e]">Suggested order</p><p className="mt-1 text-lg font-bold">{record.meta.suggested}</p></div><button onClick={() => onOrder(record)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#145448] py-2.5 text-[10px] font-bold text-white"><Sparkles size={13}/>Create purchase order</button></article>)}</div>;
 }
 
-function OperationsTable({ config, records, onOpen, onDelete }: { config: ResourceConfig; records: OperationRecord[]; onOpen: (id: string) => void; onDelete: (record: OperationRecord) => void }) {
-  return <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead className="bg-[#f8fafc]"><tr>{config.columns.map((column) => <th key={column} className="border-b px-5 py-3 text-[9px] font-bold uppercase tracking-wide text-[#788b96]">{column}</th>)}<th className="border-b px-5 py-3 text-[9px] font-bold uppercase text-[#788b96]">Status</th><th className="border-b px-5 py-3 text-right text-[9px] font-bold uppercase text-[#788b96]">Actions</th></tr></thead><tbody>{records.map((record) => <tr key={record.id} onClick={() => onOpen(record.id)} className="cursor-pointer border-b border-[#edf1f4] hover:bg-[#f2f9fd]"><td className="px-5 py-4"><p className="text-xs font-bold text-[#007DCC]">{record.id}</p><p className="mt-1 text-[10px] text-[#82949e]">{record.reference}</p></td><td className="px-5 py-4"><p className="text-xs font-bold">{record.name}</p><p className="mt-1 text-[10px] text-[#82949e]">{record.secondary}</p></td><td className="px-5 py-4 text-xs font-bold">{record.amount}</td>{config.columns.slice(3).map((column,index) => <td key={column} className="px-5 py-4 text-xs text-[#526874]">{index === 0 ? record.date : Object.values(record.meta)[0] ?? record.date}</td>)}<td className="px-5 py-4"><Badge variant={variant(record.status)}>{record.status}</Badge></td><td onClick={(event) => event.stopPropagation()} className="px-5 py-4 text-right"><button aria-label={`Delete ${record.id}`} onClick={() => onDelete(record)} className="rounded-lg p-2 text-red-500 hover:bg-red-50"><Trash2 size={15}/></button><button aria-label={`Open ${record.id}`} onClick={() => onOpen(record.id)} className="rounded-lg p-2 text-[#007DCC]"><ArrowRight size={15}/></button></td></tr>)}</tbody></table>{!records.length ? <div className="p-16 text-center text-sm text-[#71848f]">No matching records found.</div> : null}</div>;
+function OperationsTable({ config, records, cellValue, onOpen, onDelete }: { config: ResourceConfig; records: OperationRecord[]; cellValue: (record: OperationRecord, column: string) => string; onOpen: (id: string) => void; onDelete: (record: OperationRecord) => void }) {
+  return <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead className="bg-[#f8fafc]"><tr>{config.columns.map((column) => <th key={column} className="border-b px-5 py-3 text-[9px] font-bold uppercase tracking-wide text-[#788b96]">{column}</th>)}<th className="border-b px-5 py-3 text-[9px] font-bold uppercase text-[#788b96]">Status</th><th className="border-b px-5 py-3 text-right text-[9px] font-bold uppercase text-[#788b96]">Actions</th></tr></thead><tbody>{records.map((record) => <tr key={record.id} onClick={() => onOpen(record.id)} className="cursor-pointer border-b border-[#edf1f4] hover:bg-[#f2f9fd]">{config.columns.map((column, index) => <td key={column} className={`px-5 py-4 text-xs ${index === 0 ? "font-bold text-[#007DCC]" : "font-medium text-[#405762]"}`}>{cellValue(record, column)}</td>)}<td className="px-5 py-4"><Badge variant={variant(record.status)}>{record.status}</Badge></td><td onClick={(event) => event.stopPropagation()} className="px-5 py-4 text-right"><button aria-label={`Delete ${record.id}`} onClick={() => onDelete(record)} className="rounded-lg p-2 text-red-500 hover:bg-red-50"><Trash2 size={15}/></button><button aria-label={`Open ${record.id}`} onClick={() => onOpen(record.id)} className="rounded-lg p-2 text-[#007DCC]"><ArrowRight size={15}/></button></td></tr>)}</tbody></table>{!records.length ? <div className="p-16 text-center text-sm text-[#71848f]">No matching records found.</div> : null}</div>;
 }

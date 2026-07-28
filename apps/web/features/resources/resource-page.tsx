@@ -27,13 +27,11 @@ import {
   type ResourceRow,
 } from "./resource-config";
 import {
-  recordAmount,
-  recordDate,
   recordIdentifier,
-  recordTitle,
   useResourceList,
   useResourceMutations,
 } from "./resource-api";
+import { tableCellValue } from "./table-cell-value";
 
 const badgeVariant = (status: string) => {
   if (["Paid", "Posted", "Active", "Approved", "Completed"].includes(status)) return "success";
@@ -69,9 +67,11 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
       id: record.id,
       displayId: recordIdentifier(record),
       status: record.status,
-      cells: [recordTitle(record), recordAmount(record), recordDate(record)],
+      cells: config.columns.slice(1).map((column) =>
+        tableCellValue(column, record.data),
+      ),
     })));
-  }, [apiRows.data]);
+  }, [apiRows.data, config.columns]);
   const statusOptions = useMemo(
     () => ["All statuses", ...Array.from(new Set(rows.map((row) => row.status)))],
     [rows],

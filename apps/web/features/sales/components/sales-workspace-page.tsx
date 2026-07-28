@@ -18,6 +18,7 @@ import { TableToolbar } from "../../../components/ui/table-toolbar";
 import { RowActionMenu } from "../../../components/ui/row-action-menu";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
+import { tableCellValue } from "../../resources/table-cell-value";
 import type { SalesRecord, SalesResource } from "../domain/sales-record";
 import { useSalesRecords } from "../hooks/use-sales-records";
 
@@ -56,7 +57,6 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
   const Icon = icons[resource] ?? FileText;
   const statuses = ["All statuses", ...Array.from(new Set(records.map((record) => record.status)))];
   const isCustomerCenter = resource === "customers";
-  const isDepositCenter = resource === "deposits";
   const isStatementCenter = resource === "statements";
   const selectedCustomer = isCustomerCenter ? records[0] : null;
   const statusCount = (pattern: RegExp) =>
@@ -71,6 +71,20 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
     { label: "Completed", value: statusCount(/paid|closed|accepted|deposited|cleared|applied/i).toLocaleString(), helper: "Completed records" },
     { label: "Total value", value: `$${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, helper: "Current filtered result" },
   ];
+  const salesCell = (record: SalesRecord, column: string) =>
+    tableCellValue(column, record.data, {
+      document: record.displayId,
+      invoice: record.displayId,
+      receipt: record.displayId,
+      customer: record.customer,
+      amount: record.amount,
+      total: record.amount,
+      "balance due": record.balance ?? record.amount,
+      date: record.date,
+      "invoice date": record.date,
+      "sale date": record.date,
+      "payment method": record.paymentMethod ?? "—",
+    });
 
   const notify = (title: string, description: string) => {
     setToast({ title, description, variant: "success" });
@@ -115,8 +129,8 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
             filterDescription={`Filter ${config.title.toLowerCase()} using sales-specific status and date fields.`}
             activeFilterCount={[status !== "All statuses", Boolean(from), Boolean(to)].filter(Boolean).length}
             onResetFilters={() => { setStatus("All statuses"); setFrom(""); setTo(""); }}
-            columns={["Document", "Customer", "Amount", "Date", "Status"]}
-            rows={records.map((record) => [record.displayId, record.customer, record.amount, record.date, record.status])}
+            columns={[...config.columns, "Status"]}
+            rows={records.map((record) => [...config.columns.map((column) => salesCell(record, column)), record.status])}
             fileName={`blue-plastic-sales-${resource}`}
             filterContent={<>
               <label className="text-xs font-semibold text-[#405762] sm:col-span-2"><span className="mb-1.5 block">Sales status</span><Select value={status} onValueChange={setStatus} options={statuses.length ? statuses : ["All statuses"]}/></label>
@@ -136,7 +150,7 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
           ) : isStatementCenter ? (
             <div className="grid gap-3 p-4 lg:grid-cols-2">{records.map((record) => <article key={record.id} className="rounded-2xl border border-[#e2eaf0] p-4 hover:border-[#9dcdeb]"><div className="flex items-start justify-between"><div><p className="text-[10px] font-bold text-[#007DCC]">{record.displayId}</p><h3 className="mt-1 text-sm font-bold">{record.customer}</h3></div><Badge variant={variants(record.status)}>{record.status}</Badge></div><div className="mt-4 flex items-end justify-between"><div><p className="text-[10px] text-[#82949e]">Statement balance</p><p className="mt-1 text-lg font-bold">{record.amount}</p></div><div className="flex gap-2"><button onClick={() => notify("Statement emailed", `${record.displayId} was sent to ${record.customer}.`)} className="rounded-lg border p-2 text-[#007DCC]"><Send size={15}/></button><Link href={`/sales/statements/${record.id}`} className="rounded-lg bg-[#eef7fd] px-3 py-2 text-[11px] font-bold text-[#007DCC]">Preview</Link></div></div></article>)}</div>
           ) : (
-            <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead className="bg-[#f8fafc]"><tr>{config.columns.map((column) => <th key={column} className="border-b border-[#e5ecf1] px-5 py-3 text-[9px] font-bold uppercase tracking-wide text-[#788b96]">{column}</th>)}<th className="border-b border-[#e5ecf1] px-5 py-3 text-[9px] font-bold uppercase text-[#788b96]">Status</th><th className="border-b border-[#e5ecf1] px-5 py-3 text-right text-[9px] font-bold uppercase text-[#788b96]">Actions</th></tr></thead><tbody>{records.map((record) => <tr key={record.id} onClick={() => router.push(`/sales/${resource}/${encodeURIComponent(record.id)}`)} className="cursor-pointer border-b border-[#edf1f4] hover:bg-[#f2f9fd]"><td className="px-5 py-4 text-xs font-bold text-[#007DCC]">{record.displayId}</td><td className="px-5 py-4"><p className="text-xs font-bold text-[#304954]">{isDepositCenter ? record.paymentMethod ?? record.customer : record.customer}</p><p className="mt-1 text-[10px] text-[#82949e]">{record.reference}</p></td><td className="px-5 py-4 text-xs font-bold">{record.amount}</td>{config.columns.slice(3).map((column, index) => <td key={column} className="px-5 py-4 text-xs text-[#526874]">{index === 0 && record.paymentMethod ? record.paymentMethod : record.date}</td>)}<td className="px-5 py-4"><Badge variant={variants(record.status)}>{record.status}</Badge></td><td onClick={(event) => event.stopPropagation()} className="px-5 py-4 text-right"><button aria-label={`Delete ${record.displayId}`} onClick={() => setDeleteTarget(record)} className="rounded-lg p-2 text-red-500 hover:bg-red-50"><Trash2 size={15}/></button><RowActionMenu label={record.displayId} viewHref={`/sales/${resource}/${encodeURIComponent(record.id)}`} editHref={`/sales/${resource}/new?edit=${encodeURIComponent(record.id)}`} onDelete={() => setDeleteTarget(record)}/></td></tr>)}</tbody></table>{!records.length ? <div className="p-16 text-center text-sm font-semibold text-[#71848f]">No matching {config.title.toLowerCase()} found.</div> : null}</div>
+            <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead className="bg-[#f8fafc]"><tr>{config.columns.map((column) => <th key={column} className="border-b border-[#e5ecf1] px-5 py-3 text-[9px] font-bold uppercase tracking-wide text-[#788b96]">{column}</th>)}<th className="border-b border-[#e5ecf1] px-5 py-3 text-[9px] font-bold uppercase text-[#788b96]">Status</th><th className="border-b border-[#e5ecf1] px-5 py-3 text-right text-[9px] font-bold uppercase text-[#788b96]">Actions</th></tr></thead><tbody>{records.map((record) => <tr key={record.id} onClick={() => router.push(`/sales/${resource}/${encodeURIComponent(record.id)}`)} className="cursor-pointer border-b border-[#edf1f4] hover:bg-[#f2f9fd]">{config.columns.map((column, index) => <td key={column} className={`px-5 py-4 text-xs ${index === 0 ? "font-bold text-[#007DCC]" : "font-medium text-[#405762]"}`}>{salesCell(record, column)}</td>)}<td className="px-5 py-4"><Badge variant={variants(record.status)}>{record.status}</Badge></td><td onClick={(event) => event.stopPropagation()} className="px-5 py-4 text-right"><button aria-label={`Delete ${record.displayId}`} onClick={() => setDeleteTarget(record)} className="rounded-lg p-2 text-red-500 hover:bg-red-50"><Trash2 size={15}/></button><RowActionMenu label={record.displayId} viewHref={`/sales/${resource}/${encodeURIComponent(record.id)}`} editHref={`/sales/${resource}/new?edit=${encodeURIComponent(record.id)}`} onDelete={() => setDeleteTarget(record)}/></td></tr>)}</tbody></table>{!records.length ? <div className="p-16 text-center text-sm font-semibold text-[#71848f]">No matching {config.title.toLowerCase()} found.</div> : null}</div>
           )}
         </Card>
       </div>

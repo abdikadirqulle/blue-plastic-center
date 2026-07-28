@@ -17,6 +17,7 @@ import { TableToolbar } from "../../../components/ui/table-toolbar";
 import { LoadingState } from "../../../components/ui/loading-state";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
+import { tableCellValue } from "../../resources/table-cell-value";
 import type { EnterpriseModule, EnterpriseRecord } from "../domain/enterprise-record";
 import { useEnterpriseRecords } from "../hooks/use-enterprise-records";
 import { apiClient } from "@/lib/api-client";
@@ -67,6 +68,17 @@ export function EnterpriseWorkspacePage({ config }: { config: ResourceConfig }) 
     { label: "Active / complete", value: activeCount.toLocaleString(), helper: "Completed or active records" },
     { label: "Needs attention", value: attentionCount.toLocaleString(), helper: "Open, draft, or exception" },
   ];
+  const enterpriseCell = (record: EnterpriseRecord, column: string) =>
+    tableCellValue(column, record.data, {
+      document: record.id,
+      name: record.name,
+      account: record.name,
+      amount: record.value,
+      total: record.value,
+      value: record.value,
+      date: record.date,
+      type: record.detail,
+    });
   const notify = (title: string, description: string) => {
     setMessage({ title, description, variant: "success" });
     window.setTimeout(() => setMessage(null), 3000);
@@ -83,7 +95,7 @@ export function EnterpriseWorkspacePage({ config }: { config: ResourceConfig }) 
       </section>
       <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{liveStats.map((stat,index) => <Card key={stat.label} className="relative overflow-hidden p-4"><span className={`absolute inset-y-0 left-0 w-1 ${["bg-[#007DCC]","bg-emerald-500","bg-amber-500","bg-violet-500"][index]}`}/><p className="text-[10px] font-medium uppercase text-[#788b96]">{stat.label}</p><p className="mt-2 text-xl font-semibold">{stat.value}</p><p className="mt-1 text-[10px] text-[#607681]">{stat.helper}</p></Card>)}</section>
       <Card className="mt-4 overflow-hidden">
-        <TableToolbar search={search} onSearchChange={setSearch} searchPlaceholder={config.searchPlaceholder} filterTitle={`Filter ${config.title}`} filterDescription={`Filter ${config.title.toLowerCase()} using the relevant accounting, project, or payroll status.`} activeFilterCount={status !== "All statuses" ? 1 : 0} onResetFilters={() => setStatus("All statuses")} columns={["Reference", "Name", "Detail", "Value", "Date", "Status"]} rows={records.map((record) => [record.id, record.name, record.detail, record.value, record.date, record.status])} fileName={`blue-plastic-${enterpriseModule}-${resource}`} filterContent={<label className="text-xs font-semibold text-[#405762] sm:col-span-2"><span className="mb-1.5 block">{config.title} status</span><Select value={status} onValueChange={setStatus} options={statusOptions.length ? statusOptions : ["All statuses"]}/></label>}/>
+        <TableToolbar search={search} onSearchChange={setSearch} searchPlaceholder={config.searchPlaceholder} filterTitle={`Filter ${config.title}`} filterDescription={`Filter ${config.title.toLowerCase()} using the relevant accounting, project, or payroll status.`} activeFilterCount={status !== "All statuses" ? 1 : 0} onResetFilters={() => setStatus("All statuses")} columns={[...config.columns, "Status"]} rows={records.map((record) => [...config.columns.map((column) => enterpriseCell(record, column)), record.status])} fileName={`blue-plastic-${enterpriseModule}-${resource}`} filterContent={<label className="text-xs font-semibold text-[#405762] sm:col-span-2"><span className="mb-1.5 block">{config.title} status</span><Select value={status} onValueChange={setStatus} options={statusOptions.length ? statusOptions : ["All statuses"]}/></label>}/>
         {error ? <div className="p-10 text-center text-red-600">{error}</div> : loading ? <LoadingState label={`Loading ${config.title.toLowerCase()}…`} className="m-4"/> :
           resource === "chart-of-accounts" ? <AccountCenter records={records} onOpen={(id) => router.push(`/accounting/chart-of-accounts/${id}`)}/> :
           resource === "close-center" ? <CloseCenter records={records} onComplete={(record) => { void updateStatus(record.id, "Complete"); notify("Close task completed", record.name); }}/> :
@@ -102,7 +114,7 @@ export function EnterpriseWorkspacePage({ config }: { config: ResourceConfig }) 
           }}/> :
           resource === "employees" ? <EmployeeCenter records={records} onOpen={(id) => router.push(`/payroll/employees/${id}`)}/> :
           resource === "audit-log" ? <AuditTimeline records={records}/> :
-          <EnterpriseTable config={config} records={records} onOpen={(id) => router.push(`/${enterpriseModule}/${resource}/${id}`)} onDelete={setDeleteTarget}/>}
+          <EnterpriseTable config={config} records={records} cellValue={enterpriseCell} onOpen={(id) => router.push(`/${enterpriseModule}/${resource}/${id}`)} onDelete={setDeleteTarget}/>}
       </Card>
     </div>
     <Toast message={message} onClose={() => setMessage(null)}/>
@@ -150,6 +162,6 @@ function AuditTimeline({ records }: { records: EnterpriseRecord[] }) {
   return <div className="p-5"><div className="relative ml-3 border-l border-[#dfe7ec] pl-6">{records.map((record,index) => <article key={record.id} className="relative mb-5 rounded-xl border p-4"><span className="absolute -left-[31px] top-5 grid size-3 rounded-full border-2 border-white bg-[#007DCC]"/><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-bold">{record.name}</p><p className="mt-1 text-[10px] text-[#82949e]">Abdisalam · {record.date} · 10:{24 + index}</p></div><Badge variant={badgeVariant(record.status)}>{record.status}</Badge></div><p className="mt-3 rounded-lg bg-[#f7f9fa] p-3 text-[10px] text-[#607680]">Change captured with before/after values, company, branch, user, IP address and immutable event ID {record.id}.</p></article>)}</div></div>;
 }
 
-function EnterpriseTable({ config, records, onOpen, onDelete }: { config: ResourceConfig; records: EnterpriseRecord[]; onOpen: (id: string) => void; onDelete: (record: EnterpriseRecord) => void }) {
-  return <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead><tr className="border-b bg-[#f8fafc]">{config.columns.map((column) => <th key={column} className="px-5 py-3 text-[9px] font-bold uppercase text-[#788b96]">{column}</th>)}<th className="px-5 py-3 text-[9px] uppercase">Status</th><th className="px-5 py-3 text-right text-[9px] uppercase">Actions</th></tr></thead><tbody>{records.map((record) => <tr key={record.id} onClick={() => onOpen(record.id)} className="cursor-pointer border-b hover:bg-[#f3f9fd]"><td className="px-5 py-4"><p className="text-xs font-bold text-[#007DCC]">{record.id}</p><p className="text-[10px] text-[#82949e]">{record.date}</p></td><td className="px-5 py-4"><p className="text-xs font-bold">{record.name}</p><p className="text-[10px] text-[#82949e]">{record.detail}</p></td><td className="px-5 py-4 text-xs font-bold">{record.value}</td>{config.columns.slice(3).map((column,index) => <td key={column} className="px-5 py-4 text-xs">{index === 0 ? record.date : record.metrics.progress}</td>)}<td className="px-5 py-4"><Badge variant={badgeVariant(record.status)}>{record.status}</Badge></td><td onClick={(event) => event.stopPropagation()} className="px-5 py-4 text-right"><button aria-label={`Delete ${record.id}`} onClick={() => onDelete(record)} className="rounded-lg p-2 text-red-500"><Trash2 size={15}/></button><button aria-label={`Open ${record.id}`} onClick={() => onOpen(record.id)} className="rounded-lg p-2 text-[#007DCC]"><ArrowRight size={15}/></button></td></tr>)}</tbody></table></div>;
+function EnterpriseTable({ config, records, cellValue, onOpen, onDelete }: { config: ResourceConfig; records: EnterpriseRecord[]; cellValue: (record: EnterpriseRecord, column: string) => string; onOpen: (id: string) => void; onDelete: (record: EnterpriseRecord) => void }) {
+  return <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead><tr className="border-b bg-[#f8fafc]">{config.columns.map((column) => <th key={column} className="px-5 py-3 text-[9px] font-bold uppercase text-[#788b96]">{column}</th>)}<th className="px-5 py-3 text-[9px] uppercase">Status</th><th className="px-5 py-3 text-right text-[9px] uppercase">Actions</th></tr></thead><tbody>{records.map((record) => <tr key={record.id} onClick={() => onOpen(record.id)} className="cursor-pointer border-b hover:bg-[#f3f9fd]">{config.columns.map((column, index) => <td key={column} className={`px-5 py-4 text-xs ${index === 0 ? "font-bold text-[#007DCC]" : "font-medium text-[#405762]"}`}>{cellValue(record, column)}</td>)}<td className="px-5 py-4"><Badge variant={badgeVariant(record.status)}>{record.status}</Badge></td><td onClick={(event) => event.stopPropagation()} className="px-5 py-4 text-right"><button aria-label={`Delete ${record.id}`} onClick={() => onDelete(record)} className="rounded-lg p-2 text-red-500"><Trash2 size={15}/></button><button aria-label={`Open ${record.id}`} onClick={() => onOpen(record.id)} className="rounded-lg p-2 text-[#007DCC]"><ArrowRight size={15}/></button></td></tr>)}</tbody></table></div>;
 }
