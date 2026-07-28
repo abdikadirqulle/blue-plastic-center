@@ -15,7 +15,7 @@ import { ConfirmDeleteDialog } from "../../../components/ui/confirm-delete-dialo
 import { DatePicker } from "../../../components/ui/date-picker";
 import { Select } from "../../../components/ui/select";
 import { TableToolbar } from "../../../components/ui/table-toolbar";
-import { LoadingState } from "../../../components/ui/loading-state";
+import { DataTableSkeleton, ValueSkeleton } from "../../../components/ui/skeleton";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
 import { tableCellValue } from "../../resources/table-cell-value";
@@ -119,12 +119,12 @@ export function OperationsWorkspacePage({ config }: { config: ResourceConfig }) 
         {workflow ? <Card className="mt-4 overflow-x-auto p-4"><div className="flex min-w-[640px] items-center">{workflow.map((label, index) => <div key={label} className="flex flex-1 items-center"><span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#edf3f6] text-xs font-medium text-[#607681]">{index + 1}</span><div className="ml-2"><p className="text-[10px] font-medium text-[#2c4552]">{label}</p><p className="text-[9px] text-[#8799a3]">Workflow step</p></div>{index < workflow.length - 1 ? <div className="mx-3 h-px flex-1 bg-[#dfe8ed]"/> : null}</div>)}</div></Card> : null}
 
         <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat, index) => <Card key={stat.label} className="relative overflow-hidden p-4"><span className={`absolute left-0 top-0 h-full w-1 ${["bg-[#007DCC]","bg-emerald-500","bg-amber-500","bg-violet-500"][index]}`}/><p className="text-[10px] font-medium uppercase tracking-wide text-[#788b96]">{stat.label}</p><p className="mt-2 text-xl font-semibold text-[#1f3947]">{stat.value}</p><p className="mt-1 text-[10px] text-[#607681]">{stat.helper}</p></Card>)}
+          {stats.map((stat, index) => <Card key={stat.label} className="relative overflow-hidden p-4"><span className={`absolute left-0 top-0 h-full w-1 ${["bg-[#007DCC]","bg-emerald-500","bg-amber-500","bg-violet-500"][index]}`}/><p className="text-[10px] font-medium uppercase tracking-wide text-[#788b96]">{stat.label}</p>{loading ? <ValueSkeleton className="mt-2 h-6"/> : <p className="mt-2 text-xl font-semibold text-[#1f3947]">{stat.value}</p>}<p className="mt-1 text-[10px] text-[#607681]">{stat.helper}</p></Card>)}
         </section>
 
         <Card className="mt-4 overflow-hidden">
           <TableToolbar search={search} onSearchChange={setSearch} searchPlaceholder={config.searchPlaceholder} filterTitle={`Filter ${config.title}`} filterDescription={`Filter ${config.title.toLowerCase()} by operational status and date range.`} activeFilterCount={[status !== "All statuses", Boolean(from), Boolean(to)].filter(Boolean).length} onResetFilters={() => { setStatus("All statuses"); setFrom(""); setTo(""); }} columns={[...config.columns, "Status"]} rows={records.map((record) => [...config.columns.map((column) => operationCell(record, column)), record.status])} fileName={`blue-plastic-${opsModule}-${resource}`} filterContent={<><label className="text-xs font-semibold text-[#405762] sm:col-span-2"><span className="mb-1.5 block">Operational status</span><Select value={status} onValueChange={setStatus} options={statuses.length ? statuses : ["All statuses"]}/></label><label className="text-xs font-semibold text-[#405762]"><span className="mb-1.5 block">From date</span><DatePicker value={from} onChange={setFrom}/></label><label className="text-xs font-semibold text-[#405762]"><span className="mb-1.5 block">To date</span><DatePicker value={to} onChange={setTo}/></label></>}/>
-          {error ? <div className="p-10 text-center text-sm text-red-600">{error}</div> : loading ? <LoadingState label={`Loading ${config.title.toLowerCase()}…`} className="m-4"/> :
+          {error ? <div className="p-10 text-center text-sm text-red-600">{error}</div> : loading ? <DataTableSkeleton columns={[...config.columns, "Status", "Actions"]}/> :
             resource === "approvals" ? <ApprovalCenter records={records} onAction={(record, action) => { void updateStatus(record.id, action === "Approve" ? "Approved" : "Changes requested"); notify(`Request ${action.toLowerCase()}d`, `${record.id} was updated.`); }}/> :
             resource === "fulfillment" ? <FulfillmentCenter records={records} onOpen={(id) => router.push(`/inventory/fulfillment/${id}`)}/> :
             resource === "bank-feeds" ? <BankFeeds records={records} onAction={(record, action) => { void updateStatus(record.id, action); notify(`Transaction ${action.toLowerCase()}`, `${record.name} was updated.`); }}/> :

@@ -12,7 +12,7 @@ import {
 } from "lucide-react"
 import { AppShell } from "../../components/layout/app-shell"
 import { Card } from "../../components/ui/card"
-import { LoadingState } from "../../components/ui/loading-state"
+import { Skeleton } from "../../components/ui/skeleton"
 import { Toast, type ToastMessage } from "../../components/ui/toast"
 import { apiClient } from "../../lib/api-client"
 
@@ -86,7 +86,10 @@ export default function ProfilePage() {
         </p>
 
         {profile.isLoading ? (
-          <LoadingState className="mt-6" label="Loading your profile…" />
+          <div className="mt-6 grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]" role="status" aria-label="Loading profile">
+            <Card className="space-y-4 p-5"><Skeleton className="mx-auto size-20 rounded-full"/><Skeleton className="mx-auto h-4 w-36"/><Skeleton className="mx-auto h-3 w-24"/><Skeleton className="h-20 w-full"/></Card>
+            <Card className="space-y-5 p-5"><h2 className="text-sm font-semibold text-[#263f4b]">Personal information</h2><div className="grid gap-4 sm:grid-cols-2"><div><p className="mb-2 text-xs text-[#405762]">Display name</p><Skeleton className="h-11 w-full"/></div><div><p className="mb-2 text-xs text-[#405762]">Email</p><Skeleton className="h-11 w-full"/></div></div></Card>
+          </div>
         ) : (
           <div className="mt-6 grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
             <Card className="h-fit p-5 text-center">

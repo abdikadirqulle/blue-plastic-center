@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Select } from "@/components/ui/select"
+import { DataTableSkeleton } from "@/components/ui/skeleton"
 import { Toast, type ToastMessage } from "@/components/ui/toast"
 import { apiClient } from "@/lib/api-client"
 import { queryKeys } from "@/lib/query-client"
@@ -107,7 +108,7 @@ export function TrashPage() {
           </div>
 
           {records.isLoading ? (
-            <div className="p-14 text-center text-sm text-[#71848f]">Loading Trash…</div>
+            <DataTableSkeleton columns={["Record", "Module", "Resource", "Status", "Deleted at", "Action"]}/>
           ) : records.isError ? (
             <div className="p-14 text-center text-sm font-semibold text-red-600">
               {records.error instanceof Error ? records.error.message : "Unable to load Trash."}

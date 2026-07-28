@@ -20,6 +20,7 @@ import { AppShell } from "../../components/layout/app-shell"
 import { Badge } from "../../components/ui/badge"
 import { Card } from "../../components/ui/card"
 import { ConfirmDeleteDialog } from "../../components/ui/confirm-delete-dialog"
+import { Skeleton } from "../../components/ui/skeleton"
 import {
   Toast,
   type ToastMessage,
@@ -173,7 +174,7 @@ export function ResourceDetailsPage({
   }
 
   if (detail.isLoading)
-    return <AppShell><div className="p-12 text-center text-sm font-semibold text-[#71848f]">Loading record…</div></AppShell>
+    return <AppShell><div className="mx-auto max-w-[1500px]"><Link href={listHref} className="mb-3 inline-flex items-center gap-2 text-xs font-bold text-[#007DCC]"><ArrowLeft size={15}/> Back to {config.title.toLowerCase()}</Link><div className="flex items-center gap-3"><Skeleton className="h-8 w-52"/><Skeleton className="h-6 w-20 rounded-full"/></div><div className="mt-6 grid gap-4 lg:grid-cols-[1.3fr_.7fr]"><Card className="space-y-5 p-5"><h2 className="text-sm font-semibold text-[#263f4b]">{config.title} information</h2>{Array.from({length: 6},(_,index)=><div key={index} className="grid grid-cols-[140px_1fr] gap-4"><Skeleton className="h-3 w-24"/><Skeleton className="h-3 w-full"/></div>)}</Card><Card className="space-y-4 p-5"><h2 className="text-sm font-semibold text-[#263f4b]">Activity</h2><Skeleton className="h-16 w-full"/><Skeleton className="h-16 w-full"/><Skeleton className="h-16 w-full"/></Card></div></div></AppShell>
   if (detail.isError || !record)
     return <AppShell><div className="p-12 text-center text-sm font-semibold text-red-600">{detail.error instanceof Error ? detail.error.message : "Record not found"}</div></AppShell>
 

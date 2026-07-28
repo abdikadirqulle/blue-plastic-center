@@ -6,7 +6,7 @@ import { Link } from "@/components/routing";
 import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
 import { DatePicker } from "../../components/ui/date-picker";
-import { LoadingState } from "../../components/ui/loading-state";
+import { DataTableSkeleton } from "../../components/ui/skeleton";
 import { Select } from "../../components/ui/select";
 import { apiClient } from "../../lib/api-client";
 
@@ -115,7 +115,7 @@ export function ReportViewerPage() {
             <button onClick={updateParameters} disabled={loading} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#007DCC] px-4 text-xs font-medium text-white disabled:opacity-60"><RefreshCw size={14} className={loading ? "animate-spin" : ""}/> Run report</button>
           </div>
 
-          {loading ? <LoadingState label={`Preparing ${name}…`} className="m-5 border-0 shadow-none"/> : error ? <div className="m-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div> : (
+          {loading ? <DataTableSkeleton columns={columns.length ? columns.map((column) => labels[column] ?? column.replace(/([A-Z])/g, " $1")) : ["Account", "Description", "Amount"]}/> : error ? <div className="m-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div> : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-xs">
                 <thead className="border-b-2 border-[#7d8e97] bg-[#f7f9fa]"><tr>{columns.map((column) => <th key={column} className="px-4 py-2.5 font-semibold text-[#405762]">{labels[column] ?? column.replace(/([A-Z])/g, " $1")}</th>)}</tr></thead>

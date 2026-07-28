@@ -16,6 +16,7 @@ import { DatePicker } from "../../../components/ui/date-picker";
 import { Select } from "../../../components/ui/select";
 import { TableToolbar } from "../../../components/ui/table-toolbar";
 import { RowActionMenu } from "../../../components/ui/row-action-menu";
+import { DataTableSkeleton, ValueSkeleton } from "../../../components/ui/skeleton";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
 import { tableCellValue } from "../../resources/table-cell-value";
@@ -110,7 +111,7 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
         <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {liveStats.map((stat, index) => <Card key={stat.label} className="relative overflow-hidden p-4">
             <div className={`absolute inset-y-0 left-0 w-1 ${["bg-[#007DCC]","bg-emerald-500","bg-amber-500","bg-violet-500"][index]}`}/>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-[#788b96]">{stat.label}</p><p className="mt-2 text-xl font-bold tracking-[-0.03em] text-[#1f3947]">{stat.value}</p><p className="mt-1 text-[10px] text-[#007DCC]">{stat.helper}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[#788b96]">{stat.label}</p>{loading ? <ValueSkeleton className="mt-2 h-6"/> : <p className="mt-2 text-xl font-bold tracking-[-0.03em] text-[#1f3947]">{stat.value}</p>}<p className="mt-1 text-[10px] text-[#007DCC]">{stat.helper}</p>
           </Card>)}
         </section>
 
@@ -137,7 +138,7 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
             </>}
           />
 
-          {error ? <div className="p-8 text-center text-sm font-semibold text-red-600">{error}</div> : loading ? <div className="p-12 text-center text-sm font-semibold text-[#71848f]">Loading {config.title.toLowerCase()}…</div> :
+          {error ? <div className="p-8 text-center text-sm font-semibold text-red-600">{error}</div> : loading ? <DataTableSkeleton columns={[...config.columns, "Status", "Actions"]}/> :
           isStatementCenter ? (
             <div className="grid gap-3 p-4 lg:grid-cols-2">{records.map((record) => <article key={record.id} className="rounded-2xl border border-[#e2eaf0] p-4 hover:border-[#9dcdeb]"><div className="flex items-start justify-between"><div><p className="text-[10px] font-bold text-[#007DCC]">{record.displayId}</p><h3 className="mt-1 text-sm font-bold">{record.customer}</h3></div><Badge variant={variants(record.status)}>{record.status}</Badge></div><div className="mt-4 flex items-end justify-between"><div><p className="text-[10px] text-[#82949e]">Statement balance</p><p className="mt-1 text-lg font-bold">{record.amount}</p></div><div className="flex gap-2"><button onClick={() => notify("Statement emailed", `${record.displayId} was sent to ${record.customer}.`)} className="rounded-lg border p-2 text-[#007DCC]"><Send size={15}/></button><Link href={`/sales/statements/${record.id}`} className="rounded-lg bg-[#eef7fd] px-3 py-2 text-[11px] font-bold text-[#007DCC]">Preview</Link></div></div></article>)}</div>
           ) : (

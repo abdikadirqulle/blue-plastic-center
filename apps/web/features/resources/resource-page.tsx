@@ -19,6 +19,7 @@ import { DatePicker } from "../../components/ui/date-picker";
 import { Select } from "../../components/ui/select";
 import { TableToolbar } from "../../components/ui/table-toolbar";
 import { RowActionMenu } from "../../components/ui/row-action-menu";
+import { DataTableSkeleton, ValueSkeleton } from "../../components/ui/skeleton";
 import { Toast, type ToastMessage, type ToastVariant } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
 import {
@@ -133,7 +134,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
           ].map((stat) => (
             <Card key={stat.label} className="p-4">
               <p className="text-xs font-semibold text-[#71848f]">{stat.label}</p>
-              <p className="mt-2 text-2xl font-bold tracking-[-0.04em] text-[#17303d]">{stat.value}</p>
+              {apiRows.isLoading ? <ValueSkeleton className="mt-2"/> : <p className="mt-2 text-2xl font-bold tracking-[-0.04em] text-[#17303d]">{stat.value}</p>}
               <p className="mt-1 text-[11px] font-medium text-[#007DCC]">{stat.helper}</p>
             </Card>
           ))}
@@ -178,7 +179,9 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
             </>}
           />
 
-          {config.presentation === "cards" ? (
+          {apiRows.isLoading ? (
+            <DataTableSkeleton columns={[...config.columns, "Status", "Actions"]}/>
+          ) : config.presentation === "cards" ? (
             <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
               {filteredRows.map((row) => (
                 <article key={row.id} className="group rounded-2xl border border-[#e1e9ee] bg-white p-4 transition hover:border-sky-200 hover:shadow-sm">

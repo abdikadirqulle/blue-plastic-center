@@ -28,8 +28,15 @@ function ProtectedRoute() {
     queryFn: () => authService.me(),
     retry: false,
   })
-  if (session.isLoading)
-    return <main className="grid min-h-screen place-items-center bg-[#f4f7fa]"><div className="flex items-center gap-3 text-sm text-[#607681]"><span className="size-5 animate-spin rounded-full border-2 border-[#c9d7df] border-t-[#007DCC]"/><span>Opening your workspace…</span></div></main>
+  //   if (session.isLoading)
+  //     return (
+  //       <main className="grid min-h-screen place-items-center bg-[#f4f7fa]">
+  //         <div className="flex items-center gap-3 text-sm text-[#607681]">
+  //           <span className="size-5 animate-spin rounded-full border-2 border-[#c9d7df] border-t-[#007DCC]" />
+  //           <span>Opening your workspace…</span>
+  //         </div>
+  //       </main>
+  //     )
   return session.isError ? <Navigate to="/login" replace /> : <Outlet />
 }
 

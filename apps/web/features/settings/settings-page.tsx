@@ -7,7 +7,7 @@ import { Building2, CircleDollarSign, GitBranch, KeyRound, LoaderCircle, Pencil,
 import { AppShell } from "../../components/layout/app-shell"
 import { Card } from "../../components/ui/card"
 import { ConfirmDeleteDialog } from "../../components/ui/confirm-delete-dialog"
-import { LoadingState } from "../../components/ui/loading-state"
+import { DataTableSkeleton } from "../../components/ui/skeleton"
 import { Select } from "../../components/ui/select"
 import { Toast, type ToastMessage } from "../../components/ui/toast"
 import { apiClient, type ApiRecord } from "../../lib/api-client"
@@ -176,7 +176,7 @@ function BranchesManager({ onToast }: { onToast: (toast: ToastMessage) => void }
       onToast({ title: "Branch not saved", description: error instanceof Error ? error.message : "Unable to save branch.", variant: "error" })
     }
   }
-  if (query.isLoading) return <div className="p-6"><LoadingState label="Loading branches…"/></div>
+  if (query.isLoading) return <DataTableSkeleton columns={["Branch", "Code", "Address", "Status", "Actions"]}/>
   const rows = query.data?.data ?? []
   return <div>
     <div className="flex items-center justify-between border-b border-[#edf1f4] px-6 py-4"><p className="text-xs text-[#71848f]">{rows.length} operating branches</p><button onClick={() => open()} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-semibold text-white"><Plus size={15}/>Add branch</button></div>
@@ -211,7 +211,7 @@ function UsersManager({ query, onToast }: { query: ReturnType<typeof useQuery<{ 
     onSuccess: async () => { await refresh(); onToast({ title: "User account updated", variant: "success" }) },
     onError: (error) => onToast({ title: "Action failed", description: error instanceof Error ? error.message : "Unable to update user.", variant: "error" }),
   })
-  if (query.isLoading) return <div className="p-6"><LoadingState label="Loading users…"/></div>
+  if (query.isLoading) return <DataTableSkeleton columns={["User", "Role", "Status", "Actions"]}/>
   return <div>
     <div className="flex items-center justify-between border-b border-[#edf1f4] px-6 py-4"><p className="text-xs text-[#71848f]">{users.length} system users</p><button onClick={() => openUser()} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-semibold text-white"><Plus size={15}/>Add user</button></div>
     <div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-[#f7f9fa] text-[10px] uppercase tracking-wide text-[#71848f]"><tr><th className="px-6 py-3">User</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Status</th><th className="px-6 py-3 text-right">Actions</th></tr></thead><tbody className="divide-y divide-[#edf1f4]">{users.map((user) => <tr key={user.id} className="text-xs text-[#405762]"><td className="px-6 py-4"><p className="font-semibold text-[#203946]">{user.displayName}</p><p className="mt-1 text-[#71848f]">{user.email}</p></td><td className="px-4 py-4 capitalize">{user.role.replaceAll("_", " ")}</td><td className="px-4 py-4"><span className={cn("rounded-full px-2.5 py-1 font-semibold", user.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600")}>{user.active ? "Active" : "Disabled"}</span></td><td className="px-6 py-4"><div className="flex justify-end gap-1"><button title="Edit user" onClick={() => openUser(user)} className="rounded-lg p-2 text-[#007DCC] hover:bg-[#eef8fe]"><Pencil size={15}/></button><button title="Reset password" onClick={() => { setEditing(user); setPassword(""); setModal("password") }} className="rounded-lg p-2 text-amber-600 hover:bg-amber-50"><KeyRound size={15}/></button><button disabled={userAction.isPending} title={user.active ? "Disable user" : "Activate user"} onClick={() => user.active ? setDeactivateTarget(user) : userAction.mutate({ id: user.id, body: { active: true } })} className={cn("rounded-lg p-2", user.active ? "text-red-500 hover:bg-red-50" : "text-emerald-600 hover:bg-emerald-50")}>{userAction.isPending ? <LoaderCircle size={15} className="animate-spin"/> : user.active ? <Trash2 size={15}/> : <ShieldCheck size={15}/>}</button></div></td></tr>)}</tbody></table></div>

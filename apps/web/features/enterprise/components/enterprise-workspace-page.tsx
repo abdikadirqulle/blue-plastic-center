@@ -14,7 +14,7 @@ import { Card } from "../../../components/ui/card";
 import { ConfirmDeleteDialog } from "../../../components/ui/confirm-delete-dialog";
 import { Select } from "../../../components/ui/select";
 import { TableToolbar } from "../../../components/ui/table-toolbar";
-import { LoadingState } from "../../../components/ui/loading-state";
+import { DataTableSkeleton, ValueSkeleton } from "../../../components/ui/skeleton";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
 import { tableCellValue } from "../../resources/table-cell-value";
@@ -93,10 +93,10 @@ export function EnterpriseWorkspacePage({ config }: { config: ResourceConfig }) 
         </div>
         <nav className="flex overflow-x-auto border-t border-white/10 bg-black/10 px-3">{tabs[enterpriseModule].map(([slug,label]) => <Link key={slug} href={`/${enterpriseModule}/${slug}`} className={`shrink-0 border-b-2 px-3 py-3 text-[11px] font-semibold ${slug === resource ? "border-sky-300 text-white" : "border-transparent text-white/55"}`}>{label}</Link>)}</nav>
       </section>
-      <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{liveStats.map((stat,index) => <Card key={stat.label} className="relative overflow-hidden p-4"><span className={`absolute inset-y-0 left-0 w-1 ${["bg-[#007DCC]","bg-emerald-500","bg-amber-500","bg-violet-500"][index]}`}/><p className="text-[10px] font-medium uppercase text-[#788b96]">{stat.label}</p><p className="mt-2 text-xl font-semibold">{stat.value}</p><p className="mt-1 text-[10px] text-[#607681]">{stat.helper}</p></Card>)}</section>
+      <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{liveStats.map((stat,index) => <Card key={stat.label} className="relative overflow-hidden p-4"><span className={`absolute inset-y-0 left-0 w-1 ${["bg-[#007DCC]","bg-emerald-500","bg-amber-500","bg-violet-500"][index]}`}/><p className="text-[10px] font-medium uppercase text-[#788b96]">{stat.label}</p>{loading ? <ValueSkeleton className="mt-2 h-6"/> : <p className="mt-2 text-xl font-semibold">{stat.value}</p>}<p className="mt-1 text-[10px] text-[#607681]">{stat.helper}</p></Card>)}</section>
       <Card className="mt-4 overflow-hidden">
         <TableToolbar search={search} onSearchChange={setSearch} searchPlaceholder={config.searchPlaceholder} filterTitle={`Filter ${config.title}`} filterDescription={`Filter ${config.title.toLowerCase()} using the relevant accounting, project, or payroll status.`} activeFilterCount={status !== "All statuses" ? 1 : 0} onResetFilters={() => setStatus("All statuses")} columns={[...config.columns, "Status"]} rows={records.map((record) => [...config.columns.map((column) => enterpriseCell(record, column)), record.status])} fileName={`blue-plastic-${enterpriseModule}-${resource}`} filterContent={<label className="text-xs font-semibold text-[#405762] sm:col-span-2"><span className="mb-1.5 block">{config.title} status</span><Select value={status} onValueChange={setStatus} options={statusOptions.length ? statusOptions : ["All statuses"]}/></label>}/>
-        {error ? <div className="p-10 text-center text-red-600">{error}</div> : loading ? <LoadingState label={`Loading ${config.title.toLowerCase()}…`} className="m-4"/> :
+        {error ? <div className="p-10 text-center text-red-600">{error}</div> : loading ? <DataTableSkeleton columns={[...config.columns, "Status", "Actions"]}/> :
           resource === "close-center" ? <CloseCenter records={records} onComplete={(record) => { void updateStatus(record.id, "Complete"); notify("Close task completed", record.name); }}/> :
           resource === "budgets" ? <BudgetCenter records={records} onOpen={(id) => router.push(`/accounting/budgets/${id}`)}/> :
           resource === "fixed-assets" ? <FixedAssetCenter records={records} onDepreciate={(record) => notify("Depreciation posted", `${record.name} was included in JE-3094.`)}/> :
