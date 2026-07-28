@@ -7,6 +7,7 @@ import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
 import { DatePicker } from "../../components/ui/date-picker";
 import { Select } from "../../components/ui/select";
+import { Toast, type ToastMessage } from "../../components/ui/toast";
 import { apiClient } from "../../lib/api-client";
 import { FinancialReportTable } from "./financial-report-table";
 import { buildFinancialLines, type FinancialLine, type TrialBalanceRow } from "./financial-report-model";
@@ -55,6 +56,7 @@ export function ReportViewerPage() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("Custom");
   const [exporting, setExporting] = useState<"pdf" | "excel" | "print" | null>(null);
+  const [message, setMessage] = useState<ToastMessage | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -70,7 +72,7 @@ export function ReportViewerPage() {
   const columns = useMemo(() => {
     const keys = new Set<string>();
     result?.rows.forEach((row) => Object.keys(row).forEach((key) => {
-      if (!["companyId", "branchId", "isDeleted", "deletedAt"].includes(key)) keys.add(key);
+      if (!["id", "accountId", "companyId", "branchId", "isDeleted", "deletedAt"].includes(key)) keys.add(key);
     }));
     return [...keys].slice(0, 9);
   }, [result]);
@@ -130,13 +132,25 @@ export function ReportViewerPage() {
         const printWindow = window.open("", "_blank");
         await printReportPdf(exportData, printWindow);
       }
+      setMessage({
+        title: type === "print" ? "Print view opened" : `${type.toUpperCase()} ready`,
+        description: type === "print" ? "The formatted report is ready to print." : `${name} was generated successfully.`,
+        variant: "success",
+      });
+    } catch (caught) {
+      setMessage({
+        title: `Unable to generate ${type.toUpperCase()}`,
+        description: caught instanceof Error ? caught.message : "The export could not be generated. Please try again.",
+        variant: "error",
+      });
     } finally {
-      window.setTimeout(() => setExporting(null), 350);
+      setExporting(null);
     }
   };
 
   return (
     <AppShell>
+      <Toast message={message} onClose={() => setMessage(null)}/>
       <div className="mx-auto max-w-[1320px]">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3 print:hidden">
           <Link href="/reports/financial" className="inline-flex items-center gap-2 text-xs font-medium text-[#526a76]"><ArrowLeft size={15}/> All reports</Link>
@@ -169,7 +183,7 @@ export function ReportViewerPage() {
               <table className="w-full min-w-[760px] text-left text-xs">
                 <thead className="border-b-2 border-[#7d8e97] bg-[#f7f9fa]"><tr>{columns.map((column) => <th key={column} className="px-4 py-2.5 font-semibold text-[#405762]">{labels[column] ?? column.replace(/([A-Z])/g, " $1")}</th>)}</tr></thead>
                 <tbody>{result?.rows.length ? result.rows.map((row, index) => <tr key={String(row.id ?? index)} className="border-b border-[#e8edef]">{columns.map((column) => <td key={column} className={`px-4 py-2.5 text-[#344d59] ${/debit|credit|amount|balance|value|total/i.test(column) ? "text-right tabular-nums" : ""}`}>{display(row[column])}</td>)}</tr>) : <tr><td colSpan={Math.max(columns.length, 1)} className="px-6 py-16 text-center text-[#71838d]">No transactions found for this report period.</td></tr>}</tbody>
-                {result?.controlTotals ? <tfoot className="border-t-2 border-[#7d8e97] bg-[#f7f9fa]"><tr><td colSpan={Math.max(columns.length - 2, 1)} className="px-4 py-3 font-semibold">TOTAL</td><td className="px-4 py-3 text-right font-semibold tabular-nums">{result.controlTotals.debit}</td><td className="px-4 py-3 text-right font-semibold tabular-nums">{result.controlTotals.credit}</td></tr></tfoot> : null}
+                {result?.controlTotals ? <tfoot className="border-t-2 border-[#7d8e97] bg-[#f7f9fa]"><tr>{columns.map((column, index) => <td key={column} className="px-4 py-3 text-right font-semibold tabular-nums">{index === 0 ? "TOTAL" : column === "debit" ? result.controlTotals?.debit : column === "credit" ? result.controlTotals?.credit : ""}</td>)}</tr></tfoot> : null}
               </table>
             </div>
           )}
