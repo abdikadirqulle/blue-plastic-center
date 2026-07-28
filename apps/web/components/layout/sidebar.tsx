@@ -180,33 +180,69 @@ const navigation = [
 
 const reportNavigation = [
   {
-    label: "Financial",
+    label: "Company & Financial",
     href: "/reports/financial",
     reports: [
-      ["Profit and Loss", "Profit and Loss", "profit-and-loss"],
+      ["Profit & Loss Standard", "Profit and Loss", "profit-and-loss"],
+      ["Profit & Loss Detail", "Profit and Loss", "profit-and-loss"],
       ["Balance Sheet", "Balance Sheet", "balance-sheet"],
+      ["Statement of Cash Flows", "Statement of Cash Flows", "cash-flow"],
       ["Trial Balance", "Trial Balance", "trial-balance"],
       ["General Ledger", "General Ledger", "general-ledger"],
     ],
   },
   {
-    label: "Sales & receivables",
+    label: "Customers & Receivables",
     href: "/reports/sales",
     reports: [
-      ["Sales by Customer", "Sales by Customer Summary", "sales-by-customer"],
-      ["Sales by Item", "Sales by Item Summary", "sales-by-item"],
-      ["A/R Aging", "A/R Aging Summary", "receivables-aging"],
-      ["Invoice List", "Invoice List", "invoice-list"],
-      ["Collections", "Collections Report", "collections"],
+      ["A/R Aging Summary", "A/R Aging Summary", "receivables-aging"],
+      ["A/R Aging Detail", "A/R Aging Detail", "receivables-aging"],
+      ["Customer Balance Summary", "Customer Balance Summary", "sales-by-customer"],
+      ["Open Invoices", "Open Invoices", "invoice-list"],
+      ["Collections Report", "Collections Report", "collections"],
+      ["Transaction List by Customer", "Invoice List", "invoice-list"],
     ],
   },
   {
-    label: "Purchasing & payables",
+    label: "Sales",
+    href: "/reports/sales",
+    reports: [
+      ["Sales by Customer Summary", "Sales by Customer Summary", "sales-by-customer"],
+      ["Sales by Customer Detail", "Sales by Customer Detail", "sales-by-customer"],
+      ["Sales by Item Summary", "Sales by Item Summary", "sales-by-item"],
+      ["Sales by Item Detail", "Sales by Item Detail", "sales-by-item"],
+      ["Sales by Rep Summary", "Sales by Rep Summary", "sales-by-customer"],
+    ],
+  },
+  {
+    label: "Jobs, Time & Mileage",
+    href: "/reports/projects",
+    reports: [
+      ["Job Profitability Summary", "Project Profitability Summary", "audit-trail"],
+      ["Job Profitability Detail", "Project Profitability Detail", "audit-trail"],
+      ["Estimates vs. Actuals Summary", "Job Estimates vs Actuals", "audit-trail"],
+      ["Time by Job Summary", "Time by Project", "audit-trail"],
+    ],
+  },
+  {
+    label: "Vendors & Payables",
     href: "/reports/purchasing",
     reports: [
       ["A/P Aging", "A/P Aging Summary", "payables-aging"],
-      ["Vendor balances", "Vendor Balance Summary", "payables-aging"],
-      ["Unpaid bills", "Unpaid Bills Detail", "payables-aging"],
+      ["A/P Aging Detail", "A/P Aging Detail", "payables-aging"],
+      ["Vendor Balance Summary", "Vendor Balance Summary", "payables-aging"],
+      ["Unpaid Bills Detail", "Unpaid Bills Detail", "payables-aging"],
+      ["Transaction List by Vendor", "Vendor Balance Detail", "payables-aging"],
+    ],
+  },
+  {
+    label: "Purchases",
+    href: "/reports/purchasing",
+    reports: [
+      ["Purchases by Vendor Summary", "Purchases by Vendor Summary", "payables-aging"],
+      ["Purchases by Vendor Detail", "Purchases by Vendor Detail", "payables-aging"],
+      ["Purchases by Item Detail", "Purchases by Item Detail", "inventory-valuation"],
+      ["Open Purchase Orders", "Open Purchase Orders", "payables-aging"],
     ],
   },
   {
@@ -218,9 +254,34 @@ const reportNavigation = [
     ],
   },
   {
-    label: "Payroll",
+    label: "Employees & Payroll",
     href: "/reports/payroll",
-    reports: [["Payroll reports", "Payroll Summary", "audit-trail"]],
+    reports: [
+      ["Payroll Summary", "Payroll Summary", "audit-trail"],
+      ["Payroll Item Detail", "Payroll Item Detail", "audit-trail"],
+      ["Employee Earnings Summary", "Employee Earnings Summary", "audit-trail"],
+      ["Payroll Liability Balances", "Payroll Liability Balances", "audit-trail"],
+    ],
+  },
+  {
+    label: "Banking",
+    href: "/reports/financial",
+    reports: [
+      ["Deposit Detail", "Deposit Detail", "general-ledger"],
+      ["Check Detail", "Check Detail", "general-ledger"],
+      ["Missing Checks", "Missing Checks", "general-ledger"],
+      ["Reconciliation Discrepancy", "Reconciliation Reports", "audit-trail"],
+    ],
+  },
+  {
+    label: "Accountant & Taxes",
+    href: "/reports/taxes",
+    reports: [
+      ["Income Tax Summary", "Tax Summary", "tax-summary"],
+      ["General Ledger", "General Ledger", "general-ledger"],
+      ["Trial Balance", "Trial Balance", "trial-balance"],
+      ["Audit Trail", "Audit Trail", "audit-trail"],
+    ],
   },
 ] as const
 
