@@ -25,6 +25,10 @@ const supportedReports = new Set([
   "inventory-valuation",
   "tax-summary",
   "audit-trail",
+  "sales-by-item",
+  "sales-by-customer",
+  "invoice-list",
+  "collections",
 ])
 
 function agingBucket(dueDate: unknown, asOf: string) {
@@ -74,9 +78,72 @@ export async function reportRoutes(
           generatedAt: new Date().toISOString(),
           rows: rows.filter((row) =>
             row.occurredAt.slice(0, 10) >= parameters.from &&
-            row.occurredAt.slice(0, 10) <= parameters.to),
+            row.occurredAt.slice(0, 10) <= parameters.to).map((row) => ({
+              date: row.occurredAt,
+              action: row.action,
+              activity: row.entityType.replace("/", " / "),
+            })),
         },
       })
+    }
+    if (["sales-by-item", "sales-by-customer", "invoice-list", "collections"].includes(request.params.kind)) {
+      const [invoices, items, customers, payments] = await Promise.all([
+        resources.list(request.requestContext, "sales", "invoices", { page: 1, pageSize: 100, order: "desc" }),
+        resources.list(request.requestContext, "inventory", "items", { page: 1, pageSize: 100, order: "desc" }),
+        resources.list(request.requestContext, "sales", "customers", { page: 1, pageSize: 100, order: "desc" }),
+        resources.list(request.requestContext, "sales", "payments", { page: 1, pageSize: 100, order: "desc" }),
+      ])
+      const itemNames = new Map(items.data.map((record) => [record.id, String(record.data.name ?? record.data.displayName ?? "Item")]))
+      const customerNames = new Map(customers.data.map((record) => [record.id, String(record.data.displayName ?? record.data.customerName ?? record.data.companyName ?? "Customer")]))
+      const invoiceNumbers = new Map(invoices.data.map((record) => [record.id, String(record.data.documentNumber ?? "Invoice")]))
+      let rows: Array<Record<string, unknown>> = []
+      if (request.params.kind === "sales-by-item") {
+        const totals = new Map<string, { item: string; quantity: number; sales: number }>()
+        for (const invoice of invoices.data) {
+          if (String(invoice.data.invoiceDate ?? "").slice(0, 10) < parameters.from || String(invoice.data.invoiceDate ?? "").slice(0, 10) > parameters.to) continue
+          for (const line of Array.isArray(invoice.data.lines) ? invoice.data.lines as Array<Record<string, unknown>> : []) {
+            const item = itemNames.get(String(line.itemId)) ?? String(line.description ?? "Unspecified item")
+            const current = totals.get(item) ?? { item, quantity: 0, sales: 0 }
+            current.quantity += Number(line.quantity ?? 0)
+            current.sales += Number(line.quantity ?? 0) * Number(line.unitPrice ?? 0)
+            totals.set(item, current)
+          }
+        }
+        rows = [...totals.values()].map((row) => ({ item: row.item, quantitySold: row.quantity.toFixed(2), salesAmount: row.sales.toFixed(2) }))
+      } else if (request.params.kind === "sales-by-customer") {
+        const totals = new Map<string, { customer: string; invoices: number; sales: number; balance: number }>()
+        for (const invoice of invoices.data) {
+          if (String(invoice.data.invoiceDate ?? "").slice(0, 10) < parameters.from || String(invoice.data.invoiceDate ?? "").slice(0, 10) > parameters.to) continue
+          const customer = customerNames.get(String(invoice.data.customerId)) ?? String(invoice.data.customerName ?? "Unspecified customer")
+          const current = totals.get(customer) ?? { customer, invoices: 0, sales: 0, balance: 0 }
+          current.invoices += 1
+          current.sales += Number(invoice.data.total ?? 0)
+          current.balance += Number(invoice.data.balanceDue ?? 0)
+          totals.set(customer, current)
+        }
+        rows = [...totals.values()].map((row) => ({ customer: row.customer, invoiceCount: row.invoices, totalSales: row.sales.toFixed(2), balanceDue: row.balance.toFixed(2) }))
+      } else if (request.params.kind === "invoice-list") {
+        rows = invoices.data.filter((invoice) => String(invoice.data.invoiceDate ?? "").slice(0, 10) >= parameters.from && String(invoice.data.invoiceDate ?? "").slice(0, 10) <= parameters.to).map((invoice) => ({
+          invoice: invoice.data.documentNumber,
+          customer: customerNames.get(String(invoice.data.customerId)) ?? invoice.data.customerName ?? "Unspecified customer",
+          date: invoice.data.invoiceDate,
+          dueDate: invoice.data.dueDate,
+          status: invoice.status,
+          total: invoice.data.total,
+          balanceDue: invoice.data.balanceDue,
+        }))
+      } else {
+        rows = payments.data.filter((payment) => String(payment.data.paymentDate ?? "").slice(0, 10) >= parameters.from && String(payment.data.paymentDate ?? "").slice(0, 10) <= parameters.to).map((payment) => ({
+          payment: payment.data.documentNumber,
+          customer: customerNames.get(String(payment.data.customerId)) ?? payment.data.customerName ?? "Unspecified customer",
+          date: payment.data.paymentDate,
+          method: payment.data.paymentMethod,
+          reference: payment.data.reference,
+          amount: payment.data.amount,
+          appliedTo: Array.isArray(payment.data.allocations) ? (payment.data.allocations as Array<Record<string, unknown>>).map((allocation) => invoiceNumbers.get(String(allocation.invoiceId)) ?? "Invoice").join(", ") : "Unapplied",
+        }))
+      }
+      return reply.code(201).send({ data: { reportId: randomUUID(), kind: request.params.kind, status: "generated", parameters, generatedAt: new Date().toISOString(), rows } })
     }
     const operationalSource: Record<string, [string, string]> = {
       "receivables-aging": ["debts", "receivables"],
@@ -92,12 +159,31 @@ export async function reportRoutes(
         source[1],
         { page: 1, pageSize: 100, order: "desc" },
       )
+      const [customers, vendors, invoices, bills, items] = await Promise.all([
+        resources.list(request.requestContext, "sales", "customers", { page: 1, pageSize: 100, order: "desc" }),
+        resources.list(request.requestContext, "purchasing", "vendors", { page: 1, pageSize: 100, order: "desc" }),
+        resources.list(request.requestContext, "sales", "invoices", { page: 1, pageSize: 100, order: "desc" }),
+        resources.list(request.requestContext, "purchasing", "bills", { page: 1, pageSize: 100, order: "desc" }),
+        resources.list(request.requestContext, "inventory", "items", { page: 1, pageSize: 100, order: "desc" }),
+      ])
+      const names = new Map([
+        ...customers.data.map((record) => [record.id, record.data.displayName ?? record.data.customerName ?? record.data.companyName]),
+        ...vendors.data.map((record) => [record.id, record.data.displayName ?? record.data.vendorName ?? record.data.companyName]),
+        ...invoices.data.map((record) => [record.id, record.data.documentNumber]),
+        ...bills.data.map((record) => [record.id, record.data.documentNumber]),
+        ...items.data.map((record) => [record.id, record.data.name ?? record.data.displayName]),
+      ].map(([id, name]) => [String(id), String(name ?? "Unknown")]))
       const rows = records.data.map((record) => {
         if (request.params.kind.endsWith("-aging")) {
+          const partyKey = request.params.kind === "receivables-aging" ? "customerId" : "vendorId"
+          const documentKey = request.params.kind === "receivables-aging" ? "invoiceId" : "billId"
           return {
-            id: record.id,
-            ...record.data,
+            [request.params.kind === "receivables-aging" ? "customer" : "vendor"]: names.get(String(record.data[partyKey])) ?? "Unknown",
+            document: names.get(String(record.data[documentKey])) ?? record.data.documentNumber ?? "—",
+            dueDate: record.data.dueDate,
             agingBucket: agingBucket(record.data.dueDate, parameters.to),
+            originalAmount: record.data.originalAmount,
+            outstanding: record.data.outstanding,
           }
         }
         if (request.params.kind === "inventory-valuation") {

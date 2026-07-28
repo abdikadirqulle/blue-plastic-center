@@ -125,6 +125,16 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
       "Trial Balance": "trial-balance",
       "General Ledger": "general-ledger",
       "Audit Trail": "audit-trail",
+      "Sales by Customer Summary": "sales-by-customer",
+      "Sales by Customer Detail": "sales-by-customer",
+      "Customer Balance Summary": "sales-by-customer",
+      "Customer Balance Detail": "sales-by-customer",
+      "Sales by Item Summary": "sales-by-item",
+      "Sales by Item Detail": "sales-by-item",
+      "Invoice List": "invoice-list",
+      "Open Invoices": "invoice-list",
+      "Collections Report": "collections",
+      "Weekly Collections": "collections",
       "A/R Aging Summary": "receivables-aging",
       "A/R Aging Detail": "receivables-aging",
       "A/P Aging Summary": "payables-aging",
@@ -135,14 +145,14 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
     };
     const kind = kinds[report] ?? {
       financial: "trial-balance",
-      sales: "receivables-aging",
+      sales: "invoice-list",
       purchasing: "payables-aging",
       inventory: "inventory-valuation",
       projects: "audit-trail",
       assets: "audit-trail",
       taxes: "tax-summary",
       payroll: "audit-trail",
-      custom: "audit-trail",
+      custom: "trial-balance",
     }[currentTab];
     setRunningReport(report);
     navigate(`/reports/view?${new URLSearchParams({ name: report, kind, from, to, basis: basis.toLowerCase() })}`);

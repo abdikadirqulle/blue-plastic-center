@@ -34,12 +34,24 @@ const labels: Record<string, string> = {
   dueDate: "Due date",
   agingBucket: "Aging",
   inventoryValue: "Value",
+  item: "Item",
+  quantitySold: "Quantity sold",
+  salesAmount: "Sales amount",
+  invoiceCount: "Invoices",
+  totalSales: "Total sales",
+  balanceDue: "Balance due",
+  invoice: "Invoice",
+  document: "Document",
+  payment: "Payment",
+  method: "Payment method",
+  appliedTo: "Applied to",
+  activity: "Activity",
 };
 
 function display(value: unknown) {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (typeof value === "object") return JSON.stringify(value);
+  if (typeof value === "object") return "—";
   return String(value);
 }
 
@@ -72,7 +84,12 @@ export function ReportViewerPage() {
   const columns = useMemo(() => {
     const keys = new Set<string>();
     result?.rows.forEach((row) => Object.keys(row).forEach((key) => {
-      if (!["id", "accountId", "companyId", "branchId", "isDeleted", "deletedAt"].includes(key)) keys.add(key);
+      const value = row[key];
+      if (
+        !/id$/i.test(key) &&
+        !["changes", "isDeleted", "deletedAt"].includes(key) &&
+        (typeof value !== "object" || value === null)
+      ) keys.add(key);
     }));
     return [...keys].slice(0, 9);
   }, [result]);
