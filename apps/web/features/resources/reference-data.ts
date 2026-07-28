@@ -1,6 +1,9 @@
 import { useMemo } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import type { FormField } from "@blue-plastic/types"
-import type { SelectOption } from "../../components/ui/select"
+import type { QuickAddInput, SelectOption } from "../../components/ui/select"
+import { apiClient } from "../../lib/api-client"
+import { queryKeys } from "../../lib/query-client"
 import { recordIdentifier, recordTitle, useResourceList } from "./resource-api"
 
 interface ReferenceSource {
@@ -20,6 +23,7 @@ const sources: ReferenceSource[] = [
 ]
 
 export function useReferenceData() {
+  const queryClient = useQueryClient()
   const customers = useResourceList("sales", "customers", { page: 1, pageSize: 100 })
   const vendors = useResourceList("purchasing", "vendors", { page: 1, pageSize: 100 })
   const items = useResourceList("inventory", "items", { page: 1, pageSize: 100 })
@@ -48,14 +52,74 @@ export function useReferenceData() {
     const sourceFor = (fieldName: string) =>
       sources.find((source) => source.pattern.test(fieldName))
 
+    const accountRecords = accounts.data?.data ?? []
+    const itemRecords = items.data?.data ?? []
+    const accountOptionsFor = (fieldName: string) => {
+      const expectedType =
+        /cogs|costOfGoods/i.test(fieldName)
+          ? "cost-of-goods-sold"
+          : /income/i.test(fieldName)
+            ? "income"
+            : /expense/i.test(fieldName)
+              ? "expense"
+              : /asset|inventory/i.test(fieldName)
+                ? "asset"
+                : undefined
+      const records = expectedType
+        ? accountRecords.filter((record) => record.data.accountType === expectedType)
+        : accountRecords
+      return records.map((record) => ({
+        value: record.id,
+        label: `${recordIdentifier(record)} — ${recordTitle(record)}`,
+      }))
+    }
+
     return {
       itemOptions: bySource.get("inventory/items") ?? [],
       accountOptions: bySource.get("accounting/chart-of-accounts") ?? [],
+      itemById: new Map(itemRecords.map((record) => [record.id, record])),
+      accountOptionsFor,
       optionsFor(field: FormField): SelectOption[] | undefined {
         const source = sourceFor(field.name)
-        return source
-          ? bySource.get(`${source.module}/${source.resource}`)
-          : undefined
+        if (!source) return undefined
+        return source.resource === "chart-of-accounts"
+          ? accountOptionsFor(field.name)
+          : bySource.get(`${source.module}/${source.resource}`)
+      },
+      async createOption(input: QuickAddInput) {
+        if (input.kind === "item") {
+          const response = await apiClient.create("inventory", "items", {
+            name: input.name,
+            sku: input.code,
+            type: input.itemType,
+            unit: input.unit,
+            salesPrice: input.salesPrice || "0",
+            purchaseCost: input.purchaseCost || "0",
+          }, "active")
+          await queryClient.invalidateQueries({
+            queryKey: queryKeys.resource("inventory", "items"),
+          })
+          return {
+            value: response.data.id,
+            label: `${input.code} — ${input.name}`,
+          }
+        }
+        if (input.kind === "account") {
+          const response = await apiClient.create("accounting", "chart-of-accounts", {
+            accountNumber: input.code,
+            accountName: input.name,
+            accountType: input.accountType,
+            currency: "USD",
+          }, "active")
+          await queryClient.invalidateQueries({
+            queryKey: queryKeys.resource("accounting", "chart-of-accounts"),
+          })
+          return {
+            value: response.data.id,
+            label: `${input.code} — ${input.name}`,
+          }
+        }
+        return { value: input.name, label: input.name }
       },
       resolve(value: unknown) {
         if (value === undefined || value === null || value === "") return "—"
@@ -70,5 +134,6 @@ export function useReferenceData() {
     accounts.data,
     projects.data,
     employees.data,
+    queryClient,
   ])
 }

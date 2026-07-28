@@ -14,7 +14,12 @@ import { AppShell } from "../../components/layout/app-shell";
 import { Card } from "../../components/ui/card";
 import { ConfirmDeleteDialog } from "../../components/ui/confirm-delete-dialog";
 import { DatePicker } from "../../components/ui/date-picker";
-import { Select, type SelectOption } from "../../components/ui/select";
+import {
+  Select,
+  type QuickAddInput,
+  type QuickAddKind,
+  type SelectOption,
+} from "../../components/ui/select";
 import { Toast, type ToastMessage } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
 import { ApiError } from "../../lib/api-client";
@@ -33,7 +38,13 @@ interface LineItem {
 }
 
 function supportsQuickAdd(field: FormField) {
-  return /(customer|vendor|account|warehouse|employee|project|salesRep|approver|payee)$/i.test(field.name);
+  return /(customer|vendor|account|warehouse|employee|project|salesRep|approver|payee)(Id)?$/i.test(field.name);
+}
+
+function quickAddKind(field: FormField): QuickAddKind {
+  if (/account/i.test(field.name)) return "account";
+  if (/item|product|service/i.test(field.name)) return "item";
+  return "contact";
 }
 
 function FormControl({
@@ -41,12 +52,14 @@ function FormControl({
   value,
   onChange,
   options,
+  onCreateOption,
   invalid = false,
 }: {
   field: FormField;
   value: string;
   onChange: (value: string) => void;
   options?: SelectOption[];
+  onCreateOption?: (input: QuickAddInput) => Promise<{ label: string; value: string }>;
   invalid?: boolean;
 }) {
   const styles =
@@ -56,7 +69,20 @@ function FormControl({
     return <textarea name={field.name} value={value} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`} className={cn(styles, "min-h-24 resize-y py-3")} />;
   }
   if (field.type === "select") {
-    return <Select name={field.name} value={value || undefined} onValueChange={onChange} options={options ?? field.options ?? []} placeholder={`Select ${field.label.toLowerCase()}`} allowAddNew={supportsQuickAdd(field)} addNewLabel={field.label.toLowerCase()} className={invalid ? "border-red-400 focus:border-red-500 focus:ring-red-100" : undefined} />;
+    return (
+      <Select
+        name={field.name}
+        value={value || undefined}
+        onValueChange={onChange}
+        options={options ?? field.options ?? []}
+        placeholder={`Select ${field.label.toLowerCase()}`}
+        allowAddNew={supportsQuickAdd(field)}
+        addNewLabel={field.label.toLowerCase()}
+        quickAddKind={quickAddKind(field)}
+        onCreateOption={onCreateOption}
+        className={invalid ? "border-red-400 focus:border-red-500 focus:ring-red-100" : undefined}
+      />
+    );
   }
   if (field.type === "date") {
     return <DatePicker name={field.name} value={value} onChange={onChange} placeholder={`Select ${field.label.toLowerCase()}`} className={invalid ? "border-red-400 focus:border-red-500 focus:ring-red-100" : undefined} />;
@@ -82,6 +108,35 @@ const blankLine = (): LineItem => ({
   tax: "Standard tax",
 });
 
+const isoDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+function initialValues(config: ResourceConfig) {
+  const today = new Date();
+  const dueDate = new Date(today);
+  dueDate.setDate(dueDate.getDate() + 30);
+  return Object.fromEntries(
+    config.formSections
+      .flatMap((section) => section.fields)
+      .map((field) => {
+        if (field.type === "date")
+          return [field.name, /dueDate/i.test(field.name) ? isoDate(dueDate) : isoDate(today)];
+        if (/currency/i.test(field.name)) return [field.name, "USD"];
+        if (/exchangeRate/i.test(field.name)) return [field.name, "1"];
+        if (/^terms$/i.test(field.name)) return [field.name, "Net 30"];
+        if (/^template$/i.test(field.name)) return [field.name, field.options?.[0] ?? ""];
+        if (/^unit$/i.test(field.name)) return [field.name, "Each"];
+        if (config.module === "inventory" && config.slug === "items" && field.name === "type")
+          return [field.name, "inventory"];
+        return [field.name, ""];
+      }),
+  );
+}
+
 export function ResourceFormPage({ config }: { config: ResourceConfig }) {
   const router = useRouter();
   const [searchParams] = useSearchParams();
@@ -91,7 +146,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
   const references = useReferenceData();
   const [lineItems, setLineItems] = useState<LineItem[]>([blankLine()]);
   const [message, setMessage] = useState<ToastMessage | null>(null);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(() => initialValues(config));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [deleteLineId, setDeleteLineId] = useState<number | null>(null);
   const [saveMode, setSaveMode] = useState<"new" | "close">("close");
@@ -136,6 +191,19 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
     }
   }, [detail.data]);
 
+  useEffect(() => {
+    if (editId) return;
+    setValues((current) => {
+      const next = { ...current };
+      for (const field of allFields) {
+        if (!/account/i.test(field.name) || next[field.name]) continue;
+        const option = references.accountOptionsFor(field.name)[0];
+        if (option && typeof option !== "string") next[field.name] = option.value;
+      }
+      return next;
+    });
+  }, [editId, references.accountOptions, config.module, config.slug]);
+
   const save = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -171,7 +239,16 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
       if (source) data[target] = values[source];
     }
     if (config.hasLineItems) {
-      data.lines = lineItems.map((line) => ({
+      const completedLines = lineItems.filter((line) => line.item);
+      if (!completedLines.length) {
+        setMessage({
+          title: "Item required",
+          description: "Select at least one item or account before saving this transaction.",
+          variant: "error",
+        });
+        return;
+      }
+      data.lines = completedLines.map((line) => ({
         ...(config.module === "accounting"
           ? { accountId: line.item }
           : { itemId: line.item }),
@@ -224,7 +301,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
 
     if (saveMode === "new") {
       form.reset();
-      setValues({});
+      setValues(initialValues(config));
       setLineItems([blankLine()]);
       setMessage({ title: "Saved successfully", description: `${config.title} saved. You can add another.`, variant: "success" });
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -256,10 +333,12 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
 
         <div className="space-y-4">
           {config.formSections.map((section) => (
-            <Card key={section.title} className="p-5 md:p-6">
-              <h2 className="text-sm font-bold text-[#213b48]">{section.title}</h2>
-              {section.description ? <p className="mt-1 text-xs text-[#7b8e99]">{section.description}</p> : null}
-              <div className="mt-5 grid gap-4 md:grid-cols-6">
+            <Card key={section.title} className="overflow-visible border-[#cfdce4] p-0 shadow-sm">
+              <div className="rounded-t-2xl border-b border-[#cfdce4] bg-[#f6f9fb] px-5 py-4 md:px-6">
+                <h2 className="text-sm font-bold text-[#213b48]">{section.title}</h2>
+                {section.description ? <p className="mt-1 text-xs text-[#7b8e99]">{section.description}</p> : null}
+              </div>
+              <div className="grid gap-4 p-5 md:grid-cols-6 md:p-6">
                 {section.fields.map((field) => (
                   <label key={field.name} className={cn("block", field.width === "full" ? "md:col-span-6" : field.width === "third" ? "md:col-span-2" : "md:col-span-3")}>
                     {field.type !== "checkbox" ? <span className={cn("mb-1.5 block text-xs font-medium", errors[field.name] ? "text-red-700" : "text-[#455c68]")}>{field.label}{(requiredFields.has(field.name) || errors[field.name]) ? <span className="ml-1 text-red-500">*</span> : null}</span> : null}
@@ -276,6 +355,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                         });
                       }}
                       options={references.optionsFor(field)}
+                      onCreateOption={references.createOption}
                       invalid={Boolean(errors[field.name])}
                     />
                     {errors[field.name] ? <span className="mt-1.5 block text-[11px] font-semibold text-red-600">{errors[field.name]}</span> : null}
@@ -286,9 +366,9 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
           ))}
 
           {config.hasLineItems ? (
-            <Card className="overflow-hidden">
-              <div className="flex items-center justify-between border-b border-[#e5ecf1] p-5">
-                <div><h2 className="text-sm font-bold text-[#213b48]">Items, quantities & pricing</h2><p className="mt-1 text-xs text-[#7b8e99]">Add products, services, accounts, tax and quantity details.</p></div>
+            <Card className="overflow-visible border-[#cfdce4]">
+              <div className="flex items-center justify-between border-b border-[#cfdce4] bg-[#f6f9fb] p-5">
+                <div><h2 className="text-sm font-bold text-[#213b48]">Items, quantities & pricing</h2><p className="mt-1 text-xs text-[#7b8e99]">Select an item to fill its description, unit and sales price automatically.</p></div>
                 <button type="button" onClick={() => setLineItems((current) => [...current, blankLine()])} className="flex items-center gap-1.5 rounded-lg bg-[#eaf5fc] px-3 py-2 text-xs font-bold text-[#007DCC]"><Plus size={14}/> Add line</button>
               </div>
               <div className="overflow-x-auto">
@@ -297,16 +377,49 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                   <tbody>
                     {lineItems.map((line) => {
                       const update = (key: keyof LineItem, value: string) => setLineItems((current) => current.map((item) => item.id === line.id ? { ...item, [key]: value } : item));
+                      const selectLineReference = (value: string) => {
+                        if (config.module === "accounting") {
+                          update("item", value);
+                          return;
+                        }
+                        const item = references.itemById.get(value);
+                        setLineItems((current) => current.map((entry) =>
+                          entry.id === line.id
+                            ? {
+                                ...entry,
+                                item: value,
+                                description: String(item?.data.salesDescription ?? item?.data.description ?? item?.data.name ?? entry.description),
+                                unit: String(item?.data.unit ?? entry.unit),
+                                rate: String(item?.data.salesPrice ?? entry.rate),
+                              }
+                            : entry,
+                        ));
+                      };
                       return (
                         <tr key={line.id} className="border-t border-[#edf1f4]">
                           <td className="min-w-56 p-2">
                             <Select
                               value={line.item || undefined}
-                              onValueChange={(value) => update("item", value)}
+                              onValueChange={selectLineReference}
                               options={lineReferenceOptions}
                               placeholder={config.module === "accounting" ? "Select account" : "Select item"}
-                              allowAddNew={config.module !== "accounting"}
+                              allowAddNew
                               addNewLabel={config.module === "accounting" ? "account" : "item"}
+                              quickAddKind={config.module === "accounting" ? "account" : "item"}
+                              onCreateOption={references.createOption}
+                              onOptionCreated={(_, input) => {
+                                if (input.kind !== "item") return;
+                                setLineItems((current) => current.map((entry) =>
+                                  entry.id === line.id
+                                    ? {
+                                        ...entry,
+                                        description: input.name,
+                                        unit: input.unit,
+                                        rate: input.salesPrice || "0",
+                                      }
+                                    : entry,
+                                ));
+                              }}
                               className="h-10 text-xs"
                             />
                           </td>

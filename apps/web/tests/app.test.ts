@@ -69,5 +69,30 @@ test("details never fabricate missing database values and line items use searcha
   expect(details).toMatch(/references\.resolve/)
   expect(form).toMatch(/options=\{lineReferenceOptions\}/)
   expect(form).toMatch(/\{ itemId: line\.item \}/)
+  expect(form).toMatch(/item\?\.data\.salesPrice/)
+  expect(form).toMatch(/item\?\.data\.unit/)
+  expect(form).toMatch(/onCreateOption=\{references\.createOption\}/)
+  expect(form).toMatch(/Select at least one item or account/)
   expect(select).toMatch(/Search options/)
+  expect(select).toMatch(/quickAddKind === "item"/)
+  expect(select).toMatch(/Sales price/)
+})
+
+test("transaction and item forms use safe defaults and account references", async () => {
+  const [form, config, references] = await Promise.all([
+    read("../features/resources/resource-form-page.tsx"),
+    read("../features/resources/resource-config.ts"),
+    read("../features/resources/reference-data.ts"),
+  ])
+
+  expect(form).toMatch(/dueDate\.setDate\(dueDate\.getDate\(\) \+ 30\)/)
+  expect(form).toMatch(/return \[field\.name, "USD"\]/)
+  expect(form).toMatch(/accountOptionsFor\(field\.name\)\[0\]/)
+  expect(config).toMatch(/name: "incomeAccountId"[\s\S]*type: "select"/)
+  expect(config).toMatch(/name: "expenseAccountId"[\s\S]*type: "select"/)
+  expect(config).toMatch(/name: "inventoryAccountId"[\s\S]*type: "select"/)
+  expect(config).toMatch(/Auto-generated when saved/)
+  expect(references).toMatch(/"cost-of-goods-sold"/)
+  expect(references).toMatch(/apiClient\.create\("inventory", "items"/)
+  expect(references).toMatch(/apiClient\.create\("accounting", "chart-of-accounts"/)
 })

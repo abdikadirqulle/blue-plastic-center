@@ -6,6 +6,18 @@ import { useState } from "react";
 import { cn } from "../../lib/utils";
 
 export type SelectOption = string | { label: string; value: string };
+export type QuickAddKind = "contact" | "item" | "account";
+export interface QuickAddInput {
+  kind: QuickAddKind;
+  name: string;
+  code: string;
+  contact: string;
+  itemType: string;
+  unit: string;
+  salesPrice: string;
+  purchaseCost: string;
+  accountType: string;
+}
 
 export function Select({
   value,
@@ -18,6 +30,9 @@ export function Select({
   allowAddNew = false,
   addNewLabel = "record",
   searchable = true,
+  quickAddKind = "contact",
+  onCreateOption,
+  onOptionCreated,
 }: {
   value?: string;
   defaultValue?: string;
@@ -29,13 +44,26 @@ export function Select({
   allowAddNew?: boolean;
   addNewLabel?: string;
   searchable?: boolean;
+  quickAddKind?: QuickAddKind;
+  onCreateOption?: (input: QuickAddInput) => Promise<{ label: string; value: string }>;
+  onOptionCreated?: (
+    option: { label: string; value: string },
+    input: QuickAddInput,
+  ) => void;
 }) {
-  const [addedOptions, setAddedOptions] = useState<string[]>([]);
+  const [addedOptions, setAddedOptions] = useState<Array<{ label: string; value: string }>>([]);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newCode, setNewCode] = useState("");
   const [newContact, setNewContact] = useState("");
   const [search, setSearch] = useState("");
+  const [itemType, setItemType] = useState("inventory");
+  const [unit, setUnit] = useState("Each");
+  const [salesPrice, setSalesPrice] = useState("");
+  const [purchaseCost, setPurchaseCost] = useState("");
+  const [accountType, setAccountType] = useState("expense");
+  const [savingNew, setSavingNew] = useState(false);
+  const [addError, setAddError] = useState("");
 
   const normalizedOptions = options.map((option) =>
     typeof option === "string" ? { label: option, value: option } : option,
@@ -43,8 +71,7 @@ export function Select({
   const localOptions = [
     ...normalizedOptions,
     ...addedOptions
-      .filter((value) => !normalizedOptions.some((option) => option.value === value))
-      .map((value) => ({ label: value, value })),
+      .filter((added) => !normalizedOptions.some((option) => option.value === added.value)),
   ];
   const visibleOptions = localOptions.filter((option) =>
     `${option.label} ${option.value}`.toLowerCase().includes(search.trim().toLowerCase()),
@@ -58,19 +85,52 @@ export function Select({
     onValueChange?.(nextValue);
   };
 
-  const saveNewOption = () => {
-    const label = newName.trim();
-    if (!label) return;
-    setAddedOptions((current) =>
-      current.includes(label) || normalizedOptions.some((option) => option.value === label)
-        ? current
-        : [...current, label],
-    );
-    onValueChange?.(label);
-    setAddModalOpen(false);
+  const resetQuickAdd = () => {
     setNewName("");
     setNewCode("");
     setNewContact("");
+    setItemType("inventory");
+    setUnit("Each");
+    setSalesPrice("");
+    setPurchaseCost("");
+    setAccountType("expense");
+    setAddError("");
+  };
+
+  const saveNewOption = async () => {
+    const label = newName.trim();
+    if (!label) return;
+    setSavingNew(true);
+    setAddError("");
+    try {
+      const input: QuickAddInput = {
+        kind: quickAddKind,
+        name: label,
+        code: newCode.trim(),
+        contact: newContact.trim(),
+        itemType,
+        unit,
+        salesPrice,
+        purchaseCost,
+        accountType,
+      };
+      const created = onCreateOption
+        ? await onCreateOption(input)
+        : { label, value: label };
+      setAddedOptions((current) =>
+        current.some((option) => option.value === created.value)
+          ? current
+          : [...current, created],
+      );
+      onValueChange?.(created.value);
+      onOptionCreated?.(created, input);
+      setAddModalOpen(false);
+      resetQuickAdd();
+    } catch (error) {
+      setAddError(error instanceof Error ? error.message : "Unable to create this record");
+    } finally {
+      setSavingNew(false);
+    }
   };
 
   return (
@@ -136,12 +196,26 @@ export function Select({
           </div>
           <div className="grid gap-4 p-5 sm:grid-cols-2">
             <label className="text-xs font-bold text-[#405762] sm:col-span-2"><span className="mb-1.5 block">Name <span className="text-red-500">*</span></span><input autoFocus value={newName} onChange={(event) => setNewName(event.target.value)} placeholder={`Enter ${addNewLabel} name`} className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></label>
-            <label className="text-xs font-bold text-[#405762]"><span className="mb-1.5 block">Code or reference</span><input value={newCode} onChange={(event) => setNewCode(event.target.value)} placeholder="Optional code" className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></label>
-            <label className="text-xs font-bold text-[#405762]"><span className="mb-1.5 block">Email or phone</span><input value={newContact} onChange={(event) => setNewContact(event.target.value)} placeholder="Optional contact" className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></label>
+            <label className="text-xs font-bold text-[#405762]"><span className="mb-1.5 block">{quickAddKind === "item" ? "SKU" : quickAddKind === "account" ? "Account number" : "Code or reference"} <span className="text-red-500">*</span></span><input value={newCode} onChange={(event) => setNewCode(event.target.value)} placeholder={quickAddKind === "item" ? "ITEM-001" : quickAddKind === "account" ? "6000" : "Optional code"} className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></label>
+            {quickAddKind === "contact" ? (
+              <label className="text-xs font-bold text-[#405762]"><span className="mb-1.5 block">Email or phone</span><input value={newContact} onChange={(event) => setNewContact(event.target.value)} placeholder="Optional contact" className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"/></label>
+            ) : null}
+            {quickAddKind === "item" ? (
+              <>
+                <label className="text-xs font-bold text-[#405762]"><span className="mb-1.5 block">Item type</span><Select value={itemType} onValueChange={setItemType} options={[{ label: "Inventory", value: "inventory" }, { label: "Non-inventory", value: "non-inventory" }, { label: "Service", value: "service" }, { label: "Assembly", value: "assembly" }]} searchable={false}/></label>
+                <label className="text-xs font-bold text-[#405762]"><span className="mb-1.5 block">Unit of measure</span><Select value={unit} onValueChange={setUnit} options={["Each", "Box", "Kg", "Liter", "Meter", "Hour"]} searchable={false}/></label>
+                <label className="text-xs font-bold text-[#405762]"><span className="mb-1.5 block">Sales price</span><input type="number" min="0" step="0.0001" value={salesPrice} onChange={(event) => setSalesPrice(event.target.value)} placeholder="0.00" className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm"/></label>
+                <label className="text-xs font-bold text-[#405762]"><span className="mb-1.5 block">Purchase cost</span><input type="number" min="0" step="0.0001" value={purchaseCost} onChange={(event) => setPurchaseCost(event.target.value)} placeholder="0.00" className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm"/></label>
+              </>
+            ) : null}
+            {quickAddKind === "account" ? (
+              <label className="text-xs font-bold text-[#405762]"><span className="mb-1.5 block">Account type</span><Select value={accountType} onValueChange={setAccountType} options={[{ label: "Asset", value: "asset" }, { label: "Liability", value: "liability" }, { label: "Equity", value: "equity" }, { label: "Income", value: "income" }, { label: "Expense", value: "expense" }, { label: "Cost of goods sold", value: "cost-of-goods-sold" }]} searchable={false}/></label>
+            ) : null}
+            {addError ? <p role="alert" className="sm:col-span-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">{addError}</p> : null}
           </div>
           <div className="flex justify-end gap-2 border-t border-[#e7edf1] px-5 py-4">
             <button type="button" onClick={() => setAddModalOpen(false)} className="h-10 rounded-xl border border-[#dce6ed] px-4 text-xs font-bold text-[#526874]">Cancel</button>
-            <button type="button" disabled={!newName.trim()} onClick={saveNewOption} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white hover:bg-[#0069ad] disabled:cursor-not-allowed disabled:opacity-50"><Save size={14}/> Save & select</button>
+            <button type="button" disabled={!newName.trim() || ((quickAddKind === "item" || quickAddKind === "account") && !newCode.trim()) || savingNew} onClick={() => void saveNewOption()} className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white hover:bg-[#0069ad] disabled:cursor-not-allowed disabled:opacity-50"><Save size={14}/> {savingNew ? "Saving…" : "Save & select"}</button>
           </div>
         </div>
       </div>
