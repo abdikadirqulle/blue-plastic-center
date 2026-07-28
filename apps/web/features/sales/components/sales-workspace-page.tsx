@@ -4,7 +4,7 @@ import { Link } from "@/components/routing";
 import { useMemo, useState } from "react";
 import { useRouter } from "@/components/routing";
 import {
-  ArrowDownToLine, ArrowRight, Banknote, CalendarDays, ChevronRight,
+  ArrowDownToLine, ArrowRight, Banknote, CalendarDays,
   CircleDollarSign, FileClock, FileText, Mail,
   Plus, Receipt, RefreshCcw, Send, ShoppingBag, Trash2, Users,
 } from "lucide-react";
@@ -56,9 +56,7 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
   const { records, loading, error, remove } = useSalesRecords(resource, query);
   const Icon = icons[resource] ?? FileText;
   const statuses = ["All statuses", ...Array.from(new Set(records.map((record) => record.status)))];
-  const isCustomerCenter = resource === "customers";
   const isStatementCenter = resource === "statements";
-  const selectedCustomer = isCustomerCenter ? records[0] : null;
   const statusCount = (pattern: RegExp) =>
     records.filter((record) => pattern.test(record.status)).length;
   const totalAmount = records.reduce((total, record) => {
@@ -109,7 +107,7 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
           </nav>
         </section>
 
-        <section className={`mt-4 grid gap-3 ${isCustomerCenter ? "sm:grid-cols-2 xl:grid-cols-4" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
+        <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {liveStats.map((stat, index) => <Card key={stat.label} className="relative overflow-hidden p-4">
             <div className={`absolute inset-y-0 left-0 w-1 ${["bg-[#007DCC]","bg-emerald-500","bg-amber-500","bg-violet-500"][index]}`}/>
             <p className="text-[10px] font-bold uppercase tracking-wide text-[#788b96]">{stat.label}</p><p className="mt-2 text-xl font-bold tracking-[-0.03em] text-[#1f3947]">{stat.value}</p><p className="mt-1 text-[10px] text-[#007DCC]">{stat.helper}</p>
@@ -140,14 +138,7 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
           />
 
           {error ? <div className="p-8 text-center text-sm font-semibold text-red-600">{error}</div> : loading ? <div className="p-12 text-center text-sm font-semibold text-[#71848f]">Loading {config.title.toLowerCase()}…</div> :
-          isCustomerCenter ? (
-            <div className="grid gap-0 md:grid-cols-[320px_1fr]">
-              <div className="border-r border-[#e4ebf0] bg-[#f8fafc] p-3">{records.map((record, index) => <button key={record.id} onClick={() => router.push(`/sales/customers/${record.id}`)} className={`mb-2 flex w-full items-center gap-3 rounded-xl border p-3 text-left ${index === 0 ? "border-[#007DCC] bg-white shadow-sm" : "border-transparent hover:bg-white"}`}><span className="grid size-9 place-items-center rounded-full bg-[#e6f4fc] text-[10px] font-bold text-[#007DCC]">{record.customer.split(" ").map((word) => word[0]).slice(0,2)}</span><span className="min-w-0"><strong className="block truncate text-xs text-[#2c4552]">{record.customer}</strong><span className="text-[10px] text-[#82949e]">{record.displayId} · {record.status}</span></span><ChevronRight size={14} className="ml-auto"/></button>)}</div>
-              <div className="p-5">
-                {selectedCustomer ? <><div className="flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase text-[#82949e]">Selected customer</p><h2 className="mt-1 text-xl font-bold">{selectedCustomer.customer}</h2><p className="mt-1 text-xs text-[#71848f]">{selectedCustomer.reference || selectedCustomer.id} · {selectedCustomer.status}</p></div><Link href={`/sales/customers/${selectedCustomer.id}`} className="rounded-xl bg-[#007DCC] px-3 py-2 text-xs font-bold text-white">Open customer</Link></div><div className="mt-6 grid gap-3 sm:grid-cols-3">{[["Balance",selectedCustomer.balance ?? selectedCustomer.amount],["Status",selectedCustomer.status],["Created",selectedCustomer.date]].map(([label,value]) => <div key={label} className="rounded-xl bg-[#f6f9fb] p-4"><p className="text-[10px] text-[#82949e]">{label}</p><p className="mt-1 text-sm font-bold">{value || "—"}</p></div>)}</div></> : <div className="grid min-h-56 place-items-center text-center"><div><Users className="mx-auto text-[#9bb0bb]"/><h2 className="mt-3 text-sm font-bold">No customers yet</h2><p className="mt-1 text-xs text-[#71848f]">Add your first customer to start recording sales.</p><Link href="/sales/customers/new" className="mt-4 inline-flex rounded-xl bg-[#007DCC] px-4 py-2.5 text-xs font-bold text-white">Add customer</Link></div></div>}
-              </div>
-            </div>
-          ) : isStatementCenter ? (
+          isStatementCenter ? (
             <div className="grid gap-3 p-4 lg:grid-cols-2">{records.map((record) => <article key={record.id} className="rounded-2xl border border-[#e2eaf0] p-4 hover:border-[#9dcdeb]"><div className="flex items-start justify-between"><div><p className="text-[10px] font-bold text-[#007DCC]">{record.displayId}</p><h3 className="mt-1 text-sm font-bold">{record.customer}</h3></div><Badge variant={variants(record.status)}>{record.status}</Badge></div><div className="mt-4 flex items-end justify-between"><div><p className="text-[10px] text-[#82949e]">Statement balance</p><p className="mt-1 text-lg font-bold">{record.amount}</p></div><div className="flex gap-2"><button onClick={() => notify("Statement emailed", `${record.displayId} was sent to ${record.customer}.`)} className="rounded-lg border p-2 text-[#007DCC]"><Send size={15}/></button><Link href={`/sales/statements/${record.id}`} className="rounded-lg bg-[#eef7fd] px-3 py-2 text-[11px] font-bold text-[#007DCC]">Preview</Link></div></div></article>)}</div>
           ) : (
             <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead className="bg-[#f8fafc]"><tr>{config.columns.map((column) => <th key={column} className="border-b border-[#e5ecf1] px-5 py-3 text-[9px] font-bold uppercase tracking-wide text-[#788b96]">{column}</th>)}<th className="border-b border-[#e5ecf1] px-5 py-3 text-[9px] font-bold uppercase text-[#788b96]">Status</th><th className="border-b border-[#e5ecf1] px-5 py-3 text-right text-[9px] font-bold uppercase text-[#788b96]">Actions</th></tr></thead><tbody>{records.map((record) => <tr key={record.id} onClick={() => router.push(`/sales/${resource}/${encodeURIComponent(record.id)}`)} className="cursor-pointer border-b border-[#edf1f4] hover:bg-[#f2f9fd]">{config.columns.map((column, index) => <td key={column} className={`px-5 py-4 text-xs ${index === 0 ? "font-bold text-[#007DCC]" : "font-medium text-[#405762]"}`}>{salesCell(record, column)}</td>)}<td className="px-5 py-4"><Badge variant={variants(record.status)}>{record.status}</Badge></td><td onClick={(event) => event.stopPropagation()} className="px-5 py-4 text-right"><button aria-label={`Delete ${record.displayId}`} onClick={() => setDeleteTarget(record)} className="rounded-lg p-2 text-red-500 hover:bg-red-50"><Trash2 size={15}/></button><RowActionMenu label={record.displayId} viewHref={`/sales/${resource}/${encodeURIComponent(record.id)}`} editHref={`/sales/${resource}/new?edit=${encodeURIComponent(record.id)}`} onDelete={() => setDeleteTarget(record)}/></td></tr>)}</tbody></table>{!records.length ? <div className="p-16 text-center text-sm font-semibold text-[#71848f]">No matching {config.title.toLowerCase()} found.</div> : null}</div>

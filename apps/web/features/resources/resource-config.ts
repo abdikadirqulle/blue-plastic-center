@@ -2191,7 +2191,7 @@ const commonResourceSpecs: Array<{
     "accounts",
     "Bank & cash accounts",
     "New account",
-    ["Account", "Type", "Balance", "Currency"],
+    ["Account number", "Account name", "Type", "Balance", "Currency"],
     [
       {
         name: "accountName",

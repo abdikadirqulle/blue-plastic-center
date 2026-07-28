@@ -35,4 +35,40 @@ describe("tableCellValue", () => {
     expect(tableCellValue("Amount", invoice)).toBe("$2,400.00");
     expect(tableCellValue("Balance due", invoice)).toBe("$900.00");
   });
+
+  it("uses resolved customer and vendor names instead of database ids", () => {
+    const transaction = {
+      customerId: "bd2246f5-2355-4d1e-aba6-43e645845905",
+      vendorId: "53000000-0000-4000-8000-000000000001",
+    };
+
+    expect(
+      tableCellValue("Customer", transaction, {
+        customer: "Banaadir Trading Co.",
+      }),
+    ).toBe("Banaadir Trading Co.");
+    expect(
+      tableCellValue("Vendor", transaction, {
+        vendor: "SomPolymer Supplies",
+      }),
+    ).toBe("SomPolymer Supplies");
+  });
+
+  it("maps customer and account master columns", () => {
+    expect(
+      tableCellValue("Company", {
+        companyName: "Banaadir Trading Co.",
+      }),
+    ).toBe("Banaadir Trading Co.");
+    expect(
+      tableCellValue("Account number", {
+        accountNumber: "1200",
+      }),
+    ).toBe("1200");
+    expect(
+      tableCellValue("Account name", {
+        accountName: "Inventory Asset",
+      }),
+    ).toBe("Inventory Asset");
+  });
 });

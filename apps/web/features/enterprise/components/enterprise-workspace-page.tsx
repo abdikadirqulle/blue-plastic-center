@@ -97,7 +97,6 @@ export function EnterpriseWorkspacePage({ config }: { config: ResourceConfig }) 
       <Card className="mt-4 overflow-hidden">
         <TableToolbar search={search} onSearchChange={setSearch} searchPlaceholder={config.searchPlaceholder} filterTitle={`Filter ${config.title}`} filterDescription={`Filter ${config.title.toLowerCase()} using the relevant accounting, project, or payroll status.`} activeFilterCount={status !== "All statuses" ? 1 : 0} onResetFilters={() => setStatus("All statuses")} columns={[...config.columns, "Status"]} rows={records.map((record) => [...config.columns.map((column) => enterpriseCell(record, column)), record.status])} fileName={`blue-plastic-${enterpriseModule}-${resource}`} filterContent={<label className="text-xs font-semibold text-[#405762] sm:col-span-2"><span className="mb-1.5 block">{config.title} status</span><Select value={status} onValueChange={setStatus} options={statusOptions.length ? statusOptions : ["All statuses"]}/></label>}/>
         {error ? <div className="p-10 text-center text-red-600">{error}</div> : loading ? <LoadingState label={`Loading ${config.title.toLowerCase()}…`} className="m-4"/> :
-          resource === "chart-of-accounts" ? <AccountCenter records={records} onOpen={(id) => router.push(`/accounting/chart-of-accounts/${id}`)}/> :
           resource === "close-center" ? <CloseCenter records={records} onComplete={(record) => { void updateStatus(record.id, "Complete"); notify("Close task completed", record.name); }}/> :
           resource === "budgets" ? <BudgetCenter records={records} onOpen={(id) => router.push(`/accounting/budgets/${id}`)}/> :
           resource === "fixed-assets" ? <FixedAssetCenter records={records} onDepreciate={(record) => notify("Depreciation posted", `${record.name} was included in JE-3094.`)}/> :
@@ -120,18 +119,6 @@ export function EnterpriseWorkspacePage({ config }: { config: ResourceConfig }) 
     <Toast message={message} onClose={() => setMessage(null)}/>
     <ConfirmDeleteDialog open={Boolean(deleteTarget)} title={`Move ${deleteTarget?.id} to Trash?`} recordName={deleteTarget?.name} description="The record remains stored and can be restored from Trash." onClose={() => setDeleteTarget(null)} onConfirm={() => { if (deleteTarget) void remove(deleteTarget.id); setDeleteTarget(null); notify("Moved to Trash", "The workspace was updated."); }}/>
   </AppShell>;
-}
-
-function AccountCenter({ records, onOpen }: { records: EnterpriseRecord[]; onOpen: (id: string) => void }) {
-  const types = ["asset", "liability", "equity", "income", "expense"].map((type) => {
-    const matches = records.filter((record) => String(record.data?.accountType ?? record.detail).toLowerCase().includes(type));
-    const total = matches.reduce((sum, record) => {
-      const value = Number(record.value.replace(/[^0-9.-]/g, ""));
-      return sum + (Number.isFinite(value) ? value : 0);
-    }, 0);
-    return { label: `${type[0].toUpperCase()}${type.slice(1)}`, count: matches.length, total };
-  });
-  return <div className="grid md:grid-cols-[280px_1fr]"><aside className="border-r bg-[#f8fafc] p-4"><p className="text-[10px] font-medium uppercase text-[#82949e]">Account types</p>{types.map(({label,count,total}) => <div key={label} className="mt-2 rounded-xl border border-transparent p-3"><p className="text-xs font-medium">{label}</p><p className="mt-1 text-[10px] text-[#82949e]">{count} accounts · ${total.toLocaleString()}</p></div>)}</aside><div className="p-4"><div className="mb-3 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Chart of accounts</h2><p className="text-[10px] text-[#82949e]">Hierarchical general-ledger accounts and balances</p></div><Badge variant="neutral">{records.length} accounts</Badge></div>{records.map((record) => <button key={record.id} onClick={() => onOpen(record.id)} className="flex w-full items-center gap-3 border-b px-2 py-3 text-left hover:bg-[#f6fafc]"><span className="font-mono text-[10px] font-medium text-[#007DCC]">{String(record.data?.accountNumber ?? "—")}</span><span className="min-w-0 flex-1"><strong className="block text-xs font-medium">{record.name}</strong><span className="text-[10px] text-[#82949e]">{record.detail}</span></span><span className="text-xs font-medium">{record.value}</span><ArrowRight size={14}/></button>)}</div></div>;
 }
 
 function CloseCenter({ records, onComplete }: { records: EnterpriseRecord[]; onComplete: (record: EnterpriseRecord) => void }) {
