@@ -34,6 +34,12 @@ export class MemoryIdentityRepository implements IdentityRepository {
     return this.users.find((user) => user.email === email.toLowerCase())
   }
 
+  async findUserById(userId: string, companyId: string) {
+    return this.users.find(
+      (user) => user.id === userId && user.companyId === companyId,
+    )
+  }
+
   async findUserBySessionHash(tokenHash: string) {
     const session = this.sessions.get(tokenHash)
     if (!session || session.expiresAt <= new Date()) return undefined
@@ -69,6 +75,19 @@ export class MemoryIdentityRepository implements IdentityRepository {
 
   async createUser(user: IdentityUser) {
     this.users.push(user)
+  }
+
+  async updateUser(
+    userId: string,
+    companyId: string,
+    changes: Partial<Pick<IdentityUser, "email" | "displayName" | "role" | "active">>,
+  ) {
+    const user = this.users.find(
+      (candidate) => candidate.id === userId && candidate.companyId === companyId,
+    )
+    if (!user) return undefined
+    Object.assign(user, changes)
+    return user
   }
 
   async updateUserPassword(userId: string, passwordHash: string) {

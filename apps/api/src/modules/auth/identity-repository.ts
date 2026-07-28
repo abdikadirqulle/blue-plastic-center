@@ -23,6 +23,7 @@ export interface IdentitySession {
 
 export interface IdentityRepository {
   findUserByEmail(email: string): Promise<IdentityUser | undefined>
+  findUserById(userId: string, companyId: string): Promise<IdentityUser | undefined>
   findUserBySessionHash(tokenHash: string): Promise<IdentityUser | undefined>
   recordLoginFailure(userId: string, failedAttempts: number, lockedUntil?: Date): Promise<void>
   recordLoginSuccess(userId: string): Promise<void>
@@ -31,5 +32,10 @@ export interface IdentityRepository {
   sessionMatchesCsrf(tokenHash: string, csrfTokenHash: string): Promise<boolean>
   listUsers(companyId: string): Promise<IdentityUser[]>
   createUser(user: IdentityUser): Promise<void>
+  updateUser(
+    userId: string,
+    companyId: string,
+    changes: Partial<Pick<IdentityUser, "email" | "displayName" | "role" | "active">>,
+  ): Promise<IdentityUser | undefined>
   updateUserPassword(userId: string, passwordHash: string): Promise<void>
 }

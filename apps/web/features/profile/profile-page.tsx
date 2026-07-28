@@ -1,193 +1,172 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Building2,
-  Camera,
-  KeyRound,
+  LoaderCircle,
   Mail,
-  MapPin,
-  Phone,
+  Save,
   ShieldCheck,
   UserRound,
 } from "lucide-react"
 import { AppShell } from "../../components/layout/app-shell"
 import { Card } from "../../components/ui/card"
-import { Select } from "../../components/ui/select"
+import { LoadingState } from "../../components/ui/loading-state"
 import { Toast, type ToastMessage } from "../../components/ui/toast"
+import { apiClient } from "../../lib/api-client"
+
+type ProfileUser = {
+  id?: string
+  userId?: string
+  displayName?: string
+  name?: string
+  email?: string
+  role: string
+}
 
 export default function ProfilePage() {
+  const queryClient = useQueryClient()
+  const [displayName, setDisplayName] = useState("")
+  const [email, setEmail] = useState("")
   const [toast, setToast] = useState<ToastMessage | null>(null)
-  const [language, setLanguage] = useState("English")
-  const [timezone, setTimezone] = useState("Africa/Mogadishu")
-  const save = () => {
-    setToast({
-      title: "Profile updated",
-      description: "Your personal details and preferences were saved.",
-      variant: "success",
-    })
-    window.setTimeout(() => setToast(null), 3200)
-  }
+  const profile = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: () => apiClient.getPath<{ user: ProfileUser }>("/v1/auth/me"),
+  })
+  const user = profile.data?.data.user
+
+  useEffect(() => {
+    if (!user) return
+    setDisplayName(user.displayName ?? user.name ?? "")
+    setEmail(user.email ?? "")
+  }, [user])
+
+  const initials = useMemo(
+    () =>
+      (displayName || user?.name || "BP")
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase(),
+    [displayName, user?.name],
+  )
+
+  const update = useMutation({
+    mutationFn: () =>
+      apiClient.action<{ user: ProfileUser }>(
+        "/v1/auth/me",
+        { displayName: displayName.trim(), email: email.trim() },
+        "PATCH",
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["auth", "me"] })
+      setToast({
+        title: "Profile updated",
+        description: "Your account information was saved to the database.",
+        variant: "success",
+      })
+    },
+    onError: (error) =>
+      setToast({
+        title: "Profile not updated",
+        description: error instanceof Error ? error.message : "Unable to update profile.",
+        variant: "error",
+      }),
+  })
 
   return (
     <AppShell>
       <div className="mx-auto max-w-5xl">
-        <div>
-          <p className="text-xs font-bold text-[#007DCC]">Personal account</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-[-0.035em] text-[#142735] md:text-[29px]">
-            My profile
-          </h1>
-          <p className="mt-1.5 text-sm text-[#6b7e8a]">
-            Manage your identity, preferences, and account security.
-          </p>
-        </div>
-        <div className="mt-6 grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <div className="space-y-4">
-            <Card className="p-5 text-center">
-              <div className="relative mx-auto w-fit">
-                <span className="grid size-24 place-items-center rounded-3xl bg-[#dcefff] text-2xl font-bold text-[#0063a3]">
-                  AK
-                </span>
-                <button
-                  aria-label="Change profile photo"
-                  onClick={() =>
-                    setToast({
-                      title: "Photo selector ready",
-                      description:
-                        "Image upload will connect to account storage.",
-                      variant: "info",
-                    })
-                  }
-                  className="absolute -bottom-2 -right-2 grid size-9 place-items-center rounded-xl border-4 border-white bg-[#007DCC] text-white"
-                >
-                  <Camera size={15} />
-                </button>
-              </div>
-              <h2 className="mt-5 text-base font-bold text-[#263f4b]">
-                Abdisalam Abdulahi
+        <p className="text-xs font-semibold text-[#007DCC]">Personal account</p>
+        <h1 className="mt-2 text-2xl font-semibold text-[#142735]">My profile</h1>
+        <p className="mt-1.5 text-sm text-[#6b7e8a]">
+          Manage the identity used for approvals, audit history, and sign-in.
+        </p>
+
+        {profile.isLoading ? (
+          <LoadingState className="mt-6" label="Loading your profile…" />
+        ) : (
+          <div className="mt-6 grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+            <Card className="h-fit p-5 text-center">
+              <span className="mx-auto grid size-20 place-items-center rounded-full bg-[#dcefff] text-xl font-semibold text-[#0063a3]">
+                {initials}
+              </span>
+              <h2 className="mt-4 text-base font-semibold text-[#263f4b]">
+                {user?.displayName ?? user?.name}
               </h2>
-              <p className="mt-1 text-xs text-[#71848f]">Administrator</p>
-              <div className="mt-5 space-y-2 border-t border-[#edf1f4] pt-4 text-left text-xs text-[#526874]">
+              <p className="mt-1 text-xs capitalize text-[#71848f]">
+                {user?.role?.replaceAll("_", " ")}
+              </p>
+              <div className="mt-5 space-y-3 border-t border-[#edf1f4] pt-4 text-left text-xs text-[#526874]">
                 <p className="flex items-center gap-2">
                   <Building2 size={14} /> BLUE PLASTIC CENTER
                 </p>
                 <p className="flex items-center gap-2">
-                  <ShieldCheck size={14} /> Full system access
-                </p>
-                <p className="flex items-center gap-2">
-                  <MapPin size={14} /> Main company
+                  <ShieldCheck size={14} /> Secure database account
                 </p>
               </div>
             </Card>
-            <Card className="p-4">
-              <h3 className="text-xs font-bold text-[#304853]">
-                Account security
-              </h3>
-              <div className="mt-3 flex items-center gap-3 rounded-xl bg-emerald-50 p-3 text-xs font-semibold text-emerald-700">
-                <ShieldCheck size={17} /> Two-factor enabled
-              </div>
-              <button
-                onClick={() =>
-                  setToast({
-                    title: "Security settings opened",
-                    description: "Password and two-factor controls are ready.",
-                    variant: "info",
-                  })
-                }
-                className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold text-[#405762] hover:bg-[#f5f8fa]"
-              >
-                <KeyRound size={15} /> Change security settings
-              </button>
-            </Card>
-          </div>
-          <div className="space-y-4">
+
             <Card className="overflow-hidden">
               <div className="border-b border-[#edf1f4] px-5 py-4">
-                <h2 className="text-sm font-bold text-[#263f4b]">
+                <h2 className="text-sm font-semibold text-[#263f4b]">
                   Personal information
                 </h2>
                 <p className="mt-1 text-xs text-[#82949e]">
-                  Used for approvals, audit history, and communication.
+                  Changes take effect across the application after saving.
                 </p>
               </div>
-              <div className="grid gap-4 p-5 sm:grid-cols-2">
-                <label className="text-xs font-bold text-[#405762]">
-                  <span className="mb-2 flex items-center gap-2">
-                    <UserRound size={14} /> First name
-                  </span>
-                  <input
-                    defaultValue="Abdisalam"
-                    className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"
-                  />
-                </label>
-                <label className="text-xs font-bold text-[#405762]">
-                  <span className="mb-2 block">Last name</span>
-                  <input
-                    defaultValue="Abdullahi"
-                    className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"
-                  />
-                </label>
-                <label className="text-xs font-bold text-[#405762]">
-                  <span className="mb-2 flex items-center gap-2">
-                    <Mail size={14} /> Email
-                  </span>
-                  <input
-                    type="email"
-                    defaultValue="abdisalam@blueplastic.example"
-                    className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"
-                  />
-                </label>
-                <label className="text-xs font-bold text-[#405762]">
-                  <span className="mb-2 flex items-center gap-2">
-                    <Phone size={14} /> Phone
-                  </span>
-                  <input
-                    defaultValue="+252 61 555 0100"
-                    className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"
-                  />
-                </label>
-              </div>
-            </Card>
-            <Card className="overflow-hidden">
-              <div className="border-b border-[#edf1f4] px-5 py-4">
-                <h2 className="text-sm font-bold text-[#263f4b]">
-                  Workspace preferences
-                </h2>
-              </div>
-              <div className="grid gap-4 p-5 sm:grid-cols-2">
-                <label className="text-xs font-bold text-[#405762]">
-                  <span className="mb-2 block">Language</span>
-                  <Select
-                    value={language}
-                    onValueChange={setLanguage}
-                    options={["English", "Somali", "Arabic"]}
-                  />
-                </label>
-                <label className="text-xs font-bold text-[#405762]">
-                  <span className="mb-2 block">Timezone</span>
-                  <Select
-                    value={timezone}
-                    onValueChange={setTimezone}
-                    options={[
-                      "Africa/Mogadishu",
-                      "Africa/Nairobi",
-                      "Asia/Dubai",
-                      "UTC",
-                    ]}
-                  />
-                </label>
-              </div>
-              <div className="flex justify-end border-t border-[#edf1f4] px-5 py-4">
-                <button
-                  onClick={save}
-                  className="rounded-xl bg-[#007DCC] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#0069ad]"
-                >
-                  Save profile
-                </button>
-              </div>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  update.mutate()
+                }}
+              >
+                <div className="grid gap-4 p-5 sm:grid-cols-2">
+                  <label className="text-xs font-semibold text-[#405762]">
+                    <span className="mb-2 flex items-center gap-2">
+                      <UserRound size={14} /> Display name <b className="text-red-500">*</b>
+                    </span>
+                    <input
+                      required
+                      minLength={2}
+                      value={displayName}
+                      onChange={(event) => setDisplayName(event.target.value)}
+                      className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"
+                    />
+                  </label>
+                  <label className="text-xs font-semibold text-[#405762]">
+                    <span className="mb-2 flex items-center gap-2">
+                      <Mail size={14} /> Email <b className="text-red-500">*</b>
+                    </span>
+                    <input
+                      required
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      className="h-11 w-full rounded-xl border border-[#dce6ed] px-3 text-sm outline-none focus:border-[#007DCC] focus:ring-4 focus:ring-[#007DCC]/10"
+                    />
+                  </label>
+                </div>
+                <div className="flex justify-end border-t border-[#edf1f4] px-5 py-4">
+                  <button
+                    disabled={update.isPending || !displayName.trim() || !email.trim()}
+                    className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-5 text-xs font-semibold text-white hover:bg-[#0069ad] disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {update.isPending ? (
+                      <LoaderCircle size={15} className="animate-spin" />
+                    ) : (
+                      <Save size={15} />
+                    )}
+                    {update.isPending ? "Updating…" : "Update profile"}
+                  </button>
+                </div>
+              </form>
             </Card>
           </div>
-        </div>
+        )}
         <Toast message={toast} onClose={() => setToast(null)} />
       </div>
     </AppShell>

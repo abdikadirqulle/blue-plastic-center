@@ -46,6 +46,15 @@ export class PostgresIdentityRepository implements IdentityRepository {
     return user ? this.toIdentityUser(user) : undefined
   }
 
+  async findUserById(userId: string, companyId: string) {
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(and(eq(users.id, userId), eq(users.companyId, companyId)))
+      .limit(1)
+    return user ? this.toIdentityUser(user) : undefined
+  }
+
   async findUserBySessionHash(tokenHash: string) {
     const [row] = await this.db
       .select({ user: users })
@@ -129,6 +138,23 @@ export class PostgresIdentityRepository implements IdentityRepository {
       passwordHash: user.passwordHash,
       active: user.active,
     })
+  }
+
+  async updateUser(
+    userId: string,
+    companyId: string,
+    changes: Partial<Pick<IdentityUser, "email" | "displayName" | "role" | "active">>,
+  ) {
+    const [updated] = await this.db
+      .update(users)
+      .set({
+        ...changes,
+        ...(changes.email ? { email: changes.email.toLowerCase() } : {}),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(users.id, userId), eq(users.companyId, companyId)))
+      .returning()
+    return updated ? this.toIdentityUser(updated) : undefined
   }
 
   async updateUserPassword(userId: string, passwordHash: string) {

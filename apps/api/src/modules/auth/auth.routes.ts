@@ -26,6 +26,16 @@ const createUserSchema = z.object({
   password: z.string().min(10).max(128),
 })
 const resetPasswordSchema = z.object({ password: z.string().min(10).max(128) })
+const updateProfileSchema = z.object({
+  displayName: z.string().trim().min(2).max(100),
+  email: z.string().email(),
+})
+const updateUserSchema = z.object({
+  displayName: z.string().trim().min(2).max(100).optional(),
+  email: z.string().email().optional(),
+  role: roleSchema.optional(),
+  active: z.boolean().optional(),
+}).refine((input) => Object.keys(input).length > 0, "At least one change is required")
 
 function requireAdministrator(role: string) {
   if (role !== "administrator") throw new ApiError(403, "FORBIDDEN", "Administrator access is required")
@@ -55,7 +65,27 @@ export async function authRoutes(app: FastifyInstance, authService: AuthService,
     return { data: { user: result.user, csrfToken: result.csrfToken } }
   })
 
-  app.get("/me", async (request) => ({ data: { user: request.requestContext.principal } }))
+  app.get("/me", async (request) => ({
+    data: {
+      user: await authService.getUser(
+        request.requestContext.principal.userId,
+        request.requestContext.companyId,
+      ),
+    },
+  }))
+
+  app.patch("/me", async (request) => {
+    const input = updateProfileSchema.parse(request.body)
+    return {
+      data: {
+        user: await authService.updateUser(
+          request.requestContext.principal.userId,
+          request.requestContext.companyId,
+          input,
+        ),
+      },
+    }
+  })
 
   app.get("/users", async (request) => {
     requireAdministrator(request.requestContext.principal.role)
@@ -78,6 +108,23 @@ export async function authRoutes(app: FastifyInstance, authService: AuthService,
     const input = resetPasswordSchema.parse(request.body)
     await authService.resetPassword(request.params.id, input.password)
     return reply.code(204).send()
+  })
+
+  app.patch<{ Params: { id: string } }>("/users/:id", async (request) => {
+    requireAdministrator(request.requestContext.principal.role)
+    const input = updateUserSchema.parse(request.body)
+    if (
+      request.params.id === request.requestContext.principal.userId &&
+      input.active === false
+    )
+      throw new ApiError(422, "SELF_DEACTIVATION", "You cannot deactivate your own account")
+    return {
+      data: await authService.updateUser(
+        request.params.id,
+        request.requestContext.companyId,
+        input,
+      ),
+    }
   })
 
   app.post("/logout", async (request, reply) => {

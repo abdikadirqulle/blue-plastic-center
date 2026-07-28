@@ -136,10 +136,45 @@ test("administrators can provision the small company user team", async () => {
   });
   assert.equal(created.status, 201);
   assert.equal(created.json().data.role, "accountant");
+  const userId = created.json().data.id;
+
+  const updated = await request(app, `/v1/auth/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      displayName: "Senior Accountant",
+      role: "finance_manager",
+      active: false,
+    }),
+  });
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json().data.displayName, "Senior Accountant");
+  assert.equal(updated.json().data.active, false);
+
+  const reset = await request(app, `/v1/auth/users/${userId}/reset-password`, {
+    method: "POST",
+    body: JSON.stringify({ password: "ChangedPassword123!" }),
+  });
+  assert.equal(reset.status, 204);
 
   const users = await request(app, "/v1/auth/users");
   assert.equal(users.json().data.length, 3);
   assert.equal("passwordHash" in users.json().data[0], false);
+});
+
+test("signed-in users can update their own profile", async () => {
+  const app = createApp();
+  const updated = await request(app, "/v1/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify({
+      displayName: "Abdisalam A. Abdulahi",
+      email: "abdisalam@blueplastic.local",
+    }),
+  });
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json().data.user.displayName, "Abdisalam A. Abdulahi");
+
+  const me = await request(app, "/v1/auth/me");
+  assert.equal(me.json().data.user.email, "abdisalam@blueplastic.local");
 });
 
 test("health and module metadata expose the backend platform", async () => {

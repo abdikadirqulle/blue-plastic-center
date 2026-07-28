@@ -66,9 +66,23 @@ export class AuthService {
     if (token) await this.repository.deleteSession(digest(token))
   }
 
+  async getUser(userId: string, companyId: string) {
+    const user = await this.repository.findUserById(userId, companyId)
+    if (!user) throw new ApiError(404, "USER_NOT_FOUND", "User was not found")
+    return {
+      id: user.id,
+      displayName: user.displayName,
+      email: user.email,
+      role: user.role,
+      active: user.active,
+    }
+  }
+
   async listUsers(companyId: string) {
     return (await this.repository.listUsers(companyId)).map((user) => ({
-      ...this.publicUser(user),
+      id: user.id,
+      displayName: user.displayName,
+      role: user.role,
       email: user.email,
       active: user.active,
     }))
@@ -96,7 +110,34 @@ export class AuthService {
       failedLoginAttempts: 0,
     }
     await this.repository.createUser(user)
-    return { ...this.publicUser(user), email: user.email, active: user.active }
+    return {
+      id: user.id,
+      displayName: user.displayName,
+      role: user.role,
+      email: user.email,
+      active: user.active,
+    }
+  }
+
+  async updateUser(
+    userId: string,
+    companyId: string,
+    changes: Partial<Pick<IdentityUser, "email" | "displayName" | "role" | "active">>,
+  ) {
+    if (changes.email) {
+      const existing = await this.repository.findUserByEmail(changes.email)
+      if (existing && existing.id !== userId)
+        throw new ApiError(409, "EMAIL_EXISTS", "A user with this email already exists")
+    }
+    const user = await this.repository.updateUser(userId, companyId, changes)
+    if (!user) throw new ApiError(404, "USER_NOT_FOUND", "User was not found")
+    return {
+      id: user.id,
+      displayName: user.displayName,
+      email: user.email,
+      role: user.role,
+      active: user.active,
+    }
   }
 
   async resetPassword(userId: string, password: string) {
