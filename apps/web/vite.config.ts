@@ -14,6 +14,9 @@ export default defineConfig({
       ),
     },
   },
+  optimizeDeps: {
+    exclude: ["jspdf"],
+  },
   server: {
     host: "0.0.0.0",
   },

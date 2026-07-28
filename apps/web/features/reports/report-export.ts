@@ -1,3 +1,4 @@
+import { jsPDF } from "jspdf"
 import type { FinancialLine } from "./financial-report-model"
 import { money } from "./financial-report-model"
 
@@ -9,8 +10,7 @@ interface ExportReport {
   lines: FinancialLine[]
 }
 
-async function createPdf(report: ExportReport) {
-  const { jsPDF } = await import("jspdf")
+function createPdf(report: ExportReport) {
   const pdf = new jsPDF({ unit: "pt", format: "a4" })
   const width = pdf.internal.pageSize.getWidth()
   let y = 48
@@ -67,7 +67,7 @@ async function createPdf(report: ExportReport) {
 }
 
 export async function exportReportPdf(report: ExportReport) {
-  const pdf = await createPdf(report)
+  const pdf = createPdf(report)
   const url = URL.createObjectURL(pdf.output("blob"))
   const link = document.createElement("a")
   link.href = url
