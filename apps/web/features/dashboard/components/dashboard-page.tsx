@@ -1,16 +1,24 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { format, startOfMonth } from "date-fns"
+import { format } from "date-fns"
 import { Link } from "@/components/routing"
 import { ArrowRight, Box, BriefcaseBusiness, FileText, Landmark, Receipt, Users } from "lucide-react"
 import { AppShell } from "../../../components/layout/app-shell"
 import { Badge } from "../../../components/ui/badge"
 import { Card } from "../../../components/ui/card"
-import { DatePicker } from "../../../components/ui/date-picker"
 import { Skeleton, ValueSkeleton } from "../../../components/ui/skeleton"
 import { formatCurrency } from "../../../lib/utils"
 import { useResourceList } from "../../resources/resource-api"
+import {
+  DashboardDateRangePicker,
+  type DashboardDateRange,
+} from "./dashboard-date-range-picker"
+import {
+  IncomeExpenseChart,
+  InventoryValueChart,
+  ReceivablesChart,
+} from "./dashboard-charts"
 
 const sources = [
   { module: "sales", resource: "invoices", title: "Sales", href: "/sales/invoices", icon: FileText },
@@ -41,27 +49,26 @@ function recordTitle(data: Record<string, unknown>) {
   return "Database record"
 }
 
-function MiniBars({ values, color = "#007DCC" }: { values: number[]; color?: string }) {
-  const max = Math.max(...values, 1)
-  return <div className="flex h-28 items-end gap-2">{values.map((value, index) => <div key={index} className="flex-1 rounded-t-sm" style={{ height: `${Math.max((value / max) * 100, 3)}%`, background: color, opacity: 0.35 + index * 0.1 }}/>)}</div>
-}
-
 export function DashboardPage() {
   const today = format(new Date(), "yyyy-MM-dd")
-  const [from, setFrom] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"))
-  const [to, setTo] = useState(today)
+  const [period, setPeriod] = useState<DashboardDateRange>({
+    from: format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), "yyyy-MM-dd"),
+    to: today,
+    label: "This month",
+  })
   const invoices = useResourceList("sales", "invoices", { page: 1, pageSize: 100 })
   const bills = useResourceList("purchasing", "bills", { page: 1, pageSize: 100 })
   const banking = useResourceList("banking", "transactions", { page: 1, pageSize: 100 })
   const inventory = useResourceList("inventory", "items", { page: 1, pageSize: 100 })
   const projects = useResourceList("projects", "projects", { page: 1, pageSize: 100 })
   const employees = useResourceList("payroll", "employees", { page: 1, pageSize: 100 })
+  const customers = useResourceList("sales", "customers", { page: 1, pageSize: 100 })
   const queries = [invoices, bills, banking, inventory, projects, employees]
 
   const modules = useMemo(() => sources.map((source, index) => {
     const records = (queries[index].data?.data ?? []).filter((record) => {
       const date = recordDate(record.data, record.createdAt)
-      return date >= from && date <= to
+      return (!period.from || date >= period.from) && (!period.to || date <= period.to)
     })
     return {
       ...source,
@@ -70,42 +77,66 @@ export function DashboardPage() {
       value: records.reduce((sum, record) => sum + amount(record.data), 0),
       loading: queries[index].isLoading,
     }
-  }), [from, to, ...queries.map((query) => query.data)])
+  }), [period.from, period.to, ...queries.map((query) => query.data)])
 
   const recent = modules
     .flatMap((source) => source.records.map((record) => ({ ...record, href: source.href })))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .slice(0, 7)
   const anyLoading = queries.some((query) => query.isLoading)
-  const monthBuckets = (records: typeof modules[0]["records"]) => Array.from({ length: 6 }, (_, offset) => {
-    const date = new Date()
-    date.setMonth(date.getMonth() - (5 - offset))
-    const key = date.toISOString().slice(0, 7)
-    return records.filter((record) => recordDate(record.data, record.createdAt).startsWith(key)).reduce((sum, record) => sum + amount(record.data), 0)
-  })
+  const chartKeys = Array.from(new Set(
+    [...modules[0].records, ...modules[1].records]
+      .map((record) => recordDate(record.data, record.createdAt).slice(0, 7)),
+  )).sort().slice(-8)
+  const chartPoints = (chartKeys.length ? chartKeys : [today.slice(0, 7)]).map((key) => ({
+    label: format(new Date(`${key}-01T00:00:00`), "MMM yy"),
+    sales: modules[0].records.filter((record) => recordDate(record.data, record.createdAt).startsWith(key)).reduce((sum, record) => sum + amount(record.data), 0),
+    expenses: modules[1].records.filter((record) => recordDate(record.data, record.createdAt).startsWith(key)).reduce((sum, record) => sum + amount(record.data), 0),
+  }))
+  const invoiceValues = {
+    paid: modules[0].records.filter((record) => /paid/i.test(record.status)).reduce((sum, record) => sum + amount(record.data), 0),
+    open: modules[0].records.filter((record) => /open|sent|draft/i.test(record.status)).reduce((sum, record) => sum + amount(record.data), 0),
+    overdue: modules[0].records.filter((record) => /overdue/i.test(record.status)).reduce((sum, record) => sum + amount(record.data), 0),
+  }
+  const inventoryValues = modules[3].records.map((record) => {
+    const quantity = Number(record.data.openingQuantity ?? record.data.quantityOnHand ?? 0)
+    const cost = Number(record.data.purchaseCost ?? 0)
+    return { name: recordTitle(record.data), quantity, value: quantity * cost }
+  }).sort((a, b) => b.value - a.value)
+  const receivable = modules[0].records.reduce((sum, record) => sum + Number(record.data.balanceDue ?? 0), 0)
+  const payable = modules[1].records.reduce((sum, record) => sum + Number(record.data.balanceDue ?? 0), 0)
+  const inventoryValue = inventoryValues.reduce((sum, item) => sum + item.value, 0)
+  const overdueInvoices = modules[0].records.filter((record) => /overdue/i.test(record.status)).length
 
   const summary = [
     { label: "Total sales", value: modules[0].value, helper: `${modules[0].total} invoices`, loading: invoices.isLoading },
     { label: "Total expenses", value: modules[1].value, helper: `${modules[1].total} bills`, loading: bills.isLoading },
     { label: "Net income", value: modules[0].value - modules[1].value, helper: "Sales less expenses", loading: invoices.isLoading || bills.isLoading },
     { label: "Cash activity", value: modules[2].value, helper: `${modules[2].total} transactions`, loading: banking.isLoading },
+    { label: "Accounts receivable", value: receivable, helper: "Outstanding customer balances", loading: invoices.isLoading },
+    { label: "Accounts payable", value: payable, helper: "Outstanding vendor bills", loading: bills.isLoading },
+    { label: "Inventory at cost", value: inventoryValue, helper: `${modules[3].total} tracked items`, loading: inventory.isLoading },
+    { label: "Active customers", value: customers.data?.meta?.total ?? customers.data?.data.length ?? 0, helper: `${overdueInvoices} overdue invoices`, loading: customers.isLoading || invoices.isLoading, count: true },
   ]
 
   return <AppShell>
     <div className="mx-auto max-w-[1400px]">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
         <div><p className="text-xs font-medium text-[#007DCC]">Company overview</p><h1 className="mt-1 text-2xl font-semibold text-[#142735]">Dashboard</h1><p className="mt-1 text-sm text-[#6b7e8a]">A live view of sales, expenses, cash, and operations.</p></div>
-        <div className="flex flex-wrap items-end gap-2"><label className="w-40 text-[11px] text-[#687d88]"><span className="mb-1 block">From</span><DatePicker value={from} onChange={setFrom} className="h-9"/></label><label className="w-40 text-[11px] text-[#687d88]"><span className="mb-1 block">To</span><DatePicker value={to} onChange={setTo} className="h-9"/></label><Link href="/reports/financial" className="flex h-9 items-center gap-2 rounded-lg border bg-white px-3 text-xs font-medium text-[#007DCC]">Reports <ArrowRight size={14}/></Link></div>
+        <div className="flex flex-wrap items-center gap-2"><DashboardDateRangePicker value={period} onChange={setPeriod}/><Link href="/reports/financial" className="flex h-10 items-center gap-2 rounded-xl border bg-white px-3 text-xs font-medium text-[#007DCC]">Reports <ArrowRight size={14}/></Link></div>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {summary.map((stat) => <Card key={stat.label} className="rounded-xl p-4"><p className="text-xs text-[#6d808c]">{stat.label}</p>{stat.loading ? <ValueSkeleton className="mt-2 h-6"/> : <p className="mt-2 text-xl font-semibold tabular-nums text-[#152936]">{formatCurrency(stat.value)}</p>}<p className="mt-1 text-[11px] text-[#718791]">{stat.loading ? "\u00a0" : stat.helper}</p></Card>)}
+        {summary.map((stat) => <Card key={stat.label} className="relative overflow-hidden rounded-xl p-4"><span className="absolute inset-y-0 left-0 w-0.5 bg-[#007DCC]"/><p className="text-xs text-[#6d808c]">{stat.label}</p>{stat.loading ? <ValueSkeleton className="mt-2 h-6"/> : <p className="mt-2 text-xl font-semibold tabular-nums text-[#152936]">{"count" in stat && stat.count ? Number(stat.value).toLocaleString() : formatCurrency(stat.value)}</p>}<p className="mt-1 text-[11px] text-[#718791]">{stat.loading ? "\u00a0" : stat.helper}</p></Card>)}
       </div>
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-[1.35fr_1fr_1fr]">
-        <Card className="rounded-xl p-5"><h2 className="text-sm font-semibold text-[#233d49]">Income and expenses</h2><p className="mt-1 text-[11px] text-[#7a8e98]">Last six months</p>{invoices.isLoading || bills.isLoading ? <Skeleton className="mt-5 h-28 w-full"/> : <div className="mt-5 grid grid-cols-2 gap-3"><MiniBars values={monthBuckets(modules[0].records)}/><MiniBars values={monthBuckets(modules[1].records)} color="#f59e0b"/></div>}</Card>
-        <Card className="rounded-xl p-5"><h2 className="text-sm font-semibold text-[#233d49]">Invoice status</h2><p className="mt-1 text-[11px] text-[#7a8e98]">Receivables health</p>{invoices.isLoading ? <div className="mt-5 space-y-4">{Array.from({length: 3}, (_, index) => <div key={index}><Skeleton className="mb-2 h-3 w-20"/><Skeleton className="h-1.5 w-full"/></div>)}</div> : <div className="mt-5 space-y-3">{["paid", "open", "overdue"].map((status) => { const count = modules[0].records.filter((record) => record.status.toLowerCase().includes(status)).length; const percent = modules[0].total ? count / modules[0].total * 100 : 0; return <div key={status}><div className="mb-1 flex justify-between text-[11px]"><span className="capitalize text-[#526974]">{status}</span><span>{count}</span></div><div className="h-1.5 rounded-full bg-[#edf2f5]"><div className="h-full rounded-full bg-[#007DCC]" style={{width: `${percent}%`}}/></div></div>})}</div>}</Card>
-        <Card className="rounded-xl p-5"><h2 className="text-sm font-semibold text-[#233d49]">Cash position</h2><p className="mt-1 text-[11px] text-[#7a8e98]">Recorded banking activity</p>{banking.isLoading ? <><ValueSkeleton className="mt-6"/><Skeleton className="mt-2 h-3 w-40"/></> : <><p className="mt-6 text-2xl font-semibold tabular-nums text-[#17303d]">{formatCurrency(modules[2].value)}</p><p className="mt-1 text-xs text-[#718791]">{modules[2].total} transactions in this period</p></>}<Link href="/banking/transactions" className="mt-5 inline-flex items-center gap-1 text-xs font-medium text-[#007DCC]">Review banking <ArrowRight size={13}/></Link></Card>
+      <div className="mt-3 grid gap-3 xl:grid-cols-[1.5fr_1fr]">
+        <Card className="rounded-xl p-5"><IncomeExpenseChart points={chartPoints} loading={invoices.isLoading || bills.isLoading}/></Card>
+        <Card className="rounded-xl p-5"><ReceivablesChart {...invoiceValues} loading={invoices.isLoading}/></Card>
+      </div>
+      <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1fr]">
+        <Card className="rounded-xl p-5"><InventoryValueChart items={inventoryValues} loading={inventory.isLoading}/></Card>
+        <Card className="rounded-xl p-5"><h2 className="text-sm font-semibold text-[#233d49]">Cash and obligations</h2><p className="mt-1 text-[11px] text-[#7a8e98]">Liquidity compared with money due</p>{banking.isLoading || invoices.isLoading || bills.isLoading ? <Skeleton className="mt-6 h-36 w-full"/> : <div className="mt-6 space-y-5">{[["Cash activity", modules[2].value, "#007DCC"],["Receivables", receivable, "#10b981"],["Payables", payable, "#f59e0b"]].map(([label,value,color]) => { const maximum = Math.max(modules[2].value, receivable, payable, 1); return <div key={String(label)}><div className="mb-2 flex justify-between text-xs"><span className="text-[#607681]">{label}</span><b>{formatCurrency(Number(value))}</b></div><div className="h-2.5 rounded-full bg-[#edf2f5]"><div className="h-full rounded-full" style={{width:`${Number(value)/maximum*100}%`,background:String(color)}}/></div></div>})}</div>}</Card>
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
