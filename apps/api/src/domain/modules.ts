@@ -1,14 +1,14 @@
 export interface ResourceDefinition {
-  name: string
-  label: string
-  requiredFields: string[]
-  searchableFields: string[]
+  name: string;
+  label: string;
+  requiredFields: string[];
+  searchableFields: string[];
 }
 
 export interface ModuleDefinition {
-  name: string
-  label: string
-  resources: Record<string, ResourceDefinition>
+  name: string;
+  label: string;
+  resources: Record<string, ResourceDefinition>;
 }
 
 const resource = (
@@ -16,7 +16,7 @@ const resource = (
   label: string,
   requiredFields: string[] = ["name"],
   searchableFields: string[] = requiredFields,
-): ResourceDefinition => ({ name, label, requiredFields, searchableFields })
+): ResourceDefinition => ({ name, label, requiredFields, searchableFields });
 
 export const modules: Record<string, ModuleDefinition> = {
   documents: {
@@ -65,7 +65,6 @@ export const modules: Record<string, ModuleDefinition> = {
         "symbol",
         "exchangeRate",
       ]),
-      "tax-codes": resource("tax-codes", "Tax codes", ["code", "name", "rate"]),
       "payment-terms": resource("payment-terms", "Payment terms", [
         "name",
         "dueDays",
@@ -527,11 +526,11 @@ export const modules: Record<string, ModuleDefinition> = {
       ]),
     },
   },
-}
+};
 
 export function getResourceDefinition(
   moduleName: string,
   resourceName: string,
 ) {
-  return modules[moduleName]?.resources[resourceName]
+  return modules[moduleName]?.resources[resourceName];
 }

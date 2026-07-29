@@ -4,7 +4,7 @@ import type {
   ModuleDefinition,
   ResourceConfig,
   ResourceRow,
-} from "@blue-plastic/types"
+} from "@blue-plastic/types";
 
 export type {
   FieldType,
@@ -13,14 +13,14 @@ export type {
   ModuleDefinition,
   ResourceConfig,
   ResourceRow,
-} from "@blue-plastic/types"
+} from "@blue-plastic/types";
 
 function sampleRows(
   _prefix: string,
   _subjects: string[],
   _values: string[],
 ): ResourceRow[] {
-  return []
+  return [];
 }
 
 const addressFields: FormSection = {
@@ -90,10 +90,10 @@ const addressFields: FormSection = {
       width: "half",
     },
   ],
-}
+};
 
 const transactionTotals: FormSection = {
-  title: "Totals, tax & payment",
+  title: "Totals & payment",
   fields: [
     {
       name: "customerMessage",
@@ -120,14 +120,6 @@ const transactionTotals: FormSection = {
       type: "number",
       width: "third",
     },
-    {
-      name: "salesTaxItem",
-      label: "Sales tax item",
-      type: "select",
-      options: ["Non-taxable", "Standard tax", "Zero rated", "Custom"],
-      width: "third",
-    },
-    { name: "taxRate", label: "Tax rate %", type: "number", width: "third" },
     {
       name: "deposit",
       label: "Deposit applied",
@@ -161,9 +153,9 @@ const transactionTotals: FormSection = {
       width: "third",
     },
   ],
-}
+};
 
-const salesRows: ResourceRow[] = []
+const salesRows: ResourceRow[] = [];
 
 export const moduleDefinitions: Record<string, ModuleDefinition> = {
   sales: {
@@ -305,17 +297,17 @@ export const moduleDefinitions: Record<string, ModuleDefinition> = {
   },
   settings: {
     title: "Company settings",
-    description: "Company, branches, users, currencies, taxes, and workflows.",
+    description:
+      "Company, branches, users, currencies, addresses, and workflows.",
     resources: [
       { slug: "company", label: "Company" },
       { slug: "branches", label: "Branches" },
       { slug: "users-roles", label: "Users & roles" },
       { slug: "currencies", label: "Currencies" },
-      { slug: "taxes", label: "Taxes" },
       { slug: "workflows", label: "Workflows" },
     ],
   },
-}
+};
 
 const salesResources: ResourceConfig[] = [
   {
@@ -326,7 +318,14 @@ const salesResources: ResourceConfig[] = [
     description: "Create, send, post, and collect customer invoices.",
     primaryAction: "New invoice",
     searchPlaceholder: "Search invoice number, customer, PO, or memo",
-    columns: ["Invoice", "Customer", "Invoice date", "Due date", "Amount", "Balance due"],
+    columns: [
+      "Invoice",
+      "Customer",
+      "Invoice date",
+      "Due date",
+      "Amount",
+      "Balance due",
+    ],
     stats: [
       { label: "Open invoices", value: "$92,750", helper: "46 invoices" },
       { label: "Overdue", value: "$18,240", helper: "9 invoices" },
@@ -439,7 +438,7 @@ const salesResources: ResourceConfig[] = [
     slug: "customers",
     title: "Customers",
     description:
-      "Manage customer profiles, jobs, contacts, credit, tax, and payment settings.",
+      "Manage customer profiles, jobs, contacts, credit, and payment settings.",
     primaryAction: "New customer",
     searchPlaceholder:
       "Search customer, company, phone, email, or account number",
@@ -530,7 +529,7 @@ const salesResources: ResourceConfig[] = [
       },
       addressFields,
       {
-        title: "Payment, tax & accounting",
+        title: "Payment & accounting",
         fields: [
           {
             name: "terms",
@@ -569,26 +568,6 @@ const salesResources: ResourceConfig[] = [
             label: "Currency",
             type: "select",
             options: ["USD", "SOS", "EUR", "GBP"],
-            width: "third",
-          },
-          {
-            name: "taxStatus",
-            label: "Tax status",
-            type: "select",
-            options: ["Taxable", "Non-taxable", "Resale"],
-            width: "third",
-          },
-          {
-            name: "taxId",
-            label: "Tax registration no.",
-            type: "text",
-            width: "third",
-          },
-          {
-            name: "taxItem",
-            label: "Preferred tax item",
-            type: "select",
-            options: ["Standard tax", "Zero rated", "Exempt"],
             width: "third",
           },
           {
@@ -1153,7 +1132,7 @@ const salesResources: ResourceConfig[] = [
       transactionTotals,
     ],
   },
-]
+];
 
 const phaseOneSalesResources: ResourceConfig[] = [
   {
@@ -1718,17 +1697,17 @@ const phaseOneSalesResources: ResourceConfig[] = [
       transactionTotals,
     ],
   },
-]
+];
 
-salesResources.push(...phaseOneSalesResources)
+salesResources.push(...phaseOneSalesResources);
 
 const commonResourceSpecs: Array<{
-  module: string
-  slug: string
-  title: string
-  action: string
-  columns: string[]
-  fields: FormField[]
+  module: string;
+  slug: string;
+  title: string;
+  action: string;
+  columns: string[];
+  fields: FormField[];
 }> = [
   [
     "debts",
@@ -1971,12 +1950,6 @@ const commonResourceSpecs: Array<{
         ],
       },
       { name: "amount", label: "Amount", type: "number", required: true },
-      {
-        name: "tax",
-        label: "Tax item",
-        type: "select",
-        options: ["Standard tax", "Non-taxable", "Zero rated"],
-      },
       { name: "memo", label: "Memo", type: "textarea" },
     ],
   ],
@@ -1997,7 +1970,6 @@ const commonResourceSpecs: Array<{
       { name: "contact", label: "Primary contact", type: "text" },
       { name: "email", label: "Email", type: "email" },
       { name: "phone", label: "Phone", type: "tel" },
-      { name: "taxId", label: "Tax ID", type: "text" },
       { name: "accountNumber", label: "Account number", type: "text" },
       {
         name: "terms",
@@ -2132,12 +2104,6 @@ const commonResourceSpecs: Array<{
         required: true,
       },
       { name: "amount", label: "Amount", type: "number", required: true },
-      {
-        name: "tax",
-        label: "Tax",
-        type: "select",
-        options: ["Non-taxable", "Standard tax"],
-      },
       { name: "class", label: "Class", type: "text" },
       { name: "project", label: "Customer/project", type: "text" },
       { name: "memo", label: "Memo", type: "textarea" },
@@ -2239,7 +2205,7 @@ const commonResourceSpecs: Array<{
         name: "type",
         label: "Transaction type",
         type: "select",
-        options: ["Deposit", "Withdrawal", "Cheque", "Fee", "Interest"],
+        options: ["Deposit", "Withdrawal", "Cheque", "Fee"],
         required: true,
       },
       { name: "date", label: "Date", type: "date", required: true },
@@ -2287,9 +2253,6 @@ const commonResourceSpecs: Array<{
       { name: "serviceCharge", label: "Service charge", type: "number" },
       { name: "chargeDate", label: "Charge date", type: "date" },
       { name: "chargeAccount", label: "Charge account", type: "text" },
-      { name: "interestEarned", label: "Interest earned", type: "number" },
-      { name: "interestDate", label: "Interest date", type: "date" },
-      { name: "interestAccount", label: "Interest account", type: "text" },
     ],
   ],
   [
@@ -2397,12 +2360,15 @@ const commonResourceSpecs: Array<{
       },
       { name: "purchaseCost", label: "Purchase cost", type: "number" },
       { name: "expenseAccountId", label: "COGS account", type: "select" },
-      { name: "inventoryAccountId", label: "Inventory asset account", type: "select" },
+      {
+        name: "inventoryAccountId",
+        label: "Inventory asset account",
+        type: "select",
+      },
       { name: "preferredVendorId", label: "Preferred vendor", type: "select" },
       { name: "reorderPoint", label: "Reorder point", type: "number" },
       { name: "openingQuantity", label: "Quantity on hand", type: "number" },
       { name: "asOf", label: "As of date", type: "date" },
-      { name: "taxCode", label: "Tax code", type: "text" },
       {
         name: "serialTracking",
         label: "Track serial numbers",
@@ -2637,7 +2603,6 @@ const commonResourceSpecs: Array<{
       },
       { name: "openingBalance", label: "Opening balance", type: "number" },
       { name: "asOf", label: "As of date", type: "date" },
-      { name: "taxLine", label: "Tax line mapping", type: "text" },
       { name: "description", label: "Description", type: "textarea" },
       { name: "inactive", label: "Inactive", type: "checkbox" },
     ],
@@ -3074,7 +3039,6 @@ const commonResourceSpecs: Array<{
       },
       { name: "bankName", label: "Bank name", type: "text" },
       { name: "bankAccount", label: "Bank account", type: "text" },
-      { name: "taxId", label: "Tax/ID number", type: "text" },
       { name: "address", label: "Address", type: "textarea" },
       { name: "active", label: "Active employee", type: "checkbox" },
     ],
@@ -3157,7 +3121,6 @@ const commonResourceSpecs: Array<{
         type: "number",
         required: true,
       },
-      { name: "interestRate", label: "Interest rate %", type: "number" },
       { name: "startDate", label: "Start date", type: "date" },
       { name: "installments", label: "Number of installments", type: "number" },
       {
@@ -3232,7 +3195,6 @@ const commonResourceSpecs: Array<{
         label: "Registration number",
         type: "text",
       },
-      { name: "taxId", label: "Tax ID", type: "text" },
       { name: "industry", label: "Industry", type: "text" },
       { name: "fiscalYearStart", label: "Fiscal year starts", type: "date" },
       {
@@ -3359,30 +3321,6 @@ const commonResourceSpecs: Array<{
   ],
   [
     "settings",
-    "taxes",
-    "Tax settings",
-    "New tax code",
-    ["Tax", "Code", "Rate", "Authority"],
-    [
-      { name: "taxName", label: "Tax name", type: "text", required: true },
-      { name: "taxCode", label: "Tax code", type: "text", required: true },
-      { name: "rate", label: "Rate %", type: "number", required: true },
-      { name: "taxAuthority", label: "Tax authority", type: "text" },
-      { name: "payableAccount", label: "Tax payable account", type: "text" },
-      { name: "expenseAccount", label: "Tax expense account", type: "text" },
-      { name: "effectiveDate", label: "Effective date", type: "date" },
-      {
-        name: "filingFrequency",
-        label: "Filing frequency",
-        type: "select",
-        options: ["Monthly", "Quarterly", "Yearly"],
-      },
-      { name: "inclusive", label: "Prices include tax", type: "checkbox" },
-      { name: "active", label: "Active", type: "checkbox" },
-    ],
-  ],
-  [
-    "settings",
     "workflows",
     "Approval workflows",
     "New workflow",
@@ -3433,115 +3371,561 @@ const commonResourceSpecs: Array<{
   columns,
   fields,
 })) as Array<{
-  module: string
-  slug: string
-  title: string
-  action: string
-  columns: string[]
-  fields: FormField[]
-}>
+  module: string;
+  slug: string;
+  title: string;
+  action: string;
+  columns: string[];
+  fields: FormField[];
+}>;
 
 const phaseThreeSpecs: typeof commonResourceSpecs = [
   {
-    module: "accounting", slug: "close-center", title: "Month-end close center", action: "Start close",
+    module: "accounting",
+    slug: "close-center",
+    title: "Month-end close center",
+    action: "Start close",
     columns: ["Close task", "Owner / area", "Progress", "Due date"],
     fields: [
-      { name: "period", label: "Fiscal period", type: "select", options: ["July 2026", "August 2026", "Q3 2026"], required: true, width: "third" },
-      { name: "closeDate", label: "Target close date", type: "date", required: true, width: "third" },
-      { name: "owner", label: "Close owner", type: "select", options: ["Finance Manager", "Controller", "Chief Accountant", "Add new user"], required: true, width: "third" },
-      { name: "checklist", label: "Reconciliation, review and posting checklist", type: "textarea", required: true },
-      { name: "closingPassword", label: "Closing date password", type: "text", width: "half" },
-      { name: "lockPeriod", label: "Lock period after close", type: "checkbox", width: "half" },
+      {
+        name: "period",
+        label: "Fiscal period",
+        type: "select",
+        options: ["July 2026", "August 2026", "Q3 2026"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "closeDate",
+        label: "Target close date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "owner",
+        label: "Close owner",
+        type: "select",
+        options: [
+          "Finance Manager",
+          "Controller",
+          "Chief Accountant",
+          "Add new user",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "checklist",
+        label: "Reconciliation, review and posting checklist",
+        type: "textarea",
+        required: true,
+      },
+      {
+        name: "closingPassword",
+        label: "Closing date password",
+        type: "text",
+        width: "half",
+      },
+      {
+        name: "lockPeriod",
+        label: "Lock period after close",
+        type: "checkbox",
+        width: "half",
+      },
       { name: "notes", label: "Close notes", type: "textarea" },
     ],
   },
   {
-    module: "accounting", slug: "budgets", title: "Budgets and forecasts", action: "New budget",
+    module: "accounting",
+    slug: "budgets",
+    title: "Budgets and forecasts",
+    action: "New budget",
     columns: ["Budget", "Scope / version", "Annual value", "Updated date"],
     fields: [
-      { name: "budgetName", label: "Budget name", type: "text", required: true, width: "half" },
-      { name: "fiscalYear", label: "Fiscal year", type: "select", options: ["FY 2026", "FY 2027", "FY 2028"], required: true, width: "half" },
-      { name: "budgetType", label: "Budget type", type: "select", options: ["Profit and loss", "Balance sheet", "Cash flow", "Project"], required: true, width: "third" },
-      { name: "scenario", label: "Scenario", type: "select", options: ["Approved", "Base", "Optimistic", "Conservative", "Forecast"], required: true, width: "third" },
-      { name: "class", label: "Class / department", type: "select", options: ["All classes", "Production", "Sales", "Logistics", "Administration", "Add new class"], width: "third" },
-      { name: "monthlyValues", label: "Accounts and monthly budget values", type: "textarea", required: true },
+      {
+        name: "budgetName",
+        label: "Budget name",
+        type: "text",
+        required: true,
+        width: "half",
+      },
+      {
+        name: "fiscalYear",
+        label: "Fiscal year",
+        type: "select",
+        options: ["FY 2026", "FY 2027", "FY 2028"],
+        required: true,
+        width: "half",
+      },
+      {
+        name: "budgetType",
+        label: "Budget type",
+        type: "select",
+        options: ["Profit and loss", "Balance sheet", "Cash flow", "Project"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "scenario",
+        label: "Scenario",
+        type: "select",
+        options: ["Approved", "Base", "Optimistic", "Conservative", "Forecast"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "class",
+        label: "Class / department",
+        type: "select",
+        options: [
+          "All classes",
+          "Production",
+          "Sales",
+          "Logistics",
+          "Administration",
+          "Add new class",
+        ],
+        width: "third",
+      },
+      {
+        name: "monthlyValues",
+        label: "Accounts and monthly budget values",
+        type: "textarea",
+        required: true,
+      },
       { name: "notes", label: "Assumptions and notes", type: "textarea" },
     ],
   },
   {
-    module: "accounting", slug: "fixed-assets", title: "Fixed asset manager", action: "Add fixed asset",
+    module: "accounting",
+    slug: "fixed-assets",
+    title: "Fixed asset manager",
+    action: "Add fixed asset",
     columns: ["Asset", "Category / method", "Original cost", "In-service date"],
     fields: [
-      { name: "assetName", label: "Asset name", type: "text", required: true, width: "half" },
-      { name: "assetNumber", label: "Asset number", type: "text", required: true, width: "half" },
-      { name: "category", label: "Asset category", type: "select", options: ["Machinery", "Vehicles", "Buildings", "Furniture", "IT equipment", "Add new category"], required: true, width: "third" },
-      { name: "purchaseDate", label: "Purchase date", type: "date", required: true, width: "third" },
-      { name: "inServiceDate", label: "In-service date", type: "date", required: true, width: "third" },
-      { name: "cost", label: "Original cost", type: "number", required: true, width: "third" },
-      { name: "salvageValue", label: "Salvage value", type: "number", width: "third" },
-      { name: "usefulLife", label: "Useful life (months)", type: "number", required: true, width: "third" },
-      { name: "method", label: "Depreciation method", type: "select", options: ["Straight line", "Declining balance", "Units of production", "No depreciation"], required: true, width: "third" },
-      { name: "assetAccount", label: "Asset account", type: "select", options: ["Machinery and equipment", "Vehicles", "Buildings", "Add new account"], required: true, width: "third" },
-      { name: "depreciationAccount", label: "Depreciation expense account", type: "select", options: ["Depreciation expense", "Production overhead", "Add new account"], required: true, width: "third" },
-      { name: "serialLocation", label: "Serial number and location", type: "textarea" },
+      {
+        name: "assetName",
+        label: "Asset name",
+        type: "text",
+        required: true,
+        width: "half",
+      },
+      {
+        name: "assetNumber",
+        label: "Asset number",
+        type: "text",
+        required: true,
+        width: "half",
+      },
+      {
+        name: "category",
+        label: "Asset category",
+        type: "select",
+        options: [
+          "Machinery",
+          "Vehicles",
+          "Buildings",
+          "Furniture",
+          "IT equipment",
+          "Add new category",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "purchaseDate",
+        label: "Purchase date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "inServiceDate",
+        label: "In-service date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "cost",
+        label: "Original cost",
+        type: "number",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "salvageValue",
+        label: "Salvage value",
+        type: "number",
+        width: "third",
+      },
+      {
+        name: "usefulLife",
+        label: "Useful life (months)",
+        type: "number",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "method",
+        label: "Depreciation method",
+        type: "select",
+        options: [
+          "Straight line",
+          "Declining balance",
+          "Units of production",
+          "No depreciation",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "assetAccount",
+        label: "Asset account",
+        type: "select",
+        options: [
+          "Machinery and equipment",
+          "Vehicles",
+          "Buildings",
+          "Add new account",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "depreciationAccount",
+        label: "Depreciation expense account",
+        type: "select",
+        options: [
+          "Depreciation expense",
+          "Production overhead",
+          "Add new account",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "serialLocation",
+        label: "Serial number and location",
+        type: "textarea",
+      },
     ],
   },
   {
-    module: "accounting", slug: "classes", title: "Classes and departments", action: "New class",
+    module: "accounting",
+    slug: "classes",
+    title: "Classes and departments",
+    action: "New class",
     columns: ["Class", "Parent / manager", "Activity", "Updated date"],
     fields: [
-      { name: "className", label: "Class name", type: "text", required: true, width: "half" },
-      { name: "parentClass", label: "Parent class", type: "select", options: ["No parent", "Operations", "Sales", "Administration", "Add new class"], width: "half" },
-      { name: "manager", label: "Manager", type: "select", options: ["Abdisalam", "Ahmed Hassan", "Fadumo Ali", "Add new user"], width: "third" },
-      { name: "branch", label: "Default branch", type: "select", options: ["All branches", "Mogadishu Main", "Factory", "Add new branch"], width: "third" },
-      { name: "active", label: "Class is active", type: "checkbox", width: "third" },
+      {
+        name: "className",
+        label: "Class name",
+        type: "text",
+        required: true,
+        width: "half",
+      },
+      {
+        name: "parentClass",
+        label: "Parent class",
+        type: "select",
+        options: [
+          "No parent",
+          "Operations",
+          "Sales",
+          "Administration",
+          "Add new class",
+        ],
+        width: "half",
+      },
+      {
+        name: "manager",
+        label: "Manager",
+        type: "select",
+        options: ["Abdisalam", "Ahmed Hassan", "Fadumo Ali", "Add new user"],
+        width: "third",
+      },
+      {
+        name: "branch",
+        label: "Default branch",
+        type: "select",
+        options: [
+          "All branches",
+          "Mogadishu Main",
+          "Factory",
+          "Add new branch",
+        ],
+        width: "third",
+      },
+      {
+        name: "active",
+        label: "Class is active",
+        type: "checkbox",
+        width: "third",
+      },
       { name: "description", label: "Description", type: "textarea" },
     ],
   },
   {
-    module: "projects", slug: "change-orders", title: "Project change orders", action: "New change order",
-    columns: ["Change order", "Project / customer", "Contract change", "Submitted date"],
+    module: "projects",
+    slug: "change-orders",
+    title: "Project change orders",
+    action: "New change order",
+    columns: [
+      "Change order",
+      "Project / customer",
+      "Contract change",
+      "Submitted date",
+    ],
     fields: [
-      { name: "project", label: "Project", type: "select", options: ["Factory Expansion", "Hodan Warehouse Fit-out", "New Production Line", "Add new project"], required: true, width: "third" },
-      { name: "changeNumber", label: "Change order no.", type: "text", required: true, width: "third" },
-      { name: "changeDate", label: "Change date", type: "date", required: true, width: "third" },
-      { name: "reason", label: "Reason", type: "select", options: ["Client request", "Scope clarification", "Site condition", "Design change", "Price escalation"], required: true, width: "half" },
-      { name: "amount", label: "Contract value change", type: "number", required: true, width: "half" },
-      { name: "scheduleImpact", label: "Schedule impact (days)", type: "number", width: "third" },
-      { name: "approver", label: "Customer approver", type: "text", width: "third" },
-      { name: "approvalDate", label: "Approval date", type: "date", width: "third" },
-      { name: "scope", label: "Detailed scope change", type: "textarea", required: true },
-      { name: "costLines", label: "Estimated labor, material and subcontractor costs", type: "textarea" },
+      {
+        name: "project",
+        label: "Project",
+        type: "select",
+        options: [
+          "Factory Expansion",
+          "Hodan Warehouse Fit-out",
+          "New Production Line",
+          "Add new project",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "changeNumber",
+        label: "Change order no.",
+        type: "text",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "changeDate",
+        label: "Change date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "reason",
+        label: "Reason",
+        type: "select",
+        options: [
+          "Client request",
+          "Scope clarification",
+          "Site condition",
+          "Design change",
+          "Price escalation",
+        ],
+        required: true,
+        width: "half",
+      },
+      {
+        name: "amount",
+        label: "Contract value change",
+        type: "number",
+        required: true,
+        width: "half",
+      },
+      {
+        name: "scheduleImpact",
+        label: "Schedule impact (days)",
+        type: "number",
+        width: "third",
+      },
+      {
+        name: "approver",
+        label: "Customer approver",
+        type: "text",
+        width: "third",
+      },
+      {
+        name: "approvalDate",
+        label: "Approval date",
+        type: "date",
+        width: "third",
+      },
+      {
+        name: "scope",
+        label: "Detailed scope change",
+        type: "textarea",
+        required: true,
+      },
+      {
+        name: "costLines",
+        label: "Estimated labor, material and subcontractor costs",
+        type: "textarea",
+      },
     ],
   },
   {
-    module: "payroll", slug: "liabilities", title: "Payroll liabilities", action: "Pay liabilities",
+    module: "payroll",
+    slug: "liabilities",
+    title: "Payroll liabilities",
+    action: "Pay liabilities",
     columns: ["Liability", "Agency / account", "Amount due", "Due date"],
     fields: [
-      { name: "liabilityType", label: "Liability type", type: "select", options: ["Payroll tax", "Pension", "Employee deduction", "Health insurance", "Other"], required: true, width: "third" },
-      { name: "agency", label: "Agency / payee", type: "select", options: ["Ministry of Finance", "Pension Fund", "Health Insurer", "Add new payee"], required: true, width: "third" },
-      { name: "dueDate", label: "Due date", type: "date", required: true, width: "third" },
-      { name: "periodFrom", label: "Period from", type: "date", required: true, width: "third" },
-      { name: "periodTo", label: "Period to", type: "date", required: true, width: "third" },
-      { name: "amount", label: "Amount due", type: "number", required: true, width: "third" },
-      { name: "paymentAccount", label: "Payment account", type: "select", options: ["Premier Operating · 2048", "Salaam Bank · 1182"], width: "half" },
-      { name: "reference", label: "Payment reference", type: "text", width: "half" },
-      { name: "payrollRuns", label: "Included payroll runs and liability lines", type: "textarea", required: true },
+      {
+        name: "liabilityType",
+        label: "Liability type",
+        type: "select",
+        options: ["Pension", "Employee deduction", "Health insurance", "Other"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "agency",
+        label: "Agency / payee",
+        type: "select",
+        options: [
+          "Ministry of Finance",
+          "Pension Fund",
+          "Health Insurer",
+          "Add new payee",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "dueDate",
+        label: "Due date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "periodFrom",
+        label: "Period from",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "periodTo",
+        label: "Period to",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "amount",
+        label: "Amount due",
+        type: "number",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "paymentAccount",
+        label: "Payment account",
+        type: "select",
+        options: ["Premier Operating · 2048", "Salaam Bank · 1182"],
+        width: "half",
+      },
+      {
+        name: "reference",
+        label: "Payment reference",
+        type: "text",
+        width: "half",
+      },
+      {
+        name: "payrollRuns",
+        label: "Included payroll runs and liability lines",
+        type: "textarea",
+        required: true,
+      },
     ],
   },
   {
-    module: "payroll", slug: "benefits", title: "Employee benefits", action: "New benefit plan",
-    columns: ["Benefit", "Provider / eligibility", "Company cost", "Effective date"],
+    module: "payroll",
+    slug: "benefits",
+    title: "Employee benefits",
+    action: "New benefit plan",
+    columns: [
+      "Benefit",
+      "Provider / eligibility",
+      "Company cost",
+      "Effective date",
+    ],
     fields: [
-      { name: "benefitName", label: "Benefit plan name", type: "text", required: true, width: "half" },
-      { name: "benefitType", label: "Benefit type", type: "select", options: ["Health insurance", "Pension", "Allowance", "Bonus", "Other"], required: true, width: "half" },
-      { name: "provider", label: "Provider", type: "select", options: ["Internal", "Health Insurer", "Pension Fund", "Add new provider"], width: "third" },
-      { name: "effectiveDate", label: "Effective date", type: "date", required: true, width: "third" },
-      { name: "eligibility", label: "Eligibility", type: "select", options: ["All employees", "Full time", "Management", "Department", "Custom"], required: true, width: "third" },
-      { name: "employeeContribution", label: "Employee contribution", type: "number", width: "third" },
-      { name: "companyContribution", label: "Company contribution", type: "number", width: "third" },
-      { name: "calculation", label: "Calculation method", type: "select", options: ["Fixed amount", "Percentage of gross", "Percentage of basic", "Tiered"], required: true, width: "third" },
-      { name: "accounts", label: "Expense and liability accounts", type: "textarea", required: true },
+      {
+        name: "benefitName",
+        label: "Benefit plan name",
+        type: "text",
+        required: true,
+        width: "half",
+      },
+      {
+        name: "benefitType",
+        label: "Benefit type",
+        type: "select",
+        options: ["Health insurance", "Pension", "Allowance", "Bonus", "Other"],
+        required: true,
+        width: "half",
+      },
+      {
+        name: "provider",
+        label: "Provider",
+        type: "select",
+        options: [
+          "Internal",
+          "Health Insurer",
+          "Pension Fund",
+          "Add new provider",
+        ],
+        width: "third",
+      },
+      {
+        name: "effectiveDate",
+        label: "Effective date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "eligibility",
+        label: "Eligibility",
+        type: "select",
+        options: [
+          "All employees",
+          "Full time",
+          "Management",
+          "Department",
+          "Custom",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "employeeContribution",
+        label: "Employee contribution",
+        type: "number",
+        width: "third",
+      },
+      {
+        name: "companyContribution",
+        label: "Company contribution",
+        type: "number",
+        width: "third",
+      },
+      {
+        name: "calculation",
+        label: "Calculation method",
+        type: "select",
+        options: [
+          "Fixed amount",
+          "Percentage of gross",
+          "Percentage of basic",
+          "Tiered",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "accounts",
+        label: "Expense and liability accounts",
+        type: "textarea",
+        required: true,
+      },
     ],
   },
 ];
@@ -3556,15 +3940,78 @@ const phaseTwoSpecs: typeof commonResourceSpecs = [
     action: "Schedule payment",
     columns: ["Payment", "Vendor / bank", "Amount", "Payment date"],
     fields: [
-      { name: "bankAccount", label: "Payment account", type: "select", options: ["Premier Operating · 2048", "Salaam Bank · 1182", "Petty Cash · Main"], required: true, width: "third" },
-      { name: "paymentDate", label: "Payment date", type: "date", required: true, width: "third" },
-      { name: "paymentMethod", label: "Payment method", type: "select", options: ["Check", "ACH", "Wire transfer", "Cash"], required: true, width: "third" },
-      { name: "vendor", label: "Vendor", type: "select", options: ["Polymer Gulf LLC", "East Africa Resins", "Mogadishu Packaging", "Add new vendor"], required: true, width: "half" },
-      { name: "reference", label: "Check / reference no.", type: "text", width: "half" },
-      { name: "bills", label: "Open bills and payment allocations", type: "textarea", required: true },
-      { name: "discountDate", label: "Discount date", type: "date", width: "third" },
-      { name: "discountAccount", label: "Discount account", type: "select", options: ["Purchase discounts", "Cost of goods sold", "Other income"], width: "third" },
-      { name: "totalPayment", label: "Total payment", type: "number", required: true, width: "third" },
+      {
+        name: "bankAccount",
+        label: "Payment account",
+        type: "select",
+        options: [
+          "Premier Operating · 2048",
+          "Salaam Bank · 1182",
+          "Petty Cash · Main",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "paymentDate",
+        label: "Payment date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "paymentMethod",
+        label: "Payment method",
+        type: "select",
+        options: ["Check", "ACH", "Wire transfer", "Cash"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "vendor",
+        label: "Vendor",
+        type: "select",
+        options: [
+          "Polymer Gulf LLC",
+          "East Africa Resins",
+          "Mogadishu Packaging",
+          "Add new vendor",
+        ],
+        required: true,
+        width: "half",
+      },
+      {
+        name: "reference",
+        label: "Check / reference no.",
+        type: "text",
+        width: "half",
+      },
+      {
+        name: "bills",
+        label: "Open bills and payment allocations",
+        type: "textarea",
+        required: true,
+      },
+      {
+        name: "discountDate",
+        label: "Discount date",
+        type: "date",
+        width: "third",
+      },
+      {
+        name: "discountAccount",
+        label: "Discount account",
+        type: "select",
+        options: ["Purchase discounts", "Cost of goods sold", "Other income"],
+        width: "third",
+      },
+      {
+        name: "totalPayment",
+        label: "Total payment",
+        type: "number",
+        required: true,
+        width: "third",
+      },
       { name: "memo", label: "Memo", type: "textarea" },
     ],
   },
@@ -3575,13 +4022,60 @@ const phaseTwoSpecs: typeof commonResourceSpecs = [
     action: "New vendor credit",
     columns: ["Credit", "Vendor / reason", "Amount", "Credit date"],
     fields: [
-      { name: "vendor", label: "Vendor", type: "select", options: ["Polymer Gulf LLC", "East Africa Resins", "Mogadishu Packaging", "Add new vendor"], required: true, width: "half" },
-      { name: "creditNumber", label: "Credit no.", type: "text", required: true, width: "half" },
-      { name: "creditDate", label: "Credit date", type: "date", required: true, width: "third" },
-      { name: "currency", label: "Currency", type: "select", options: ["USD", "SOS", "EUR"], required: true, width: "third" },
-      { name: "apAccount", label: "A/P account", type: "select", options: ["Accounts payable", "Trade payables"], required: true, width: "third" },
-      { name: "lines", label: "Items or expense lines", type: "textarea", required: true },
-      { name: "applyToBills", label: "Bills to apply credit", type: "textarea" },
+      {
+        name: "vendor",
+        label: "Vendor",
+        type: "select",
+        options: [
+          "Polymer Gulf LLC",
+          "East Africa Resins",
+          "Mogadishu Packaging",
+          "Add new vendor",
+        ],
+        required: true,
+        width: "half",
+      },
+      {
+        name: "creditNumber",
+        label: "Credit no.",
+        type: "text",
+        required: true,
+        width: "half",
+      },
+      {
+        name: "creditDate",
+        label: "Credit date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "currency",
+        label: "Currency",
+        type: "select",
+        options: ["USD", "SOS", "EUR"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "apAccount",
+        label: "A/P account",
+        type: "select",
+        options: ["Accounts payable", "Trade payables"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "lines",
+        label: "Items or expense lines",
+        type: "textarea",
+        required: true,
+      },
+      {
+        name: "applyToBills",
+        label: "Bills to apply credit",
+        type: "textarea",
+      },
       { name: "memo", label: "Memo", type: "textarea" },
     ],
   },
@@ -3592,13 +4086,60 @@ const phaseTwoSpecs: typeof commonResourceSpecs = [
     action: "Write check",
     columns: ["Check", "Payee / account", "Amount", "Check date"],
     fields: [
-      { name: "bankAccount", label: "Bank account", type: "select", options: ["Premier Operating · 2048", "Salaam Bank · 1182"], required: true, width: "third" },
-      { name: "payee", label: "Pay to the order of", type: "select", options: ["Polymer Gulf LLC", "East Africa Resins", "Hodan Logistics", "Add new vendor"], required: true, width: "third" },
-      { name: "checkNumber", label: "Check no.", type: "text", required: true, width: "third" },
-      { name: "checkDate", label: "Check date", type: "date", required: true, width: "third" },
-      { name: "amount", label: "Amount", type: "number", required: true, width: "third" },
-      { name: "printLater", label: "Print later", type: "checkbox", width: "third" },
-      { name: "expenses", label: "Expense allocation lines", type: "textarea", required: true },
+      {
+        name: "bankAccount",
+        label: "Bank account",
+        type: "select",
+        options: ["Premier Operating · 2048", "Salaam Bank · 1182"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "payee",
+        label: "Pay to the order of",
+        type: "select",
+        options: [
+          "Polymer Gulf LLC",
+          "East Africa Resins",
+          "Hodan Logistics",
+          "Add new vendor",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "checkNumber",
+        label: "Check no.",
+        type: "text",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "checkDate",
+        label: "Check date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "amount",
+        label: "Amount",
+        type: "number",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "printLater",
+        label: "Print later",
+        type: "checkbox",
+        width: "third",
+      },
+      {
+        name: "expenses",
+        label: "Expense allocation lines",
+        type: "textarea",
+        required: true,
+      },
       { name: "memo", label: "Memo", type: "textarea" },
     ],
   },
@@ -3609,12 +4150,60 @@ const phaseTwoSpecs: typeof commonResourceSpecs = [
     action: "New adjustment",
     columns: ["Adjustment", "Item / reason", "Value", "Adjustment date"],
     fields: [
-      { name: "adjustmentType", label: "Adjustment type", type: "select", options: ["Quantity", "Quantity and total value", "Total value"], required: true, width: "third" },
-      { name: "adjustmentDate", label: "Adjustment date", type: "date", required: true, width: "third" },
-      { name: "adjustmentAccount", label: "Adjustment account", type: "select", options: ["Inventory shrinkage", "Cost of goods sold", "Production scrap", "Opening balance equity"], required: true, width: "third" },
-      { name: "warehouse", label: "Warehouse", type: "select", options: ["Main warehouse", "Resin yard", "Production store", "Finished goods", "Add new warehouse"], required: true, width: "half" },
-      { name: "reference", label: "Reference no.", type: "text", width: "half" },
-      { name: "lines", label: "Item, current quantity, new quantity, lot / serial and value", type: "textarea", required: true },
+      {
+        name: "adjustmentType",
+        label: "Adjustment type",
+        type: "select",
+        options: ["Quantity", "Quantity and total value", "Total value"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "adjustmentDate",
+        label: "Adjustment date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "adjustmentAccount",
+        label: "Adjustment account",
+        type: "select",
+        options: [
+          "Inventory shrinkage",
+          "Cost of goods sold",
+          "Production scrap",
+          "Opening balance equity",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "warehouse",
+        label: "Warehouse",
+        type: "select",
+        options: [
+          "Main warehouse",
+          "Resin yard",
+          "Production store",
+          "Finished goods",
+          "Add new warehouse",
+        ],
+        required: true,
+        width: "half",
+      },
+      {
+        name: "reference",
+        label: "Reference no.",
+        type: "text",
+        width: "half",
+      },
+      {
+        name: "lines",
+        label: "Item, current quantity, new quantity, lot / serial and value",
+        type: "textarea",
+        required: true,
+      },
       { name: "memo", label: "Adjustment memo", type: "textarea" },
     ],
   },
@@ -3625,15 +4214,81 @@ const phaseTwoSpecs: typeof commonResourceSpecs = [
     action: "Register lot or serial",
     columns: ["Lot / serial", "Item / location", "Quantity", "Expiry date"],
     fields: [
-      { name: "item", label: "Inventory item", type: "select", options: ["HDPE Resin 5502", "Blue Masterbatch", "5 L Jerrycan", "Add new item"], required: true, width: "third" },
-      { name: "trackingType", label: "Tracking type", type: "select", options: ["Lot number", "Serial number"], required: true, width: "third" },
-      { name: "lotSerial", label: "Lot / serial no.", type: "text", required: true, width: "third" },
-      { name: "warehouse", label: "Warehouse", type: "select", options: ["Main warehouse", "Resin yard", "Production store", "Finished goods"], required: true, width: "third" },
-      { name: "bin", label: "Bin", type: "select", options: ["A-01", "A-02", "B-01", "SILO-01", "Add new bin"], width: "third" },
-      { name: "quantity", label: "Quantity", type: "number", required: true, width: "third" },
-      { name: "manufacturedDate", label: "Manufactured date", type: "date", width: "third" },
-      { name: "expiryDate", label: "Expiry date", type: "date", width: "third" },
-      { name: "qualityStatus", label: "Quality status", type: "select", options: ["Released", "QC hold", "Rejected"], required: true, width: "third" },
+      {
+        name: "item",
+        label: "Inventory item",
+        type: "select",
+        options: [
+          "HDPE Resin 5502",
+          "Blue Masterbatch",
+          "5 L Jerrycan",
+          "Add new item",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "trackingType",
+        label: "Tracking type",
+        type: "select",
+        options: ["Lot number", "Serial number"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "lotSerial",
+        label: "Lot / serial no.",
+        type: "text",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "warehouse",
+        label: "Warehouse",
+        type: "select",
+        options: [
+          "Main warehouse",
+          "Resin yard",
+          "Production store",
+          "Finished goods",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "bin",
+        label: "Bin",
+        type: "select",
+        options: ["A-01", "A-02", "B-01", "SILO-01", "Add new bin"],
+        width: "third",
+      },
+      {
+        name: "quantity",
+        label: "Quantity",
+        type: "number",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "manufacturedDate",
+        label: "Manufactured date",
+        type: "date",
+        width: "third",
+      },
+      {
+        name: "expiryDate",
+        label: "Expiry date",
+        type: "date",
+        width: "third",
+      },
+      {
+        name: "qualityStatus",
+        label: "Quality status",
+        type: "select",
+        options: ["Released", "QC hold", "Rejected"],
+        required: true,
+        width: "third",
+      },
       { name: "notes", label: "Traceability notes", type: "textarea" },
     ],
   },
@@ -3644,13 +4299,58 @@ const phaseTwoSpecs: typeof commonResourceSpecs = [
     action: "Create purchase orders",
     columns: ["Item", "Planning signal", "Suggested quantity", "Required date"],
     fields: [
-      { name: "warehouse", label: "Planning warehouse", type: "select", options: ["All warehouses", "Main warehouse", "Resin yard", "Finished goods"], required: true, width: "third" },
-      { name: "asOfDate", label: "As-of date", type: "date", required: true, width: "third" },
-      { name: "horizon", label: "Planning horizon", type: "select", options: ["30 days", "60 days", "90 days", "180 days"], required: true, width: "third" },
-      { name: "includeSalesOrders", label: "Include sales orders", type: "checkbox", width: "third" },
-      { name: "includePurchaseOrders", label: "Include purchase orders", type: "checkbox", width: "third" },
-      { name: "includeSafetyStock", label: "Include safety stock", type: "checkbox", width: "third" },
-      { name: "suggestions", label: "Items, vendor, lead time, reorder point and suggested quantity", type: "textarea", required: true },
+      {
+        name: "warehouse",
+        label: "Planning warehouse",
+        type: "select",
+        options: [
+          "All warehouses",
+          "Main warehouse",
+          "Resin yard",
+          "Finished goods",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "asOfDate",
+        label: "As-of date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "horizon",
+        label: "Planning horizon",
+        type: "select",
+        options: ["30 days", "60 days", "90 days", "180 days"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "includeSalesOrders",
+        label: "Include sales orders",
+        type: "checkbox",
+        width: "third",
+      },
+      {
+        name: "includePurchaseOrders",
+        label: "Include purchase orders",
+        type: "checkbox",
+        width: "third",
+      },
+      {
+        name: "includeSafetyStock",
+        label: "Include safety stock",
+        type: "checkbox",
+        width: "third",
+      },
+      {
+        name: "suggestions",
+        label: "Items, vendor, lead time, reorder point and suggested quantity",
+        type: "textarea",
+        required: true,
+      },
     ],
   },
   {
@@ -3660,14 +4360,69 @@ const phaseTwoSpecs: typeof commonResourceSpecs = [
     action: "Create pick list",
     columns: ["Sales order", "Customer / lines", "Order value", "Ship date"],
     fields: [
-      { name: "salesOrder", label: "Sales order", type: "select", options: ["SO-2098 · Dayax Retail", "SO-2097 · Banaadir Trading", "SO-2096 · Sahal Distributors"], required: true, width: "third" },
-      { name: "warehouse", label: "Fulfillment warehouse", type: "select", options: ["Finished goods", "Main warehouse"], required: true, width: "third" },
-      { name: "shipDate", label: "Ship date", type: "date", required: true, width: "third" },
-      { name: "carrier", label: "Carrier", type: "select", options: ["Company truck", "Hodan Logistics", "Customer pickup", "Add new carrier"], width: "third" },
-      { name: "trackingNumber", label: "Tracking no.", type: "text", width: "third" },
-      { name: "packageCount", label: "Packages", type: "number", width: "third" },
-      { name: "lines", label: "Item, ordered, allocated, picked, packed and backordered quantities", type: "textarea", required: true },
-      { name: "packingNotes", label: "Packing and shipping notes", type: "textarea" },
+      {
+        name: "salesOrder",
+        label: "Sales order",
+        type: "select",
+        options: [
+          "SO-2098 · Dayax Retail",
+          "SO-2097 · Banaadir Trading",
+          "SO-2096 · Sahal Distributors",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "warehouse",
+        label: "Fulfillment warehouse",
+        type: "select",
+        options: ["Finished goods", "Main warehouse"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "shipDate",
+        label: "Ship date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "carrier",
+        label: "Carrier",
+        type: "select",
+        options: [
+          "Company truck",
+          "Hodan Logistics",
+          "Customer pickup",
+          "Add new carrier",
+        ],
+        width: "third",
+      },
+      {
+        name: "trackingNumber",
+        label: "Tracking no.",
+        type: "text",
+        width: "third",
+      },
+      {
+        name: "packageCount",
+        label: "Packages",
+        type: "number",
+        width: "third",
+      },
+      {
+        name: "lines",
+        label:
+          "Item, ordered, allocated, picked, packed and backordered quantities",
+        type: "textarea",
+        required: true,
+      },
+      {
+        name: "packingNotes",
+        label: "Packing and shipping notes",
+        type: "textarea",
+      },
     ],
   },
   {
@@ -3677,13 +4432,67 @@ const phaseTwoSpecs: typeof commonResourceSpecs = [
     action: "Allocate landed cost",
     columns: ["Shipment", "Cost source", "Amount", "Allocation date"],
     fields: [
-      { name: "shipment", label: "Shipment / item receipt", type: "select", options: ["Container MSKU-4821", "Container TLLU-9042", "Air freight AF-2081"], required: true, width: "third" },
-      { name: "costVendor", label: "Cost vendor", type: "select", options: ["Hodan Logistics", "Port Authority", "Customs Agency", "Add new vendor"], required: true, width: "third" },
-      { name: "allocationDate", label: "Allocation date", type: "date", required: true, width: "third" },
-      { name: "costType", label: "Cost type", type: "select", options: ["Freight", "Duty", "Insurance", "Port handling", "Other"], required: true, width: "third" },
-      { name: "amount", label: "Cost amount", type: "number", required: true, width: "third" },
-      { name: "allocationMethod", label: "Allocate by", type: "select", options: ["Quantity", "Value", "Weight", "Volume", "Manual"], required: true, width: "third" },
-      { name: "lines", label: "Receipt items and allocated landed cost", type: "textarea", required: true },
+      {
+        name: "shipment",
+        label: "Shipment / item receipt",
+        type: "select",
+        options: [
+          "Container MSKU-4821",
+          "Container TLLU-9042",
+          "Air freight AF-2081",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "costVendor",
+        label: "Cost vendor",
+        type: "select",
+        options: [
+          "Hodan Logistics",
+          "Port Authority",
+          "Customs Agency",
+          "Add new vendor",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "allocationDate",
+        label: "Allocation date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "costType",
+        label: "Cost type",
+        type: "select",
+        options: ["Freight", "Duty", "Insurance", "Port handling", "Other"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "amount",
+        label: "Cost amount",
+        type: "number",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "allocationMethod",
+        label: "Allocate by",
+        type: "select",
+        options: ["Quantity", "Value", "Weight", "Volume", "Manual"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "lines",
+        label: "Receipt items and allocated landed cost",
+        type: "textarea",
+        required: true,
+      },
       { name: "memo", label: "Memo", type: "textarea" },
     ],
   },
@@ -3694,14 +4503,77 @@ const phaseTwoSpecs: typeof commonResourceSpecs = [
     action: "Connect bank",
     columns: ["Feed transaction", "Match / rule", "Amount", "Downloaded date"],
     fields: [
-      { name: "account", label: "Bank account", type: "select", options: ["Premier Operating · 2048", "Salaam Bank · 1182", "Mobile Money · 7712", "Add new account"], required: true, width: "third" },
-      { name: "transactionDate", label: "Transaction date", type: "date", required: true, width: "third" },
-      { name: "amount", label: "Amount", type: "number", required: true, width: "third" },
-      { name: "description", label: "Bank description", type: "text", required: true, width: "half" },
-      { name: "payee", label: "Payee", type: "select", options: ["Polymer Gulf LLC", "Mogadishu Power", "Port Authority", "Add new payee"], width: "half" },
-      { name: "match", label: "Matching transaction", type: "select", options: ["No match", "BILL-2088", "DEP-3028", "EXP-6048"], width: "half" },
-      { name: "category", label: "Category", type: "select", options: ["Accounts payable", "Utilities", "Freight", "Transfer", "Add new account"], width: "half" },
-      { name: "split", label: "Split categories and amounts", type: "textarea" },
+      {
+        name: "account",
+        label: "Bank account",
+        type: "select",
+        options: [
+          "Premier Operating · 2048",
+          "Salaam Bank · 1182",
+          "Mobile Money · 7712",
+          "Add new account",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "transactionDate",
+        label: "Transaction date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "amount",
+        label: "Amount",
+        type: "number",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "description",
+        label: "Bank description",
+        type: "text",
+        required: true,
+        width: "half",
+      },
+      {
+        name: "payee",
+        label: "Payee",
+        type: "select",
+        options: [
+          "Polymer Gulf LLC",
+          "Mogadishu Power",
+          "Port Authority",
+          "Add new payee",
+        ],
+        width: "half",
+      },
+      {
+        name: "match",
+        label: "Matching transaction",
+        type: "select",
+        options: ["No match", "BILL-2088", "DEP-3028", "EXP-6048"],
+        width: "half",
+      },
+      {
+        name: "category",
+        label: "Category",
+        type: "select",
+        options: [
+          "Accounts payable",
+          "Utilities",
+          "Freight",
+          "Transfer",
+          "Add new account",
+        ],
+        width: "half",
+      },
+      {
+        name: "split",
+        label: "Split categories and amounts",
+        type: "textarea",
+      },
     ],
   },
   {
@@ -3711,16 +4583,87 @@ const phaseTwoSpecs: typeof commonResourceSpecs = [
     action: "New bank rule",
     columns: ["Rule", "Condition", "Priority", "Last applied"],
     fields: [
-      { name: "ruleName", label: "Rule name", type: "text", required: true, width: "half" },
-      { name: "account", label: "Applies to account", type: "select", options: ["All bank accounts", "Premier Operating · 2048", "Salaam Bank · 1182"], required: true, width: "half" },
-      { name: "moneyDirection", label: "Money in or out", type: "select", options: ["Money out", "Money in", "Either"], required: true, width: "third" },
-      { name: "condition", label: "Condition", type: "select", options: ["Description contains", "Description starts with", "Amount equals", "Amount range"], required: true, width: "third" },
-      { name: "conditionValue", label: "Condition value", type: "text", required: true, width: "third" },
-      { name: "payee", label: "Set payee", type: "select", options: ["Mogadishu Power", "Port Authority", "Add new payee"], width: "third" },
-      { name: "category", label: "Set category", type: "select", options: ["Utilities", "Freight", "Bank fees", "Add new account"], required: true, width: "third" },
-      { name: "class", label: "Set class", type: "select", options: ["Operations", "Production", "Administration"], width: "third" },
-      { name: "autoAdd", label: "Automatically add matching transactions", type: "checkbox", width: "half" },
-      { name: "active", label: "Rule is active", type: "checkbox", width: "half" },
+      {
+        name: "ruleName",
+        label: "Rule name",
+        type: "text",
+        required: true,
+        width: "half",
+      },
+      {
+        name: "account",
+        label: "Applies to account",
+        type: "select",
+        options: [
+          "All bank accounts",
+          "Premier Operating · 2048",
+          "Salaam Bank · 1182",
+        ],
+        required: true,
+        width: "half",
+      },
+      {
+        name: "moneyDirection",
+        label: "Money in or out",
+        type: "select",
+        options: ["Money out", "Money in", "Either"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "condition",
+        label: "Condition",
+        type: "select",
+        options: [
+          "Description contains",
+          "Description starts with",
+          "Amount equals",
+          "Amount range",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "conditionValue",
+        label: "Condition value",
+        type: "text",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "payee",
+        label: "Set payee",
+        type: "select",
+        options: ["Mogadishu Power", "Port Authority", "Add new payee"],
+        width: "third",
+      },
+      {
+        name: "category",
+        label: "Set category",
+        type: "select",
+        options: ["Utilities", "Freight", "Bank fees", "Add new account"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "class",
+        label: "Set class",
+        type: "select",
+        options: ["Operations", "Production", "Administration"],
+        width: "third",
+      },
+      {
+        name: "autoAdd",
+        label: "Automatically add matching transactions",
+        type: "checkbox",
+        width: "half",
+      },
+      {
+        name: "active",
+        label: "Rule is active",
+        type: "checkbox",
+        width: "half",
+      },
     ],
   },
   {
@@ -3730,13 +4673,57 @@ const phaseTwoSpecs: typeof commonResourceSpecs = [
     action: "Make deposit",
     columns: ["Deposit", "Source / account", "Amount", "Deposit date"],
     fields: [
-      { name: "depositTo", label: "Deposit to", type: "select", options: ["Premier Operating · 2048", "Salaam Bank · 1182", "Mobile Money · 7712"], required: true, width: "third" },
-      { name: "depositDate", label: "Deposit date", type: "date", required: true, width: "third" },
-      { name: "reference", label: "Reference no.", type: "text", width: "third" },
-      { name: "payments", label: "Undeposited payments selected for deposit", type: "textarea", required: true },
-      { name: "cashBackAccount", label: "Cash back account", type: "select", options: ["None", "Petty cash", "Bank fees"], width: "third" },
-      { name: "cashBackAmount", label: "Cash back amount", type: "number", width: "third" },
-      { name: "totalDeposit", label: "Deposit total", type: "number", required: true, width: "third" },
+      {
+        name: "depositTo",
+        label: "Deposit to",
+        type: "select",
+        options: [
+          "Premier Operating · 2048",
+          "Salaam Bank · 1182",
+          "Mobile Money · 7712",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "depositDate",
+        label: "Deposit date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "reference",
+        label: "Reference no.",
+        type: "text",
+        width: "third",
+      },
+      {
+        name: "payments",
+        label: "Undeposited payments selected for deposit",
+        type: "textarea",
+        required: true,
+      },
+      {
+        name: "cashBackAccount",
+        label: "Cash back account",
+        type: "select",
+        options: ["None", "Petty cash", "Bank fees"],
+        width: "third",
+      },
+      {
+        name: "cashBackAmount",
+        label: "Cash back amount",
+        type: "number",
+        width: "third",
+      },
+      {
+        name: "totalDeposit",
+        label: "Deposit total",
+        type: "number",
+        required: true,
+        width: "third",
+      },
       { name: "memo", label: "Memo", type: "textarea" },
     ],
   },
@@ -3747,13 +4734,60 @@ const phaseTwoSpecs: typeof commonResourceSpecs = [
     action: "Write check",
     columns: ["Check", "Payee / bank", "Amount", "Check date"],
     fields: [
-      { name: "bankAccount", label: "Bank account", type: "select", options: ["Premier Operating · 2048", "Salaam Bank · 1182"], required: true, width: "third" },
-      { name: "payee", label: "Payee", type: "select", options: ["Polymer Gulf LLC", "East Africa Resins", "Port Authority", "Add new payee"], required: true, width: "third" },
-      { name: "checkNumber", label: "Check no.", type: "text", required: true, width: "third" },
-      { name: "checkDate", label: "Check date", type: "date", required: true, width: "third" },
-      { name: "amount", label: "Amount", type: "number", required: true, width: "third" },
-      { name: "printLater", label: "Print later", type: "checkbox", width: "third" },
-      { name: "allocation", label: "Expense / item allocation", type: "textarea", required: true },
+      {
+        name: "bankAccount",
+        label: "Bank account",
+        type: "select",
+        options: ["Premier Operating · 2048", "Salaam Bank · 1182"],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "payee",
+        label: "Payee",
+        type: "select",
+        options: [
+          "Polymer Gulf LLC",
+          "East Africa Resins",
+          "Port Authority",
+          "Add new payee",
+        ],
+        required: true,
+        width: "third",
+      },
+      {
+        name: "checkNumber",
+        label: "Check no.",
+        type: "text",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "checkDate",
+        label: "Check date",
+        type: "date",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "amount",
+        label: "Amount",
+        type: "number",
+        required: true,
+        width: "third",
+      },
+      {
+        name: "printLater",
+        label: "Print later",
+        type: "checkbox",
+        width: "third",
+      },
+      {
+        name: "allocation",
+        label: "Expense / item allocation",
+        type: "textarea",
+        required: true,
+      },
       { name: "memo", label: "Memo", type: "textarea" },
     ],
   },
@@ -3763,7 +4797,7 @@ commonResourceSpecs.push(...phaseTwoSpecs);
 
 const reportSlugs = moduleDefinitions.reports.resources.map(
   (resource) => resource.slug,
-)
+);
 for (const slug of reportSlugs) {
   commonResourceSpecs.push({
     module: "reports",
@@ -3804,17 +4838,17 @@ for (const slug of reportSlugs) {
       },
       { name: "schedule", label: "Schedule email delivery", type: "checkbox" },
     ],
-  })
+  });
 }
 
-export const resourceConfigs: Record<string, ResourceConfig> = {}
+export const resourceConfigs: Record<string, ResourceConfig> = {};
 
 for (const resource of salesResources) {
-  resourceConfigs[`${resource.module}/${resource.slug}`] = resource
+  resourceConfigs[`${resource.module}/${resource.slug}`] = resource;
 }
 
 for (const spec of commonResourceSpecs) {
-  const moduleDefinition = moduleDefinitions[spec.module]
+  const moduleDefinition = moduleDefinitions[spec.module];
   resourceConfigs[`${spec.module}/${spec.slug}`] = {
     module: spec.module,
     moduleTitle: moduleDefinition.title,
@@ -3863,5 +4897,5 @@ for (const spec of commonResourceSpecs) {
       ],
       ["$18,420", "$12,250", "$7,180", "$22,760", "$4,940"],
     ),
-  }
+  };
 }

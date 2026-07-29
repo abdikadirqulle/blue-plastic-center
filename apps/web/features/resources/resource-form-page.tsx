@@ -38,7 +38,6 @@ interface LineItem {
   quantity: string;
   unit: string;
   rate: string;
-  tax: string;
 }
 
 function supportsQuickAdd(field: FormField) {
@@ -158,7 +157,6 @@ const blankLine = (): LineItem => ({
   quantity: "1",
   unit: "Each",
   rate: "",
-  tax: "Standard tax",
 });
 
 const isoDate = (date: Date) => {
@@ -219,7 +217,18 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
     config.module === "accounting"
       ? references.accountOptions
       : references.itemOptions;
-  const allFields = config.formSections.flatMap((section) => section.fields);
+  const visibleSections = config.formSections
+    .filter((section) => !/billing\s*&\s*shipping/i.test(section.title))
+    .map((section) => ({
+      ...section,
+      title: section.title.replace(/,\s*tax/i, "").replace(/tax\s*&\s*/i, ""),
+      fields: section.fields.filter(
+        (field) =>
+          !/(tax|interest|surcharge)/i.test(`${field.name} ${field.label}`),
+      ),
+    }))
+    .filter((section) => section.fields.length);
+  const allFields = visibleSections.flatMap((section) => section.fields);
   const requiredFields = essentialFormFields(allFields);
 
   useEffect(() => {
@@ -242,7 +251,6 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
             quantity: String(line.quantity ?? "1"),
             unit: String(line.unit ?? "Each"),
             rate: String(line.unitPrice ?? line.rate ?? ""),
-            tax: String(line.taxCodeId ?? "Standard tax"),
           };
         }),
       );
@@ -319,14 +327,10 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
         description: line.description || line.item || "Transaction line",
         quantity: line.quantity || "1",
         unitPrice: line.rate || "0",
-        ...(!["Standard tax", "Non-taxable", "Zero rated"].includes(line.tax)
-          ? { taxCodeId: line.tax }
-          : {}),
       }));
       data.subtotal = lineTotal.toFixed(4);
-      data.taxTotal = (lineTotal * 0.05).toFixed(4);
-      data.total = (lineTotal * 1.05).toFixed(4);
-      data.balanceDue = (lineTotal * 1.05).toFixed(4);
+      data.total = lineTotal.toFixed(4);
+      data.balanceDue = lineTotal.toFixed(4);
     }
     if (!data.currency) data.currency = "USD";
     const draftResult = draftResourceDataSchema.safeParse(data);
@@ -431,13 +435,36 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
         </div>
 
         <div className="space-y-4">
-          {config.formSections.map((section) => (
+          {visibleSections.map((section, sectionIndex) => (
             <Card
               key={section.title}
-              className="overflow-visible border-[#cfdce4] p-0 shadow-sm"
+              className={cn(
+                "overflow-visible border-[#cfdce4] p-0 shadow-sm",
+                config.module === "sales" &&
+                  config.slug === "invoices" &&
+                  sectionIndex === 0 &&
+                  "border-[#537b9d]",
+              )}
             >
-              <div className="rounded-t-2xl border-b border-[#cfdce4] bg-[#f6f9fb] px-5 py-4 md:px-6">
-                <h2 className="text-sm font-bold text-[#213b48]">
+              <div
+                className={cn(
+                  "rounded-t-2xl border-b border-[#cfdce4] bg-[#f6f9fb] px-5 py-3 md:px-5",
+                  config.module === "sales" &&
+                    config.slug === "invoices" &&
+                    sectionIndex === 0 &&
+                    "border-[#537b9d] bg-[#6689a8] text-white",
+                )}
+              >
+                <h2
+                  className={cn(
+                    "text-sm font-bold",
+                    config.module === "sales" &&
+                      config.slug === "invoices" &&
+                      sectionIndex === 0
+                      ? "text-white"
+                      : "text-[#213b48]",
+                  )}
+                >
                   {section.title}
                 </h2>
                 {section.description ? (
@@ -446,7 +473,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                   </p>
                 ) : null}
               </div>
-              <div className="grid gap-4 p-5 md:grid-cols-6 md:p-6">
+              <div className="grid gap-3 p-4 md:grid-cols-6 md:p-5">
                 {section.fields.map((field) => (
                   <label
                     key={field.name}
@@ -507,7 +534,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
 
           {config.hasLineItems ? (
             <Card className="overflow-visible border-[#cfdce4]">
-              <div className="flex items-center justify-between border-b border-[#cfdce4] bg-[#f6f9fb] p-5">
+              <div className="flex items-center justify-between border-b border-[#cfdce4] bg-[#f6f9fb] px-4 py-3">
                 <div>
                   <h2 className="text-sm font-bold text-[#213b48]">
                     Items, quantities & pricing
@@ -528,7 +555,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                 </button>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[920px]">
+                <table className="w-full min-w-[820px] table-fixed">
                   <thead>
                     <tr className="bg-[#f8fafc]">
                       {[
@@ -537,7 +564,6 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                         "Qty",
                         "U/M",
                         "Rate",
-                        "Tax",
                         "Amount",
                         "",
                       ].map((heading) => (
@@ -588,8 +614,11 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                         );
                       };
                       return (
-                        <tr key={line.id} className="border-t border-[#edf1f4]">
-                          <td className="min-w-56 p-2">
+                        <tr
+                          key={line.id}
+                          className="border-t border-[#d9e3ea] odd:bg-white even:bg-[#edf5fb]"
+                        >
+                          <td className="w-60 p-1.5">
                             <Select
                               value={line.item || undefined}
                               onValueChange={selectLineReference}
@@ -626,7 +655,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                                   ),
                                 );
                               }}
-                              className="h-10 text-xs"
+                              className="h-9 rounded-md border-[#aebfca] text-xs"
                             />
                           </td>
                           <td className="p-2">
@@ -636,7 +665,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                                 update("description", event.target.value)
                               }
                               placeholder="Description"
-                              className="h-10 w-full rounded-lg border border-[#dce6ed] px-2 text-xs"
+                              className="h-9 w-full rounded-md border border-[#aebfca] bg-transparent px-2 text-xs"
                             />
                           </td>
                           <td className="p-2">
@@ -647,7 +676,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                               onChange={(event) =>
                                 update("quantity", event.target.value)
                               }
-                              className="h-10 w-20 rounded-lg border border-[#dce6ed] px-2 text-xs"
+                              className="h-9 w-20 rounded-md border border-[#aebfca] bg-transparent px-2 text-xs"
                             />
                           </td>
                           <td className="p-2">
@@ -655,7 +684,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                               value={line.unit}
                               onValueChange={(value) => update("unit", value)}
                               options={["Each", "Box", "Kg", "Hour"]}
-                              className="h-10 text-xs"
+                              className="h-9 rounded-md border-[#aebfca] text-xs"
                             />
                           </td>
                           <td className="p-2">
@@ -666,19 +695,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                               onChange={(event) =>
                                 update("rate", event.target.value)
                               }
-                              className="h-10 w-24 rounded-lg border border-[#dce6ed] px-2 text-xs"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <Select
-                              value={line.tax}
-                              onValueChange={(value) => update("tax", value)}
-                              options={[
-                                "Standard tax",
-                                "Non-taxable",
-                                "Zero rated",
-                              ]}
-                              className="h-10 text-xs"
+                              className="h-9 w-24 rounded-md border border-[#aebfca] bg-transparent px-2 text-xs"
                             />
                           </td>
                           <td className="p-2 text-xs font-bold text-[#29414d]">
@@ -711,13 +728,9 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                     <span>Subtotal</span>
                     <span>${lineTotal.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between text-[#647984]">
-                    <span>Estimated tax</span>
-                    <span>${(lineTotal * 0.05).toLocaleString()}</span>
-                  </div>
                   <div className="flex justify-between border-t border-[#dfe7ed] pt-2 text-base font-bold text-[#17303d]">
                     <span>Total</span>
-                    <span>${(lineTotal * 1.05).toLocaleString()}</span>
+                    <span>${lineTotal.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -923,7 +936,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
         open={deleteLineId !== null}
         title="Remove this transaction line?"
         recordName="Line item from the current transaction"
-        description="The item, quantity, rate, and tax entered on this line will be removed. The transaction form will remain open."
+        description="The item, quantity, and rate entered on this line will be removed. The transaction form will remain open."
         confirmLabel="Remove line"
         onClose={() => setDeleteLineId(null)}
         onConfirm={() => {

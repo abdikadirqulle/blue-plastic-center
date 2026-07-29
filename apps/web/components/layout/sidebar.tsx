@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { Link } from "@/components/routing"
-import { usePathname } from "@/components/routing"
-import type { ReactNode } from "react"
+import { Link } from "@/components/routing";
+import { usePathname } from "@/components/routing";
+import type { ReactNode } from "react";
 import {
   BarChart3,
   Boxes,
@@ -21,8 +21,8 @@ import {
   Trash2,
   WalletCards,
   X,
-} from "lucide-react"
-import { cn } from "../../lib/utils"
+} from "lucide-react";
+import { cn } from "../../lib/utils";
 
 const navigation = [
   {
@@ -164,7 +164,6 @@ const navigation = [
       ["Inventory", "/reports/inventory"],
       ["Projects & jobs", "/reports/projects"],
       ["Fixed assets", "/reports/assets"],
-      ["Taxes", "/reports/taxes"],
       ["Payroll", "/reports/payroll"],
       ["Custom", "/reports/custom"],
     ],
@@ -176,7 +175,7 @@ const navigation = [
     sections: ["trash"],
     links: [],
   },
-]
+];
 
 const reportNavigation = [
   {
@@ -197,7 +196,11 @@ const reportNavigation = [
     reports: [
       ["A/R Aging Summary", "A/R Aging Summary", "receivables-aging"],
       ["A/R Aging Detail", "A/R Aging Detail", "receivables-aging"],
-      ["Customer Balance Summary", "Customer Balance Summary", "sales-by-customer"],
+      [
+        "Customer Balance Summary",
+        "Customer Balance Summary",
+        "sales-by-customer",
+      ],
       ["Open Invoices", "Open Invoices", "invoice-list"],
       ["Collections Report", "Collections Report", "collections"],
       ["Transaction List by Customer", "Invoice List", "invoice-list"],
@@ -207,8 +210,16 @@ const reportNavigation = [
     label: "Sales",
     href: "/reports/sales",
     reports: [
-      ["Sales by Customer Summary", "Sales by Customer Summary", "sales-by-customer"],
-      ["Sales by Customer Detail", "Sales by Customer Detail", "sales-by-customer"],
+      [
+        "Sales by Customer Summary",
+        "Sales by Customer Summary",
+        "sales-by-customer",
+      ],
+      [
+        "Sales by Customer Detail",
+        "Sales by Customer Detail",
+        "sales-by-customer",
+      ],
       ["Sales by Item Summary", "Sales by Item Summary", "sales-by-item"],
       ["Sales by Item Detail", "Sales by Item Detail", "sales-by-item"],
       ["Sales by Rep Summary", "Sales by Rep Summary", "sales-by-customer"],
@@ -218,9 +229,21 @@ const reportNavigation = [
     label: "Jobs, Time & Mileage",
     href: "/reports/projects",
     reports: [
-      ["Job Profitability Summary", "Project Profitability Summary", "audit-trail"],
-      ["Job Profitability Detail", "Project Profitability Detail", "audit-trail"],
-      ["Estimates vs. Actuals Summary", "Job Estimates vs Actuals", "audit-trail"],
+      [
+        "Job Profitability Summary",
+        "Project Profitability Summary",
+        "audit-trail",
+      ],
+      [
+        "Job Profitability Detail",
+        "Project Profitability Detail",
+        "audit-trail",
+      ],
+      [
+        "Estimates vs. Actuals Summary",
+        "Job Estimates vs Actuals",
+        "audit-trail",
+      ],
       ["Time by Job Summary", "Time by Project", "audit-trail"],
     ],
   },
@@ -239,9 +262,21 @@ const reportNavigation = [
     label: "Purchases",
     href: "/reports/purchasing",
     reports: [
-      ["Purchases by Vendor Summary", "Purchases by Vendor Summary", "payables-aging"],
-      ["Purchases by Vendor Detail", "Purchases by Vendor Detail", "payables-aging"],
-      ["Purchases by Item Detail", "Purchases by Item Detail", "inventory-valuation"],
+      [
+        "Purchases by Vendor Summary",
+        "Purchases by Vendor Summary",
+        "payables-aging",
+      ],
+      [
+        "Purchases by Vendor Detail",
+        "Purchases by Vendor Detail",
+        "payables-aging",
+      ],
+      [
+        "Purchases by Item Detail",
+        "Purchases by Item Detail",
+        "inventory-valuation",
+      ],
       ["Open Purchase Orders", "Open Purchase Orders", "payables-aging"],
     ],
   },
@@ -249,7 +284,11 @@ const reportNavigation = [
     label: "Inventory",
     href: "/reports/inventory",
     reports: [
-      ["Inventory valuation", "Inventory Valuation Summary", "inventory-valuation"],
+      [
+        "Inventory valuation",
+        "Inventory Valuation Summary",
+        "inventory-valuation",
+      ],
       ["Stock status", "Inventory Stock Status by Item", "inventory-valuation"],
     ],
   },
@@ -260,7 +299,11 @@ const reportNavigation = [
       ["Payroll Summary", "Payroll Summary", "audit-trail"],
       ["Payroll Item Detail", "Payroll Item Detail", "audit-trail"],
       ["Employee Earnings Summary", "Employee Earnings Summary", "audit-trail"],
-      ["Payroll Liability Balances", "Payroll Liability Balances", "audit-trail"],
+      [
+        "Payroll Liability Balances",
+        "Payroll Liability Balances",
+        "audit-trail",
+      ],
     ],
   },
   {
@@ -274,22 +317,21 @@ const reportNavigation = [
     ],
   },
   {
-    label: "Accountant & Taxes",
-    href: "/reports/taxes",
+    label: "Accountant",
+    href: "/reports/financial",
     reports: [
-      ["Income Tax Summary", "Tax Summary", "tax-summary"],
       ["General Ledger", "General Ledger", "general-ledger"],
       ["Trial Balance", "Trial Balance", "trial-balance"],
       ["Audit Trail", "Audit Trail", "audit-trail"],
     ],
   },
-] as const
+] as const;
 
 function reportHref(name: string, kind: string) {
-  const today = new Date()
-  const to = today.toISOString().slice(0, 10)
-  const from = `${to.slice(0, 8)}01`
-  return `/reports/view?${new URLSearchParams({ name, kind, from, to, basis: "accrual" })}`
+  const today = new Date();
+  const to = today.toISOString().slice(0, 10);
+  const from = `${to.slice(0, 8)}01`;
+  return `/reports/view?${new URLSearchParams({ name, kind, from, to, basis: "accrual" })}`;
 }
 
 export function Sidebar({
@@ -297,11 +339,11 @@ export function Sidebar({
   onClose,
   actions,
 }: {
-  open: boolean
-  onClose: () => void
-  actions?: ReactNode
+  open: boolean;
+  onClose: () => void;
+  actions?: ReactNode;
 }) {
-  const pathname = usePathname()
+  const pathname = usePathname();
   return (
     <>
       <div className="sticky top-0 z-30 hidden border-b border-white/10 bg-[#071f33] text-white lg:block">
@@ -324,7 +366,7 @@ export function Sidebar({
                   ? pathname === "/"
                   : sections.some((section) =>
                       pathname.startsWith(`/${section}`),
-                    )
+                    );
               return (
                 <div key={label} className="group relative">
                   <Link
@@ -340,32 +382,59 @@ export function Sidebar({
                     {links.length ? <ChevronDown size={12} /> : null}
                   </Link>
                   {links.length ? (
-                    <div className={cn("invisible absolute top-full z-50 w-56 translate-y-1 rounded-xl border border-[#dce6ed] bg-white p-2 text-[#304954] opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100", label === "Reports" ? "right-0" : "left-0")}>
-                      {label === "Reports" ? reportNavigation.map((category) => (
-                        <div key={category.label} className="group/report-category relative">
-                          <Link href={category.href} className="flex items-center justify-between rounded-lg px-3 py-2.5 text-xs font-semibold hover:bg-[#eef7fd] hover:text-[#007DCC]">
-                            {category.label}<ChevronRight size={13}/>
-                          </Link>
-                          <div className="invisible absolute right-full top-0 z-[60] w-60 rounded-xl border border-[#dce6ed] bg-white p-2 opacity-0 shadow-2xl transition group-hover/report-category:visible group-hover/report-category:opacity-100">
-                            <Link href={category.href} className="mb-1 block rounded-lg border-b border-[#e8eef2] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#007DCC] hover:bg-[#eef7fd]">View all {category.label}</Link>
-                            {category.reports.map(([reportLabel, reportName, kind]) => (
-                              <Link key={reportLabel} href={reportHref(reportName, kind)} className="block rounded-lg px-3 py-2 text-xs font-medium text-[#405762] hover:bg-[#eef7fd] hover:text-[#007DCC]">{reportLabel}</Link>
-                            ))}
-                          </div>
-                        </div>
-                      )) : links.map(([name, link]) => (
-                        <Link
-                          key={`${name}-${link}`}
-                          href={link}
-                          className="block rounded-lg px-3 py-2 text-xs font-semibold hover:bg-[#eef7fd] hover:text-[#007DCC]"
-                        >
-                          {name}
-                        </Link>
-                      ))}
+                    <div
+                      className={cn(
+                        "invisible absolute top-full z-50 w-56 translate-y-1 rounded-xl border border-[#dce6ed] bg-white p-2 text-[#304954] opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100",
+                        label === "Reports" ? "right-0" : "left-0",
+                      )}
+                    >
+                      {label === "Reports"
+                        ? reportNavigation.map((category) => (
+                            <div
+                              key={category.label}
+                              className="group/report-category relative"
+                            >
+                              <Link
+                                href={category.href}
+                                className="flex items-center justify-between rounded-lg px-3 py-2.5 text-xs font-semibold hover:bg-[#eef7fd] hover:text-[#007DCC]"
+                              >
+                                {category.label}
+                                <ChevronRight size={13} />
+                              </Link>
+                              <div className="invisible absolute right-full top-0 z-[60] w-60 rounded-xl border border-[#dce6ed] bg-white p-2 opacity-0 shadow-2xl transition group-hover/report-category:visible group-hover/report-category:opacity-100">
+                                <Link
+                                  href={category.href}
+                                  className="mb-1 block rounded-lg border-b border-[#e8eef2] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#007DCC] hover:bg-[#eef7fd]"
+                                >
+                                  View all {category.label}
+                                </Link>
+                                {category.reports.map(
+                                  ([reportLabel, reportName, kind]) => (
+                                    <Link
+                                      key={reportLabel}
+                                      href={reportHref(reportName, kind)}
+                                      className="block rounded-lg px-3 py-2 text-xs font-medium text-[#405762] hover:bg-[#eef7fd] hover:text-[#007DCC]"
+                                    >
+                                      {reportLabel}
+                                    </Link>
+                                  ),
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        : links.map(([name, link]) => (
+                            <Link
+                              key={`${name}-${link}`}
+                              href={link}
+                              className="block rounded-lg px-3 py-2 text-xs font-semibold hover:bg-[#eef7fd] hover:text-[#007DCC]"
+                            >
+                              {name}
+                            </Link>
+                          ))}
                     </div>
                   ) : null}
                 </div>
-              )
+              );
             })}
           </nav>
           <div className="flex shrink-0 items-center gap-2">{actions}</div>
@@ -401,7 +470,9 @@ export function Sidebar({
             const active =
               href === "/"
                 ? pathname === "/"
-                : sections.some((section) => pathname.startsWith(`/${section}`))
+                : sections.some((section) =>
+                    pathname.startsWith(`/${section}`),
+                  );
             return (
               <div key={label} className="mb-1">
                 <Link
@@ -437,7 +508,7 @@ export function Sidebar({
                   </div>
                 ) : null}
               </div>
-            )
+            );
           })}
         </nav>
         <div className="border-t border-white/10 p-3">
@@ -468,5 +539,5 @@ export function Sidebar({
         </div>
       </aside>
     </>
-  )
+  );
 }
