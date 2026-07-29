@@ -26,6 +26,7 @@ import { DatePicker } from "../../components/ui/date-picker"
 import { Select } from "../../components/ui/select"
 import { Toast, type ToastMessage } from "../../components/ui/toast"
 import { apiClient } from "../../lib/api-client"
+import { formatDecimal } from "../../lib/utils"
 import { FinancialReportTable } from "./financial-report-table"
 import {
   buildFinancialLines,
@@ -77,6 +78,9 @@ function display(value: unknown) {
   if (value === null || value === undefined || value === "") return "—"
   if (typeof value === "boolean") return value ? "Yes" : "No"
   if (typeof value === "object") return "—"
+  if (typeof value === "number") return formatDecimal(value)
+  if (typeof value === "string" && /^-?\d+\.\d+$/.test(value))
+    return formatDecimal(value)
   return String(value)
 }
 

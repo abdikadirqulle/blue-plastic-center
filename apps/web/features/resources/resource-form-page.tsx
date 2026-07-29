@@ -21,7 +21,7 @@ import {
   type SelectOption,
 } from "../../components/ui/select";
 import { Toast, type ToastMessage } from "../../components/ui/toast";
-import { cn } from "../../lib/utils";
+import { cn, formatDecimal, formatDecimalInput } from "../../lib/utils";
 import { ApiError } from "../../lib/api-client";
 import type { FormField, ResourceConfig } from "./resource-config";
 import { useResourceDetail, useResourceMutations } from "./resource-api";
@@ -250,7 +250,9 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
             description: String(line.description ?? ""),
             quantity: String(line.quantity ?? "1"),
             unit: String(line.unit ?? "Each"),
-            rate: String(line.unitPrice ?? line.rate ?? ""),
+            rate: formatDecimalInput(
+              String(line.unitPrice ?? line.rate ?? ""),
+            ),
           };
         }),
       );
@@ -555,11 +557,11 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                 </button>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[820px] table-fixed">
+                <table className="w-full min-w-[1040px] table-fixed">
                   <thead>
                     <tr className="bg-[#f8fafc]">
                       {[
-                        "Item/account",
+                        "Item / account name",
                         "Description",
                         "Qty",
                         "U/M",
@@ -605,8 +607,8 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                                       entry.description,
                                   ),
                                   unit: String(item?.data.unit ?? entry.unit),
-                                  rate: String(
-                                    item?.data.salesPrice ?? entry.rate,
+                                  rate: formatDecimalInput(
+                                    String(item?.data.salesPrice ?? entry.rate),
                                   ),
                                 }
                               : entry,
@@ -618,7 +620,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                           key={line.id}
                           className="border-t border-[#d9e3ea] odd:bg-white even:bg-[#edf5fb]"
                         >
-                          <td className="w-60 p-1.5">
+                          <td className="w-80 min-w-80 p-1.5">
                             <Select
                               value={line.item || undefined}
                               onValueChange={selectLineReference}
@@ -649,7 +651,9 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                                           ...entry,
                                           description: input.name,
                                           unit: input.unit,
-                                          rate: input.salesPrice || "0",
+                                          rate: formatDecimalInput(
+                                            input.salesPrice || "0",
+                                          ),
                                         }
                                       : entry,
                                   ),
@@ -695,15 +699,21 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                               onChange={(event) =>
                                 update("rate", event.target.value)
                               }
+                              onBlur={(event) =>
+                                update(
+                                  "rate",
+                                  formatDecimalInput(event.target.value),
+                                )
+                              }
                               className="h-9 w-24 rounded-md border border-[#aebfca] bg-transparent px-2 text-xs"
                             />
                           </td>
                           <td className="p-2 text-xs font-bold text-[#29414d]">
                             $
-                            {(
+                            {formatDecimal(
                               Number(line.quantity || 0) *
-                              Number(line.rate || 0)
-                            ).toLocaleString()}
+                                Number(line.rate || 0),
+                            )}
                           </td>
                           <td className="p-2">
                             <button
@@ -726,11 +736,11 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                 <div className="w-72 space-y-2 text-xs">
                   <div className="flex justify-between text-[#647984]">
                     <span>Subtotal</span>
-                    <span>${lineTotal.toLocaleString()}</span>
+                    <span>${formatDecimal(lineTotal)}</span>
                   </div>
                   <div className="flex justify-between border-t border-[#dfe7ed] pt-2 text-base font-bold text-[#17303d]">
                     <span>Total</span>
-                    <span>${lineTotal.toLocaleString()}</span>
+                    <span>${formatDecimal(lineTotal)}</span>
                   </div>
                 </div>
               </div>

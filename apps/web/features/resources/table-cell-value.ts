@@ -1,3 +1,5 @@
+import { formatDecimal } from "../../lib/utils";
+
 const aliases: Record<string, string[]> = {
   document: ["documentNumber", "reference", "code"],
   invoice: ["documentNumber", "invoiceNumber", "reference"],
@@ -37,7 +39,8 @@ function display(value: unknown, money: boolean) {
   if (typeof value === "object") return "Details";
   const text = String(value);
   if (money && /^-?\d+(\.\d+)?$/.test(text))
-    return `$${Number(text).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `$${formatDecimal(text)}`;
+  if (/^-?\d+\.\d+$/.test(text)) return formatDecimal(text);
   return text;
 }
 

@@ -39,6 +39,7 @@ import {
 import { apiClient } from "@/lib/api-client";
 import { useReferenceData } from "./reference-data";
 import { resourceFieldValue } from "./resource-field-mapping";
+import { formatDecimal } from "../../lib/utils";
 
 const statusVariant = (status: string) => {
   if (["Paid", "Posted", "Active", "Approved", "Completed"].includes(status))
@@ -106,6 +107,12 @@ function displayValue(
     if (Array.isArray(actual))
       return `${actual.length} record${actual.length === 1 ? "" : "s"}`;
     if (typeof actual === "object") return JSON.stringify(actual, null, 2);
+    if (
+      field.type === "number" &&
+      (typeof actual === "number" ||
+        (typeof actual === "string" && /^-?\d+(\.\d+)?$/.test(actual)))
+    )
+      return formatDecimal(actual);
     if (
       /(Id$)|customer|vendor|project|employee|warehouse|account|item/i.test(
         field.name,
@@ -303,7 +310,11 @@ export function ResourceDetailsPage({
                   <p className="mt-1.5 text-sm font-bold text-[#29424e]">
                     {/Id$/.test(key)
                       ? references.resolve(value)
-                      : String(value)}
+                      : /amount|total|balance|price|cost|debit|credit|rate/i.test(
+                            key,
+                          ) && /^-?\d+(\.\d+)?$/.test(String(value))
+                        ? formatDecimal(String(value))
+                        : String(value)}
                   </p>
                 </div>
               ))}

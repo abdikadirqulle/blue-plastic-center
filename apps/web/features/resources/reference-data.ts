@@ -42,7 +42,12 @@ export function useReferenceData() {
       const options = (queries[index].data?.data ?? []).map((record) => {
         const title = recordTitle(record)
         const identifier = recordIdentifier(record)
-        const label = identifier !== title ? `${identifier} — ${title}` : title
+        const label =
+          source.resource === "items"
+            ? title
+            : identifier !== title
+              ? `${identifier} — ${title}`
+              : title
         labels.set(record.id, label)
         return { value: record.id, label }
       })
@@ -101,7 +106,7 @@ export function useReferenceData() {
           })
           return {
             value: response.data.id,
-            label: `${input.code} — ${input.name}`,
+            label: input.name,
           }
         }
         if (input.kind === "account") {

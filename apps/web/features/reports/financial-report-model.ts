@@ -1,3 +1,5 @@
+import { formatCurrency } from "../../lib/utils"
+
 export interface TrialBalanceRow {
   accountId?: string
   accountNumber?: string
@@ -76,4 +78,4 @@ export function buildFinancialLines(kind: string, rows: TrialBalanceRow[]): Fina
 }
 
 export const money = (value: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(value)
+  formatCurrency(value)

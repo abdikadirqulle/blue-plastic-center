@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { apiClient, type ApiRecord } from "@/lib/api-client"
 import { queryKeys } from "@/lib/query-client"
+import { formatDecimal } from "@/lib/utils"
 
 export interface ResourceListQuery {
   page?: number
@@ -138,7 +139,7 @@ export function recordAmount(record: ApiRecord) {
     "0",
   )
   return /^-?\d+(\.\d+)?$/.test(value)
-    ? `$${Number(value).toLocaleString()}`
+    ? `$${formatDecimal(value)}`
     : value
 }
 
