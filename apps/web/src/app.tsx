@@ -1,5 +1,6 @@
 import { Navigate, Outlet, Route, Routes, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
+import { isNavigableResource } from "@blue-plastic/types"
 import LoginPage from "../features/auth/login-page"
 import { DashboardPage } from "../features/dashboard/components/dashboard-page"
 import { EnterpriseWorkspacePage } from "../features/enterprise/components/enterprise-workspace-page"
@@ -73,8 +74,17 @@ function SectionRedirect() {
 
 function ResourceRoute() {
   const { section = "", resource = "" } = useParams()
-  if (section === "reports") return <ReportsPage activeTab={resource} />
-  if (section === "settings") return <SettingsPage activeSection={resource} />
+  // Reports and settings render their own shells, so they are checked against
+  // the MVP scope here; every other section is gated by `resourceConfigs`,
+  // which only contains in-scope resources.
+  if (section === "reports" || section === "settings") {
+    if (!isNavigableResource(section, resource)) return <NotFoundPage />
+    return section === "reports" ? (
+      <ReportsPage activeTab={resource} />
+    ) : (
+      <SettingsPage activeSection={resource} />
+    )
+  }
   const config = resourceConfigs[`${section}/${resource}`]
   if (!config) return <NotFoundPage />
   if (section === "sales")

@@ -34,13 +34,14 @@ describe("ResourceService", () => {
   it("numbers documents, enforces optimistic locking, and soft deletes", async () => {
     const repository = new MemoryResourceRepository()
     const service = new ResourceService(repository)
-    const record = await service.create(context, "sales", "estimates", {
+    const record = await service.create(context, "purchasing", "bills", {
       data: {
-        customerId: "customer-1",
-        estimateDate: "2026-07-28",
+        vendorId: "vendor-1",
+        billDate: "2026-07-28",
+        dueDate: "2026-08-27",
         currency: "USD",
         lines: [{
-          accountId: "4000-sales",
+          accountId: "5000-cogs",
           description: "Items",
           quantity: "1",
           unitPrice: "10",
@@ -48,22 +49,22 @@ describe("ResourceService", () => {
       },
     })
 
-    expect(record.data.documentNumber).toBe("EST-00001")
-    await expect(service.update(context, "sales", "estimates", record.id, {
+    expect(record.data.documentNumber).toBe("BILL-00001")
+    await expect(service.update(context, "purchasing", "bills", record.id, {
       version: 99,
       data: { memo: "stale" },
     })).rejects.toMatchObject({ status: 409, code: "CONFLICT" })
 
-    await service.remove(context, "sales", "estimates", record.id)
-    await expect(service.get(context, "sales", "estimates", record.id))
+    await service.remove(context, "purchasing", "bills", record.id)
+    await expect(service.get(context, "purchasing", "bills", record.id))
       .rejects.toMatchObject({ status: 404, code: "NOT_FOUND" })
 
     const trash = await service.listTrash(context, {
       page: 1,
       pageSize: 10,
       order: "desc",
-      module: "sales",
-      resource: "estimates",
+      module: "purchasing",
+      resource: "bills",
     })
     expect(trash.data[0]).toMatchObject({ id: record.id, isDeleted: true })
   })

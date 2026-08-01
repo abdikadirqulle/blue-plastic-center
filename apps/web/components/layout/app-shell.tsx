@@ -15,9 +15,10 @@ import {
 } from "lucide-react"
 import { Sidebar } from "./sidebar"
 import { useNotificationActions, useNotifications } from "../../features/notifications/notification-api"
+import { isNavigableResource } from "@blue-plastic/types"
 import { cn } from "../../lib/utils"
 
-const createGroups = [
+const createCatalog = [
   {
     module: "Sales",
     links: [
@@ -33,6 +34,7 @@ const createGroups = [
     module: "Purchasing",
     links: [
       ["Vendor bill", "/purchasing/bills/new"],
+      ["Expense", "/purchasing/expenses/new"],
       ["Purchase order", "/purchasing/purchase-orders/new"],
       ["Receive items", "/purchasing/receipts/new"],
       ["Pay bills", "/purchasing/bill-payments/new"],
@@ -82,6 +84,15 @@ const createGroups = [
   },
 ] as const
 
+/** Quick-create only offers documents the MVP can actually save. */
+const createGroups = createCatalog.flatMap((group) => {
+  const links = group.links.filter(([, href]) => {
+    const [, moduleName, resource] = href.split("/")
+    return isNavigableResource(moduleName, resource)
+  })
+  return links.length ? [{ ...group, links }] : []
+})
+
 export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -119,22 +130,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     const routes: Record<string, string> = {
       invoice: "/sales/invoices",
       receipt: "/sales/sales-receipts",
-      refund: "/sales/refund-receipts",
-      statement: "/sales/statements",
-      deposit: "/sales/deposits",
-      estimate: "/sales/estimates",
-      "sales order": "/sales/sales-orders",
+      "cash sale": "/sales/sales-receipts",
+      payment: "/sales/payments",
       customer: "/sales/customers",
       vendor: "/purchasing/vendors",
       bill: "/purchasing/bills",
-      bank: "/banking/accounts",
+      expense: "/purchasing/expenses",
       item: "/inventory/items",
-      stock: "/inventory/stock-levels",
       account: "/accounting/chart-of-accounts",
       journal: "/accounting/journal-entries",
-      project: "/projects/projects",
-      employee: "/payroll/employees",
-      payroll: "/payroll/pay-runs",
       report: "/reports/financial",
     }
     const match = Object.entries(routes).find(([term]) => value.includes(term))

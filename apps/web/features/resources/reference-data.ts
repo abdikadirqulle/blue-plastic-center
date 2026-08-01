@@ -12,14 +12,16 @@ interface ReferenceSource {
   pattern: RegExp
 }
 
+/**
+ * Lookups the MVP forms can offer. Projects and employees are deferred, so no
+ * screen asks for them and no request is made for them.
+ */
 const sources: ReferenceSource[] = [
   { module: "sales", resource: "customers", pattern: /customer/i },
   { module: "purchasing", resource: "vendors", pattern: /vendor|payee/i },
   { module: "inventory", resource: "items", pattern: /item|product|service/i },
   { module: "inventory", resource: "warehouses", pattern: /warehouse/i },
   { module: "accounting", resource: "chart-of-accounts", pattern: /account/i },
-  { module: "projects", resource: "projects", pattern: /project/i },
-  { module: "payroll", resource: "employees", pattern: /employee/i },
 ]
 
 export function useReferenceData() {
@@ -29,10 +31,11 @@ export function useReferenceData() {
   const items = useResourceList("inventory", "items", { page: 1, pageSize: 100 })
   const warehouses = useResourceList("inventory", "warehouses", { page: 1, pageSize: 100 })
   const accounts = useResourceList("accounting", "chart-of-accounts", { page: 1, pageSize: 100 })
-  const projects = useResourceList("projects", "projects", { page: 1, pageSize: 100 })
-  const employees = useResourceList("payroll", "employees", { page: 1, pageSize: 100 })
+  // Multi-currency is deferred, so every document is written in the company's
+  // functional currency rather than one chosen on the form.
+  const company = useResourceList("setup", "company-settings", { page: 1, pageSize: 1 })
 
-  const queries = [customers, vendors, items, warehouses, accounts, projects, employees]
+  const queries = [customers, vendors, items, warehouses, accounts]
 
   return useMemo(() => {
     const bySource = new Map<string, SelectOption[]>()
@@ -80,6 +83,9 @@ export function useReferenceData() {
     }
 
     return {
+      baseCurrency: String(
+        company.data?.data[0]?.data.functionalCurrency ?? "USD",
+      ),
       itemOptions: bySource.get("inventory/items") ?? [],
       accountOptions: bySource.get("accounting/chart-of-accounts") ?? [],
       itemById: new Map(itemRecords.map((record) => [record.id, record])),
@@ -150,8 +156,7 @@ export function useReferenceData() {
     items.data,
     warehouses.data,
     accounts.data,
-    projects.data,
-    employees.data,
+    company.data,
     queryClient,
   ])
 }

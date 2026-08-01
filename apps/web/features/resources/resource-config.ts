@@ -1,9 +1,12 @@
-import type {
-  FormField,
-  FormSection,
-  ModuleDefinition,
-  ResourceConfig,
-  ResourceRow,
+import {
+  isDeferredField,
+  isNavigableModule,
+  isNavigableResource,
+  type FormField,
+  type FormSection,
+  type ModuleDefinition,
+  type ResourceConfig,
+  type ResourceRow,
 } from "@blue-plastic/types";
 
 export type {
@@ -4835,15 +4838,43 @@ for (const slug of reportSlugs) {
   });
 }
 
+/**
+ * The catalog above stays complete so a module can be re-enabled by editing
+ * `mvpScope` alone. Everything exported below is the MVP view of it: modules
+ * and resources outside scope never reach navigation or routing, and deferred
+ * fields never reach a form.
+ */
+function mvpFormSections(sections: FormSection[]): FormSection[] {
+  return sections
+    .map((section) => ({
+      ...section,
+      fields: section.fields.filter(
+        (field) => !isDeferredField(field.name, field.label),
+      ),
+    }))
+    .filter((section) => section.fields.length);
+}
+
+function toMvpConfig(config: ResourceConfig): ResourceConfig {
+  return {
+    ...config,
+    columns: config.columns.filter((column) => !isDeferredField(column)),
+    formSections: mvpFormSections(config.formSections),
+  };
+}
+
+function register(config: ResourceConfig) {
+  if (!isNavigableResource(config.module, config.slug)) return;
+  resourceConfigs[`${config.module}/${config.slug}`] = toMvpConfig(config);
+}
+
 export const resourceConfigs: Record<string, ResourceConfig> = {};
 
-for (const resource of salesResources) {
-  resourceConfigs[`${resource.module}/${resource.slug}`] = resource;
-}
+for (const resource of salesResources) register(resource);
 
 for (const spec of commonResourceSpecs) {
   const moduleDefinition = moduleDefinitions[spec.module];
-  resourceConfigs[`${spec.module}/${spec.slug}`] = {
+  register({
     module: spec.module,
     moduleTitle: moduleDefinition.title,
     slug: spec.slug,
@@ -4891,5 +4922,15 @@ for (const spec of commonResourceSpecs) {
       ],
       ["$18,420", "$12,250", "$7,180", "$22,760", "$4,940"],
     ),
-  };
+  });
+}
+
+for (const [moduleName, definition] of Object.entries(moduleDefinitions)) {
+  if (!isNavigableModule(moduleName)) {
+    delete moduleDefinitions[moduleName];
+    continue;
+  }
+  definition.resources = definition.resources.filter((resource) =>
+    isNavigableResource(moduleName, resource.slug),
+  );
 }

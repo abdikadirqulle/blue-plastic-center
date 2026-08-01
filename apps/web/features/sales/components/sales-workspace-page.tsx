@@ -35,6 +35,7 @@ import {
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
 import { tableCellValue } from "../../resources/table-cell-value";
+import { isNavigableResource } from "@blue-plastic/types";
 import type { SalesRecord, SalesResource } from "../domain/sales-record";
 import { useSalesRecords } from "../hooks/use-sales-records";
 
@@ -50,7 +51,7 @@ const salesTabs = [
   ["statements", "Statements"],
   ["deposits", "Deposits"],
   ["recurring-invoices", "Recurring"],
-];
+].filter(([slug]) => isNavigableResource("sales", slug));
 
 const icons: Record<string, typeof FileText> = {
   invoices: FileText,

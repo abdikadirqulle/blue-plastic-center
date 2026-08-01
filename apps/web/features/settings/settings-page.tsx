@@ -27,6 +27,7 @@ import { Select } from "../../components/ui/select";
 import { Toast, type ToastMessage } from "../../components/ui/toast";
 import { apiClient, type ApiRecord } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
+import { isNavigableResource } from "@blue-plastic/types";
 import {
   useResourceList,
   useResourceMutations,
@@ -145,9 +146,15 @@ const definitions = {
 
 type SectionKey = keyof typeof definitions;
 
+/** Settings pages the MVP exposes, in the order they appear in the sidebar. */
+const mvpSections = Object.entries(definitions).filter(([slug]) =>
+  isNavigableResource("settings", slug),
+) as Array<[SectionKey, (typeof definitions)[SectionKey]]>;
+
 export function SettingsPage({ activeSection }: { activeSection: string }) {
-  const current: SectionKey =
-    activeSection in definitions ? (activeSection as SectionKey) : "company";
+  const current: SectionKey = mvpSections.some(([slug]) => slug === activeSection)
+    ? (activeSection as SectionKey)
+    : "company";
   const definition = definitions[current];
   const isUsers = current === "users-roles";
   const isBranches = current === "branches";
@@ -237,7 +244,7 @@ export function SettingsPage({ activeSection }: { activeSection: string }) {
         </p>
         <div className="mt-6 grid gap-4 xl:grid-cols-[290px_1fr]">
           <Card className="h-fit p-2">
-            {Object.entries(definitions).map(([slug, item]) => {
+            {mvpSections.map(([slug, item]) => {
               const Icon = item.icon;
               return (
                 <Link

@@ -34,6 +34,7 @@ import type {
   EnterpriseRecord,
 } from "../domain/enterprise-record";
 import { useEnterpriseRecords } from "../hooks/use-enterprise-records";
+import { isNavigableResource } from "@blue-plastic/types";
 import { apiClient } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-client";
@@ -238,15 +239,17 @@ export function EnterpriseWorkspacePage({
             </div>
           </div>
           <nav className="flex overflow-x-auto border-t border-white/10 bg-black/10 px-3">
-            {tabs[enterpriseModule].map(([slug, label]) => (
-              <Link
-                key={slug}
-                href={`/${enterpriseModule}/${slug}`}
-                className={`shrink-0 border-b-2 px-3 py-3 text-[11px] font-semibold ${slug === resource ? "border-sky-300 text-white" : "border-transparent text-white/55"}`}
-              >
-                {label}
-              </Link>
-            ))}
+            {tabs[enterpriseModule]
+              .filter(([slug]) => isNavigableResource(enterpriseModule, slug))
+              .map(([slug, label]) => (
+                <Link
+                  key={slug}
+                  href={`/${enterpriseModule}/${slug}`}
+                  className={`shrink-0 border-b-2 px-3 py-3 text-[11px] font-semibold ${slug === resource ? "border-sky-300 text-white" : "border-transparent text-white/55"}`}
+                >
+                  {label}
+                </Link>
+              ))}
           </nav>
         </section>
         <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

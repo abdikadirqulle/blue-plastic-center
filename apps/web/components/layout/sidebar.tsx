@@ -12,7 +12,6 @@ import {
   ClipboardList,
   Database,
   FileBarChart,
-  HandCoins,
   Landmark,
   LayoutDashboard,
   ReceiptText,
@@ -22,10 +21,11 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
+import { isNavigableResource } from "@blue-plastic/types";
 import { cn } from "../../lib/utils";
 import { resolveReportDefinition } from "../../features/reports/report-registry";
 
-const navigation = [
+const catalog = [
   {
     label: "Dashboard",
     icon: LayoutDashboard,
@@ -178,7 +178,22 @@ const navigation = [
   },
 ];
 
-const reportNavigation = [
+/**
+ * Navigation is derived from the MVP scope: a link survives only if its
+ * module/resource pair is in scope, and a group disappears once it has no
+ * links left. The catalog above is untouched so restoring a module is a
+ * one-line change in `mvpScope`.
+ */
+const navigation = catalog.flatMap((group) => {
+  if (!group.links.length) return [group];
+  const links = group.links.filter(([, href]) => {
+    const [, moduleName, resource] = href.split("/");
+    return isNavigableResource(moduleName, resource);
+  });
+  return links.length ? [{ ...group, links, href: links[0][1] }] : [];
+});
+
+const reportCatalog = [
   {
     label: "Company & Financial",
     href: "/reports/financial",
@@ -327,6 +342,17 @@ const reportNavigation = [
     ],
   },
 ] as const;
+
+/** Deposit, check and reconciliation reports belong to deferred banking. */
+const deferredReportCategories = new Set(["Banking"]);
+
+const reportNavigation = reportCatalog.filter((category) => {
+  const [, moduleName, resource] = category.href.split("/");
+  return (
+    isNavigableResource(moduleName, resource) &&
+    !deferredReportCategories.has(category.label)
+  );
+});
 
 function reportHref(name: string, kind: string) {
   const today = new Date();
@@ -546,14 +572,6 @@ export function Sidebar({
           >
             <Settings size={17} />
             Settings
-          </Link>
-          <Link
-            href="/debts/receivables"
-            onClick={onClose}
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs text-[#b8c7d2]"
-          >
-            <HandCoins size={17} />
-            Debts
           </Link>
         </div>
       </aside>

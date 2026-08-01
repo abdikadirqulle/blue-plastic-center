@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto"
-import type { InvoiceCreateData, InvoiceUpdateData } from "@blue-plastic/types"
+import {
+  isMvpResource,
+  type InvoiceCreateData,
+  type InvoiceUpdateData,
+} from "@blue-plastic/types"
 import { getResourceDefinition } from "../domain/modules.js"
 import { conflict, notFound, validation } from "../platform/errors.js"
 import type {
@@ -107,6 +111,17 @@ function isRelationalResource(moduleName: string, resourceName: string) {
   return moduleName === "sales" && resourceName === "invoices"
 }
 
+/**
+ * Resources outside the MVP answer as if they do not exist. Their definitions,
+ * contracts and tables are untouched; only the door is closed.
+ */
+function requireMvpResource(moduleName: string, resourceName: string) {
+  if (!getResourceDefinition(moduleName, resourceName))
+    throw notFound(`Unknown API resource: ${moduleName}/${resourceName}`)
+  if (!isMvpResource(moduleName, resourceName))
+    throw notFound(`${moduleName}/${resourceName} is outside the MVP scope`)
+}
+
 export class ResourceService {
   /**
    * Callers that still speak the generic resource language — conversions,
@@ -124,6 +139,7 @@ export class ResourceService {
     input: Record<string, unknown>,
     status = "draft",
   ) {
+    requireMvpResource(moduleName, resourceName)
     const partial = status.toLowerCase() === "incomplete"
     const data = validateOperationalData(moduleName, resourceName, input, { partial })
     if (!partial) {
@@ -139,8 +155,7 @@ export class ResourceService {
     resourceName: string,
     query: ListQuery,
   ) {
-    if (!getResourceDefinition(moduleName, resourceName))
-      throw notFound(`Unknown API resource: ${moduleName}/${resourceName}`)
+    requireMvpResource(moduleName, resourceName)
     if (this.invoices && isRelationalResource(moduleName, resourceName))
       return this.invoices.list(context, query)
     return this.repository.list(
@@ -160,6 +175,7 @@ export class ResourceService {
     resourceName: string,
     id: string,
   ) {
+    requireMvpResource(moduleName, resourceName)
     const record =
       this.invoices && isRelationalResource(moduleName, resourceName)
         ? await this.invoices.findById(context, id)
@@ -183,6 +199,7 @@ export class ResourceService {
     idempotency?: IdempotencyInput,
     options: { allowWorkflowStatus?: boolean } = {},
   ) {
+    requireMvpResource(moduleName, resourceName)
     if (moduleName === "accounting" && resourceName === "audit-log")
       throw conflict("Audit records are read-only")
     if (this.invoices && isRelationalResource(moduleName, resourceName))
@@ -268,6 +285,7 @@ export class ResourceService {
     input: WriteInput,
     options: { allowWorkflowTransition?: boolean } = {},
   ) {
+    requireMvpResource(moduleName, resourceName)
     if (moduleName === "accounting" && resourceName === "audit-log")
       throw conflict("Audit records are read-only")
     if (this.invoices && isRelationalResource(moduleName, resourceName))
@@ -323,6 +341,7 @@ export class ResourceService {
     resourceName: string,
     id: string,
   ) {
+    requireMvpResource(moduleName, resourceName)
     if (moduleName === "accounting" && resourceName === "audit-log")
       throw conflict("Audit records are read-only")
     if (this.invoices && isRelationalResource(moduleName, resourceName))

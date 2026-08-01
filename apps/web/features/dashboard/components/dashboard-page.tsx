@@ -6,18 +6,15 @@ import { Link } from "@/components/routing";
 import {
   ArrowRight,
   Box,
-  BriefcaseBusiness,
   CircleDollarSign,
   FileText,
   HandCoins,
-  Landmark,
   PackageCheck,
   Receipt,
   TrendingDown,
   TrendingUp,
   UserRoundCheck,
   Users,
-  WalletCards,
 } from "lucide-react";
 import { AppShell } from "../../../components/layout/app-shell";
 import { Badge } from "../../../components/ui/badge";
@@ -51,13 +48,6 @@ const sources = [
     icon: Receipt,
   },
   {
-    module: "banking",
-    resource: "transactions",
-    title: "Banking",
-    href: "/banking/transactions",
-    icon: Landmark,
-  },
-  {
     module: "inventory",
     resource: "items",
     title: "Inventory",
@@ -65,18 +55,18 @@ const sources = [
     icon: Box,
   },
   {
-    module: "projects",
-    resource: "projects",
-    title: "Projects",
-    href: "/projects/projects",
-    icon: BriefcaseBusiness,
+    module: "sales",
+    resource: "customers",
+    title: "Customers",
+    href: "/sales/customers",
+    icon: Users,
   },
   {
-    module: "payroll",
-    resource: "employees",
-    title: "Employees",
-    href: "/payroll/employees",
-    icon: Users,
+    module: "purchasing",
+    resource: "vendors",
+    title: "Vendors",
+    href: "/purchasing/vendors",
+    icon: UserRoundCheck,
   },
 ] as const;
 
@@ -141,19 +131,7 @@ export function DashboardPage() {
     page: 1,
     pageSize: 100,
   });
-  const banking = useResourceList("banking", "transactions", {
-    page: 1,
-    pageSize: 100,
-  });
   const inventory = useResourceList("inventory", "items", {
-    page: 1,
-    pageSize: 100,
-  });
-  const projects = useResourceList("projects", "projects", {
-    page: 1,
-    pageSize: 100,
-  });
-  const employees = useResourceList("payroll", "employees", {
     page: 1,
     pageSize: 100,
   });
@@ -161,7 +139,11 @@ export function DashboardPage() {
     page: 1,
     pageSize: 100,
   });
-  const queries = [invoices, bills, banking, inventory, projects, employees];
+  const vendors = useResourceList("purchasing", "vendors", {
+    page: 1,
+    pageSize: 100,
+  });
+  const queries = [invoices, bills, inventory, customers, vendors];
 
   const modules = useMemo(
     () =>
@@ -226,7 +208,7 @@ export function DashboardPage() {
       .filter((record) => /overdue/i.test(record.status))
       .reduce((sum, record) => sum + amount(record.data), 0),
   };
-  const inventoryValues = modules[3].records
+  const inventoryValues = modules[2].records
     .map((record) => {
       const quantity = Number(
         record.data.openingQuantity ?? record.data.quantityOnHand ?? 0,
@@ -294,16 +276,6 @@ export function DashboardPage() {
           : "bg-emerald-500",
     },
     {
-      label: "Cash activity",
-      value: modules[2].value,
-      helper: `${modules[2].total} transactions`,
-      loading: banking.isLoading,
-      icon: WalletCards,
-      accent: "text-sky-700",
-      iconBg: "bg-sky-50",
-      line: "bg-sky-500",
-    },
-    {
       label: "Accounts receivable",
       value: receivable,
       helper: "Customers owe the business",
@@ -326,7 +298,7 @@ export function DashboardPage() {
     {
       label: "Inventory at cost",
       value: inventoryValue,
-      helper: `${modules[3].total} tracked items`,
+      helper: `${modules[2].total} tracked items`,
       loading: inventory.isLoading,
       icon: PackageCheck,
       accent: "text-violet-700",
@@ -444,7 +416,7 @@ export function DashboardPage() {
             <p className="mt-1 text-[11px] text-[#7a8e98]">
               Liquidity compared with money due
             </p>
-            {banking.isLoading || invoices.isLoading || bills.isLoading ? (
+            {invoices.isLoading || bills.isLoading ? (
               <Skeleton className="mt-6 h-36 w-full" />
             ) : (
               <div className="mt-6 space-y-5">

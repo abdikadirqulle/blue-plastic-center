@@ -37,11 +37,6 @@ const tabs = [
   ["financial", "Financial"],
   ["sales", "Sales"],
   ["purchasing", "Purchasing"],
-  ["inventory", "Inventory"],
-  ["projects", "Projects & jobs"],
-  ["assets", "Fixed assets"],
-  ["payroll", "Payroll"],
-  ["custom", "Custom reports"],
 ];
 
 const reportGroups: Record<

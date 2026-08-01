@@ -1,5 +1,6 @@
 "use client";
 
+import { isNavigableResource } from "@blue-plastic/types";
 import { Link } from "@/components/routing";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "@/components/routing";
@@ -463,7 +464,7 @@ const purchasingTabs = [
   ["expenses", "Expenses"],
   ["checks", "Checks"],
   ["approvals", "Approvals"],
-];
+].filter(([slug]) => isNavigableResource("purchasing", slug));
 const inventoryTabs = [
   ["items", "Items"],
   ["stock-levels", "Stock"],
@@ -476,7 +477,7 @@ const inventoryTabs = [
   ["reorder-planning", "Reorder"],
   ["fulfillment", "Pick · pack · ship"],
   ["landed-costs", "Landed costs"],
-];
+].filter(([slug]) => isNavigableResource("inventory", slug));
 const bankingTabs = [
   ["accounts", "Accounts"],
   ["bank-feeds", "Bank feeds"],
@@ -487,7 +488,7 @@ const bankingTabs = [
   ["checks", "Checks"],
   ["reconciliation", "Reconcile"],
   ["cash-flow", "Cash flow"],
-];
+].filter(([slug]) => isNavigableResource("banking", slug));
 
 function ApprovalCenter({
   records,

@@ -14,13 +14,9 @@ import { recordTitle } from "../resources/resource-api"
 const modules = [
   "All modules",
   "sales",
-  "debts",
   "purchasing",
   "inventory",
-  "banking",
   "accounting",
-  "projects",
-  "payroll",
 ]
 
 export function TrashPage() {

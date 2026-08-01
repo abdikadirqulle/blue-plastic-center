@@ -352,17 +352,15 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
     config.module === "accounting"
       ? references.accountOptions
       : references.itemOptions;
-  const visibleSections = config.formSections
-    .filter((section) => !/billing\s*&\s*shipping/i.test(section.title))
-    .map((section) => ({
-      ...section,
-      title: section.title.replace(/,\s*tax/i, "").replace(/tax\s*&\s*/i, ""),
-      fields: section.fields.filter(
-        (field) =>
-          !/(tax|interest|surcharge)/i.test(`${field.name} ${field.label}`),
-      ),
-    }))
-    .filter((section) => section.fields.length);
+  // Deferred fields are already stripped from `config`; this only tidies the
+  // section headings that still advertise them.
+  const visibleSections = config.formSections.map((section) => ({
+    ...section,
+    title: section.title
+      .replace(/,\s*tax/i, "")
+      .replace(/tax\s*&\s*/i, "")
+      .replace(/\s*&\s*shipping/i, ""),
+  }));
   const allFields = visibleSections.flatMap((section) => section.fields);
   const requiredFields = essentialFormFields(allFields);
 
@@ -490,15 +488,9 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
           data.lines = (data.lines as Array<Record<string, unknown>>).map(
             (line) => ({ ...line, warehouseId }),
           );
-        data.discountType =
-          values.discountType === "Percentage"
-            ? "percentage"
-            : values.discountType === "Fixed amount"
-              ? "fixed"
-              : "none";
-        data.discountValue = values.discountValue || "0";
         delete data.warehouse;
         delete data.warehouseId;
+        // Totals are calculated by the API, so the browser never sends them.
         delete data.subtotal;
         delete data.total;
         delete data.balanceDue;
@@ -510,7 +502,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
     }
     if (config.module === "sales" && config.slug === "payments")
       data.allocations = paymentAllocations;
-    if (!data.currency) data.currency = "USD";
+    if (!data.currency) data.currency = references.baseCurrency;
     const draftResult = draftResourceDataSchema.safeParse(data);
     if (!draftResult.success) {
       setMessage({
@@ -946,22 +938,10 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                     <span>${formatDecimal(lineTotal)}</span>
                   </div>
                   {config.module === "sales" && config.slug === "invoices" ? (
-                    <>
-                      <div className="flex justify-between text-[#647984]">
-                        <span>Document discount</span>
-                        <span>
-                          {values.discountType === "Percentage"
-                            ? `${values.discountValue || "0"}%`
-                            : values.discountType === "Fixed amount"
-                              ? `$${formatDecimal(values.discountValue || "0")}`
-                              : "—"}
-                        </span>
-                      </div>
-                      <p className="border-t border-[#dfe7ed] pt-2 text-[10px] leading-4 text-[#71848f]">
-                        The API calculates and returns the authoritative total
-                        after validating every line and discount.
-                      </p>
-                    </>
+                    <p className="border-t border-[#dfe7ed] pt-2 text-[10px] leading-4 text-[#71848f]">
+                      The API calculates and returns the authoritative total
+                      after validating every line.
+                    </p>
                   ) : (
                     <div className="flex justify-between border-t border-[#dfe7ed] pt-2 text-base font-bold text-[#17303d]">
                       <span>Total</span>
