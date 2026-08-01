@@ -165,8 +165,9 @@ export class PostgresInventoryMovements
   async listBySource(
     context: RequestContext,
     source: { sourceModule: string; sourceType: string; sourceId: string },
+    transaction?: DatabaseTransaction,
   ) {
-    const rows = await this.db
+    const rows = await (transaction ?? this.db)
       .select()
       .from(inventoryMovements)
       .where(

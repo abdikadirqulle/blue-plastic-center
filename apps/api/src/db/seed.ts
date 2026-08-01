@@ -10,8 +10,11 @@ import {
   invoiceLines,
   invoices,
   items,
+  inventoryBalances,
+  inventoryMovements,
   resourceRecords,
   users,
+  warehouses,
 } from "./schema.js";
 import { hashPassword } from "../modules/auth/password.js";
 import { PostgresResourceRepository } from "../repositories/postgres-resource-repository.js";
@@ -663,6 +666,29 @@ async function seed() {
       "0",
     ],
   ] as const;
+  // Stock has to live somewhere before an inventory invoice can move it. The
+  // relational row and the resource record share one id so the warehouse a user
+  // picks in the UI is the warehouse the posting engine resolves.
+  const mainWarehouseId = "45000000-0000-4000-8000-000000000001";
+  await db
+    .insert(warehouses)
+    .values({
+      id: mainWarehouseId,
+      companyId,
+      branchId,
+      code: "MAIN",
+      name: "Main warehouse",
+      active: true,
+      createdAt: new Date(createdAt),
+      updatedAt: new Date(createdAt),
+    })
+    .onConflictDoNothing();
+  await demo(mainWarehouseId, "inventory", "warehouses", "active", {
+    code: "MAIN",
+    name: "Main warehouse",
+    branchId,
+  });
+
   for (const [
     id,
     sku,
@@ -684,6 +710,57 @@ async function seed() {
       expenseAccountId: accountId("5000"),
       inventoryAccountId: accountId("1200"),
     });
+
+  // Opening stock is recorded as a movement so weighted-average costing starts
+  // from a real unit cost instead of dividing by an empty balance.
+  for (const [
+    itemId,
+    sku,
+    ,
+    ,
+    purchaseCost,
+    openingQuantity,
+  ] of itemData) {
+    if (sku === "BPC-DELIVERY" || Number(openingQuantity) <= 0) continue;
+    const value = (Number(openingQuantity) * Number(purchaseCost)).toFixed(4);
+    const [balance] = await db
+      .insert(inventoryBalances)
+      .values({
+        companyId,
+        warehouseId: mainWarehouseId,
+        itemId,
+        quantity: openingQuantity,
+        inventoryValue: value,
+        revision: 1,
+        createdAt: new Date(createdAt),
+        updatedAt: new Date(createdAt),
+      })
+      .onConflictDoNothing()
+      .returning();
+    if (!balance) continue;
+    await db
+      .insert(inventoryMovements)
+      .values({
+        companyId,
+        branchId,
+        warehouseId: mainWarehouseId,
+        itemId,
+        kind: "opening",
+        occurredAt: new Date(createdAt),
+        sourceModule: "inventory",
+        sourceType: "opening_balance",
+        sourceId: itemId,
+        idempotencyKey: `opening:${itemId}`,
+        quantityDelta: openingQuantity,
+        valueDelta: value,
+        unitCost: purchaseCost,
+        quantityAfter: openingQuantity,
+        valueAfter: value,
+        createdBy: userId,
+        createdAt: new Date(createdAt),
+      })
+      .onConflictDoNothing();
+  }
 
   const invoiceData = [
     [

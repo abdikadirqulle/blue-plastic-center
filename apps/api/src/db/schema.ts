@@ -251,6 +251,8 @@ export const invoices = pgTable(
     status: text("status").notNull().default("draft"),
     customerPurchaseOrder: text("customer_purchase_order"),
     memo: text("memo"),
+    discountType: text("discount_type").notNull().default("none"),
+    discountValue: numeric("discount_value", { precision: 20, scale: 4 }).notNull().default("0"),
     subtotal: numeric("subtotal", { precision: 20, scale: 4 }).notNull().default("0"),
     discountTotal: numeric("discount_total", { precision: 20, scale: 4 }).notNull().default("0"),
     taxTotal: numeric("tax_total", { precision: 20, scale: 4 }).notNull().default("0"),
@@ -277,6 +279,10 @@ export const invoices = pgTable(
     check(
       "invoices_status_chk",
       sql`${table.status} in ('draft', 'open', 'partially_paid', 'paid', 'overdue', 'voided')`,
+    ),
+    check(
+      "invoices_discount_type_chk",
+      sql`${table.discountType} in ('none', 'percentage', 'fixed')`,
     ),
   ],
 )

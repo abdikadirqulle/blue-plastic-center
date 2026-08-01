@@ -80,6 +80,8 @@ function toRowView(row: InvoiceRow): InvoiceRowView {
     status: row.status,
     customerPurchaseOrder: row.customerPurchaseOrder,
     memo: row.memo,
+    discountType: row.discountType,
+    discountValue: row.discountValue,
     subtotal: row.subtotal,
     discountTotal: row.discountTotal,
     taxTotal: row.taxTotal,
@@ -236,6 +238,8 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
           status: "draft",
           customerPurchaseOrder: parsed.customerPurchaseOrder,
           memo: parsed.memo,
+          discountType: parsed.discountType,
+          discountValue: parsed.discountValue,
           subtotal: calculated.subtotal,
           discountTotal: calculated.discountTotal,
           taxTotal: calculated.taxTotal,
@@ -277,6 +281,8 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
         exchangeRate: current.exchangeRate,
         customerPurchaseOrder: current.customerPurchaseOrder ?? undefined,
         memo: current.memo ?? undefined,
+        discountType: current.discountType,
+        discountValue: current.discountValue,
         lines: currentLines.map((line) => ({
           itemId: line.itemId ?? undefined,
           accountId: line.accountId ?? undefined,
@@ -304,6 +310,8 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
           exchangeRate: merged.exchangeRate,
           customerPurchaseOrder: merged.customerPurchaseOrder,
           memo: merged.memo,
+          discountType: merged.discountType,
+          discountValue: merged.discountValue,
           subtotal: calculated.subtotal,
           discountTotal: calculated.discountTotal,
           taxTotal: calculated.taxTotal,
@@ -379,10 +387,21 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
           taxAmount: line.taxAmount,
         }
         if (reducesStock(source)) {
-          if (!line.warehouseId)
-            throw validation("An inventory invoice line requires a warehouse")
+          // Lines saved before a warehouse was chosen fall back to the company's
+          // only warehouse, and the resolved location is written back so the
+          // posted line names the place the stock actually left.
+          const warehouseId = await this.requireWarehouse(
+            transaction,
+            context,
+            line.warehouseId ?? undefined,
+          )
+          if (warehouseId !== line.warehouseId)
+            await transaction
+              .update(invoiceLines)
+              .set({ warehouseId })
+              .where(eq(invoiceLines.id, line.id))
           const movement = await this.inventory.apply(transaction, context, {
-            warehouseId: line.warehouseId,
+            warehouseId,
             itemId: String(line.itemId),
             kind: "sale",
             quantity: line.quantity,
@@ -587,11 +606,11 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
       .orderBy(asc(invoiceLines.lineNumber))
     const posting = await this.findPosting(executor, context.companyId, id)
     const reversal = await this.findPosting(executor, context.companyId, id, "reversal")
-    const movements = await this.inventory.listBySource(context, {
-      sourceModule: "sales",
-      sourceType: "invoice",
-      sourceId: id,
-    })
+    const movements = await this.inventory.listBySource(
+      context,
+      { sourceModule: "sales", sourceType: "invoice", sourceId: id },
+      executor as DatabaseTransaction,
+    )
     const history = await executor
       .select({
         action: auditEvents.action,

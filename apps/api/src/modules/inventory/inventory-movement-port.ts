@@ -48,8 +48,13 @@ export interface InventoryMovementPort<TTransaction = unknown> {
     context: RequestContext,
     request: InventoryMovementRequest,
   ): Promise<InventoryMovementRecord>
+  /**
+   * Pass the caller's transaction to see movements it has just written; without
+   * one the read runs on its own connection and cannot observe them.
+   */
   listBySource(
     context: RequestContext,
     source: { sourceModule: string; sourceType: string; sourceId: string },
+    transaction?: TTransaction,
   ): Promise<InventoryMovementRecord[]>
 }
