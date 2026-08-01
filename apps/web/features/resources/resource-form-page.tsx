@@ -2,7 +2,7 @@
 
 import { Link } from "@/components/routing";
 import { useRouter } from "@/components/routing";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ArrowLeft, LoaderCircle, Plus, Save, Trash2 } from "lucide-react";
 import {
@@ -21,10 +21,19 @@ import {
   type SelectOption,
 } from "../../components/ui/select";
 import { Toast, type ToastMessage } from "../../components/ui/toast";
-import { cn, formatDecimal, formatDecimalInput } from "../../lib/utils";
+import {
+  cn,
+  formatDecimal,
+  formatDecimalInput,
+  formatQuantityInput,
+} from "../../lib/utils";
 import { ApiError } from "../../lib/api-client";
 import type { FormField, ResourceConfig } from "./resource-config";
-import { useResourceDetail, useResourceMutations } from "./resource-api";
+import {
+  useResourceDetail,
+  useResourceList,
+  useResourceMutations,
+} from "./resource-api";
 import { useReferenceData } from "./reference-data";
 import {
   hydrateResourceFormValues,
@@ -38,6 +47,130 @@ interface LineItem {
   quantity: string;
   unit: string;
   rate: string;
+}
+
+interface PaymentAllocation {
+  invoiceId: string;
+  amount: string;
+}
+
+function PaymentAllocationTable({
+  customerId,
+  allocations,
+  onChange,
+}: {
+  customerId: string;
+  allocations: PaymentAllocation[];
+  onChange: (allocations: PaymentAllocation[]) => void;
+}) {
+  const invoices = useResourceList("sales", "invoices", {
+    page: 1,
+    pageSize: 200,
+  });
+  const openInvoices = (invoices.data?.data ?? []).filter((invoice) => {
+    const balance = Number(invoice.data.balanceDue ?? 0);
+    return (
+      Boolean(customerId) &&
+      invoice.data.customerId === customerId &&
+      balance > 0 &&
+      ["open", "partially_paid", "overdue"].includes(
+        invoice.status.toLowerCase(),
+      )
+    );
+  });
+  const amountFor = (invoiceId: string) =>
+    allocations.find((allocation) => allocation.invoiceId === invoiceId)
+      ?.amount ?? "";
+  const update = (invoiceId: string, amount: string) => {
+    const next = allocations.filter(
+      (allocation) => allocation.invoiceId !== invoiceId,
+    );
+    if (amount && Number(amount) > 0) next.push({ invoiceId, amount });
+    onChange(next);
+  };
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="border-b border-[#e5ecf1] p-5">
+        <h2 className="text-sm font-bold text-[#213b48]">
+          Apply payment to open invoices
+        </h2>
+        <p className="mt-1 text-xs text-[#7b8e99]">
+          Only posted invoices for the selected customer are shown.
+        </p>
+      </div>
+      {!customerId ? (
+        <p className="p-6 text-center text-xs text-[#71848f]">
+          Select a customer to view their open invoices.
+        </p>
+      ) : invoices.isLoading ? (
+        <p className="p-6 text-center text-xs text-[#71848f]">
+          Loading open invoices…
+        </p>
+      ) : !openInvoices.length ? (
+        <p className="p-6 text-center text-xs text-[#71848f]">
+          This customer has no open posted invoices.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left text-xs">
+            <thead className="bg-[#f8fafc] text-[10px] uppercase text-[#768994]">
+              <tr>
+                {[
+                  "Apply",
+                  "Invoice",
+                  "Due date",
+                  "Original amount",
+                  "Open balance",
+                  "Payment",
+                ].map((heading) => (
+                  <th key={heading} className="px-5 py-3">{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {openInvoices.map((invoice) => {
+                const amount = amountFor(invoice.id);
+                const openBalance = String(invoice.data.balanceDue ?? "0");
+                return (
+                  <tr key={invoice.id} className="border-t border-[#edf1f4]">
+                    <td className="px-5 py-3">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(amount)}
+                        onChange={(event) =>
+                          update(invoice.id, event.target.checked ? openBalance : "")
+                        }
+                        className="size-4 accent-[#007DCC]"
+                      />
+                    </td>
+                    <td className="px-5 py-3 font-bold text-[#007DCC]">
+                      {String(invoice.data.documentNumber ?? invoice.id)}
+                    </td>
+                    <td className="px-5 py-3">{String(invoice.data.dueDate ?? "—")}</td>
+                    <td className="px-5 py-3">${formatDecimal(String(invoice.data.total ?? "0"))}</td>
+                    <td className="px-5 py-3 font-bold">${formatDecimal(openBalance)}</td>
+                    <td className="px-5 py-3">
+                      <input
+                        aria-label={`Payment for ${String(invoice.data.documentNumber ?? invoice.id)}`}
+                        type="number"
+                        min="0"
+                        max={openBalance}
+                        step="0.0001"
+                        value={amount}
+                        onChange={(event) => update(invoice.id, event.target.value)}
+                        className="h-9 w-28 rounded-lg border border-[#dce6ed] px-2"
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
 }
 
 function supportsQuickAdd(field: FormField) {
@@ -208,6 +341,8 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
   const [values, setValues] = useState<Record<string, string>>(() =>
     initialValues(config),
   );
+  const [paymentAllocations, setPaymentAllocations] = useState<PaymentAllocation[]>([]);
+  const createIdempotencyKey = useRef(crypto.randomUUID());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [deleteLineId, setDeleteLineId] = useState<number | null>(null);
   const [saveMode, setSaveMode] = useState<"new" | "close">("close");
@@ -239,7 +374,14 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
       record.data,
       initialValues(config),
     );
-    setValues(loaded);
+    const firstLine = Array.isArray(record.data.lines)
+      ? (record.data.lines[0] as Record<string, unknown> | undefined)
+      : undefined;
+    setValues(
+      firstLine?.warehouseId
+        ? { ...loaded, warehouse: String(firstLine.warehouseId) }
+        : loaded,
+    );
     if (Array.isArray(record.data.lines) && record.data.lines.length) {
       setLineItems(
         record.data.lines.map((entry, index) => {
@@ -248,7 +390,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
             id: Date.now() + index,
             item: String(line.itemId ?? line.accountId ?? ""),
             description: String(line.description ?? ""),
-            quantity: String(line.quantity ?? "1"),
+            quantity: formatQuantityInput(String(line.quantity ?? "1")),
             unit: String(line.unit ?? "Each"),
             rate: formatDecimalInput(
               String(line.unitPrice ?? line.rate ?? ""),
@@ -259,6 +401,16 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
     } else {
       setLineItems([blankLine()]);
     }
+    setPaymentAllocations(
+      Array.isArray(record.data.allocations)
+        ? (record.data.allocations as Array<Record<string, unknown>>).map(
+            (allocation) => ({
+              invoiceId: String(allocation.invoiceId ?? ""),
+              amount: String(allocation.amount ?? ""),
+            }),
+          ).filter((allocation) => allocation.invoiceId && allocation.amount)
+        : [],
+    );
     setErrors({});
   }, [editId, detail.data, config]);
 
@@ -329,11 +481,35 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
         description: line.description || line.item || "Transaction line",
         quantity: line.quantity || "1",
         unitPrice: line.rate || "0",
+        discountAmount: "0",
+        unit: line.unit,
       }));
-      data.subtotal = lineTotal.toFixed(4);
-      data.total = lineTotal.toFixed(4);
-      data.balanceDue = lineTotal.toFixed(4);
+      if (config.module === "sales" && config.slug === "invoices") {
+        const warehouseId = values.warehouse || "";
+        if (warehouseId)
+          data.lines = (data.lines as Array<Record<string, unknown>>).map(
+            (line) => ({ ...line, warehouseId }),
+          );
+        data.discountType =
+          values.discountType === "Percentage"
+            ? "percentage"
+            : values.discountType === "Fixed amount"
+              ? "fixed"
+              : "none";
+        data.discountValue = values.discountValue || "0";
+        delete data.warehouse;
+        delete data.warehouseId;
+        delete data.subtotal;
+        delete data.total;
+        delete data.balanceDue;
+      } else {
+        data.subtotal = lineTotal.toFixed(4);
+        data.total = lineTotal.toFixed(4);
+        data.balanceDue = lineTotal.toFixed(4);
+      }
     }
+    if (config.module === "sales" && config.slug === "payments")
+      data.allocations = paymentAllocations;
     if (!data.currency) data.currency = "USD";
     const draftResult = draftResourceDataSchema.safeParse(data);
     if (!draftResult.success) {
@@ -357,7 +533,15 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
           version: detail.data.data.version,
         });
       } else {
-        await mutations.create.mutateAsync({ data, status: "incomplete" });
+        await mutations.create.mutateAsync({
+          data,
+          status:
+            config.module === "sales" &&
+            ["invoices", "payments"].includes(config.slug)
+              ? "draft"
+              : "incomplete",
+          idempotencyKey: createIdempotencyKey.current,
+        });
       }
     } catch (caught) {
       if (
@@ -393,6 +577,8 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
       form.reset();
       setValues(initialValues(config));
       setLineItems([blankLine()]);
+      setPaymentAllocations([]);
+      createIdempotencyKey.current = crypto.randomUUID();
       setMessage({
         title: "Saved successfully",
         description: `${config.title} saved. You can add another.`,
@@ -557,7 +743,16 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                 </button>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1040px] table-fixed">
+                <table className="w-full min-w-[1180px] table-fixed">
+                  <colgroup>
+                    <col className="w-[30%]" />
+                    <col className="w-[29%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[3%]" />
+                  </colgroup>
                   <thead>
                     <tr className="bg-[#f8fafc]">
                       {[
@@ -620,7 +815,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                           key={line.id}
                           className="border-t border-[#d9e3ea] odd:bg-white even:bg-[#edf5fb]"
                         >
-                          <td className="w-80 min-w-80 p-1.5">
+                          <td className="p-1.5">
                             <Select
                               value={line.item || undefined}
                               onValueChange={selectLineReference}
@@ -659,7 +854,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                                   ),
                                 );
                               }}
-                              className="h-9 rounded-md border-[#aebfca] text-xs"
+                              className="h-9 rounded-md border-[#aebfca] px-3 text-xs"
                             />
                           </td>
                           <td className="p-2">
@@ -680,7 +875,14 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                               onChange={(event) =>
                                 update("quantity", event.target.value)
                               }
-                              className="h-9 w-20 rounded-md border border-[#aebfca] bg-transparent px-2 text-xs"
+                              onBlur={(event) =>
+                                update(
+                                  "quantity",
+                                  formatQuantityInput(event.target.value),
+                                )
+                              }
+                              step="any"
+                              className="h-9 w-full rounded-md border border-[#aebfca] bg-transparent px-2 text-xs"
                             />
                           </td>
                           <td className="p-2">
@@ -705,7 +907,8 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
                                   formatDecimalInput(event.target.value),
                                 )
                               }
-                              className="h-9 w-24 rounded-md border border-[#aebfca] bg-transparent px-2 text-xs"
+                              step="any"
+                              className="h-9 w-full rounded-md border border-[#aebfca] bg-transparent px-2 text-xs"
                             />
                           </td>
                           <td className="p-2 text-xs font-bold text-[#29414d]">
@@ -735,80 +938,47 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
               <div className="flex justify-end border-t border-[#e5ecf1] p-5">
                 <div className="w-72 space-y-2 text-xs">
                   <div className="flex justify-between text-[#647984]">
-                    <span>Subtotal</span>
+                    <span>
+                      {config.module === "sales" && config.slug === "invoices"
+                        ? "Items subtotal (estimate)"
+                        : "Subtotal"}
+                    </span>
                     <span>${formatDecimal(lineTotal)}</span>
                   </div>
-                  <div className="flex justify-between border-t border-[#dfe7ed] pt-2 text-base font-bold text-[#17303d]">
-                    <span>Total</span>
-                    <span>${formatDecimal(lineTotal)}</span>
-                  </div>
+                  {config.module === "sales" && config.slug === "invoices" ? (
+                    <>
+                      <div className="flex justify-between text-[#647984]">
+                        <span>Document discount</span>
+                        <span>
+                          {values.discountType === "Percentage"
+                            ? `${values.discountValue || "0"}%`
+                            : values.discountType === "Fixed amount"
+                              ? `$${formatDecimal(values.discountValue || "0")}`
+                              : "—"}
+                        </span>
+                      </div>
+                      <p className="border-t border-[#dfe7ed] pt-2 text-[10px] leading-4 text-[#71848f]">
+                        The API calculates and returns the authoritative total
+                        after validating every line and discount.
+                      </p>
+                    </>
+                  ) : (
+                    <div className="flex justify-between border-t border-[#dfe7ed] pt-2 text-base font-bold text-[#17303d]">
+                      <span>Total</span>
+                      <span>${formatDecimal(lineTotal)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>
           ) : null}
 
           {config.module === "sales" && config.slug === "payments" ? (
-            <Card className="overflow-hidden">
-              <div className="border-b border-[#e5ecf1] p-5">
-                <h2 className="text-sm font-bold text-[#213b48]">
-                  Apply payment to open invoices
-                </h2>
-                <p className="mt-1 text-xs text-[#7b8e99]">
-                  Select invoices and control the exact amount applied to each
-                  transaction.
-                </p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left text-xs">
-                  <thead className="bg-[#f8fafc] text-[10px] uppercase text-[#768994]">
-                    <tr>
-                      {[
-                        "Apply",
-                        "Invoice",
-                        "Due date",
-                        "Original amount",
-                        "Open balance",
-                        "Payment",
-                      ].map((heading) => (
-                        <th key={heading} className="px-5 py-3">
-                          {heading}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      ["INV-1047", "31 Jul 2026", "$6,250.00"],
-                      ["INV-1046", "05 Aug 2026", "$3,180.00"],
-                      ["INV-1044", "12 Aug 2026", "$2,940.00"],
-                    ].map(([invoice, date, balance], index) => (
-                      <tr key={invoice} className="border-t border-[#edf1f4]">
-                        <td className="px-5 py-3">
-                          <input
-                            type="checkbox"
-                            defaultChecked={index === 0}
-                            className="size-4 accent-[#007DCC]"
-                          />
-                        </td>
-                        <td className="px-5 py-3 font-bold text-[#007DCC]">
-                          {invoice}
-                        </td>
-                        <td className="px-5 py-3">{date}</td>
-                        <td className="px-5 py-3">{balance}</td>
-                        <td className="px-5 py-3 font-bold">{balance}</td>
-                        <td className="px-5 py-3">
-                          <input
-                            aria-label={`Payment for ${invoice}`}
-                            defaultValue={index === 0 ? "6250.00" : "0.00"}
-                            className="h-9 w-28 rounded-lg border border-[#dce6ed] px-2"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <PaymentAllocationTable
+              customerId={values.customer ?? values.customerId ?? ""}
+              allocations={paymentAllocations}
+              onChange={setPaymentAllocations}
+            />
           ) : null}
 
           {config.module === "sales" && config.slug === "deposits" ? (

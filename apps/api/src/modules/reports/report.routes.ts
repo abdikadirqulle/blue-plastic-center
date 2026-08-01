@@ -9,6 +9,7 @@ import { decimalToMinor, minorToDecimal } from "../accounting/ledger-math.js";
 import { authorizeResource } from "../../platform/auth.js";
 import type { ResourceService } from "../../services/resource-service.js";
 import type { ResourceRepository } from "../../repositories/resource-repository.js";
+import { getReportDefinition } from "./report-registry.js";
 
 const reportSchema = z.object({
   from: z.string().date(),
@@ -16,22 +17,6 @@ const reportSchema = z.object({
   basis: z.enum(["cash", "accrual"]).default("accrual"),
   currency: z.string().length(3).default("USD"),
 });
-
-const supportedReports = new Set([
-  "trial-balance",
-  "general-ledger",
-  "profit-and-loss",
-  "balance-sheet",
-  "cash-flow",
-  "receivables-aging",
-  "payables-aging",
-  "inventory-valuation",
-  "audit-trail",
-  "sales-by-item",
-  "sales-by-customer",
-  "invoice-list",
-  "collections",
-]);
 
 function agingBucket(dueDate: unknown, asOf: string) {
   const days = Math.floor(
@@ -78,7 +63,8 @@ export async function reportRoutes(
     "/reports/:kind/run",
     async (request, reply) => {
       authorizeResource(request.requestContext.principal, "read", "accounting");
-      if (!supportedReports.has(request.params.kind)) {
+      const definition = getReportDefinition(request.params.kind);
+      if (!definition) {
         return reply
           .code(404)
           .send({
@@ -88,8 +74,16 @@ export async function reportRoutes(
             },
           });
       }
+      if (definition.status === "unsupported") {
+        return reply.code(501).send({
+          error: {
+            code: "REPORT_NOT_IMPLEMENTED",
+            message: definition.reason,
+          },
+        });
+      }
       const parameters = reportSchema.parse(request.body);
-      if (request.params.kind === "audit-trail") {
+      if (definition.strategy === "audit") {
         const rows = await repository.listAudit(
           request.requestContext.companyId,
           500,
@@ -115,14 +109,7 @@ export async function reportRoutes(
           },
         });
       }
-      if (
-        [
-          "sales-by-item",
-          "sales-by-customer",
-          "invoice-list",
-          "collections",
-        ].includes(request.params.kind)
-      ) {
+      if (definition.strategy === "sales") {
         const [invoices, items, customers, payments] = await Promise.all([
           resources.list(request.requestContext, "sales", "invoices", {
             page: 1,
@@ -306,13 +293,8 @@ export async function reportRoutes(
             },
           });
       }
-      const operationalSource: Record<string, [string, string]> = {
-        "receivables-aging": ["debts", "receivables"],
-        "payables-aging": ["debts", "payables"],
-        "inventory-valuation": ["inventory", "stock-levels"],
-      };
-      const source = operationalSource[request.params.kind];
-      if (source) {
+      if (definition.strategy === "operational") {
+        const source = definition.source;
         const records = await resources.list(
           request.requestContext,
           source[0],

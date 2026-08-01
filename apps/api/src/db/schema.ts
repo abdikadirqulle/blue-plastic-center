@@ -1,5 +1,8 @@
+import { sql } from "drizzle-orm"
 import {
+  type AnyPgColumn,
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -254,6 +257,11 @@ export const invoices = pgTable(
     total: numeric("total", { precision: 20, scale: 4 }).notNull().default("0"),
     amountPaid: numeric("amount_paid", { precision: 20, scale: 4 }).notNull().default("0"),
     balanceDue: numeric("balance_due", { precision: 20, scale: 4 }).notNull().default("0"),
+    postedAt: timestamp("posted_at", { withTimezone: true }),
+    postedBy: uuid("posted_by").references(() => users.id),
+    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    voidedBy: uuid("voided_by").references(() => users.id),
+    voidReason: text("void_reason"),
     version: integer("version").notNull().default(1),
     createdBy: uuid("created_by").notNull().references(() => users.id),
     updatedBy: uuid("updated_by").notNull().references(() => users.id),
@@ -265,6 +273,11 @@ export const invoices = pgTable(
     uniqueIndex("invoices_company_number_uq").on(table.companyId, table.invoiceNumber),
     index("invoices_company_customer_idx").on(table.companyId, table.customerId),
     index("invoices_company_due_idx").on(table.companyId, table.dueDate),
+    index("invoices_company_status_idx").on(table.companyId, table.status, table.invoiceDate),
+    check(
+      "invoices_status_chk",
+      sql`${table.status} in ('draft', 'open', 'partially_paid', 'paid', 'overdue', 'voided')`,
+    ),
   ],
 )
 
@@ -276,10 +289,13 @@ export const invoiceLines = pgTable(
     itemId: uuid("item_id").references(() => items.id),
     accountId: uuid("account_id").references(() => accounts.id),
     taxCodeId: uuid("tax_code_id").references(() => taxCodes.id),
+    warehouseId: uuid("warehouse_id").references(() => warehouses.id),
     description: text("description").notNull(),
+    unit: text("unit"),
     quantity: numeric("quantity", { precision: 20, scale: 4 }).notNull().default("1"),
     unitPrice: numeric("unit_price", { precision: 20, scale: 4 }).notNull().default("0"),
     discountAmount: numeric("discount_amount", { precision: 20, scale: 4 }).notNull().default("0"),
+    taxRate: numeric("tax_rate", { precision: 9, scale: 4 }).notNull().default("0"),
     taxAmount: numeric("tax_amount", { precision: 20, scale: 4 }).notNull().default("0"),
     lineTotal: numeric("line_total", { precision: 20, scale: 4 }).notNull().default("0"),
     lineNumber: integer("line_number").notNull(),
@@ -331,6 +347,81 @@ export const customerPaymentAllocations = pgTable(
   },
   (table) => [
     uniqueIndex("payment_allocations_payment_invoice_uq").on(table.paymentId, table.invoiceId),
+  ],
+)
+
+export const inventoryBalances = pgTable(
+  "inventory_balances",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    warehouseId: uuid("warehouse_id").notNull().references(() => warehouses.id),
+    itemId: uuid("item_id").notNull().references(() => items.id),
+    quantity: numeric("quantity", { precision: 20, scale: 4 }).notNull().default("0"),
+    inventoryValue: numeric("inventory_value", { precision: 20, scale: 4 }).notNull().default("0"),
+    revision: integer("revision").notNull().default(0),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("inventory_balances_scope_uq").on(
+      table.companyId,
+      table.warehouseId,
+      table.itemId,
+    ),
+    check(
+      "inventory_balances_non_negative_chk",
+      sql`${table.quantity} >= 0 and ${table.inventoryValue} >= 0`,
+    ),
+  ],
+)
+
+/**
+ * Append-only stock ledger. One row per affected document line; the source
+ * unique index is what stops a retried post from moving stock twice.
+ */
+export const inventoryMovements = pgTable(
+  "inventory_movements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    branchId: uuid("branch_id").notNull().references(() => branches.id),
+    warehouseId: uuid("warehouse_id").notNull().references(() => warehouses.id),
+    itemId: uuid("item_id").notNull().references(() => items.id),
+    kind: text("kind").notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    sourceModule: text("source_module").notNull(),
+    sourceType: text("source_type").notNull(),
+    sourceId: uuid("source_id").notNull(),
+    sourceLineId: uuid("source_line_id"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    quantityDelta: numeric("quantity_delta", { precision: 20, scale: 4 }).notNull(),
+    valueDelta: numeric("value_delta", { precision: 20, scale: 4 }).notNull(),
+    unitCost: numeric("unit_cost", { precision: 20, scale: 4 }).notNull().default("0"),
+    quantityAfter: numeric("quantity_after", { precision: 20, scale: 4 }).notNull(),
+    valueAfter: numeric("value_after", { precision: 20, scale: 4 }).notNull(),
+    createdBy: uuid("created_by").notNull().references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("inventory_movements_source_uq").on(
+      table.companyId,
+      table.sourceModule,
+      table.sourceType,
+      table.sourceId,
+      table.idempotencyKey,
+    ),
+    index("inventory_movements_item_idx").on(
+      table.companyId,
+      table.itemId,
+      table.warehouseId,
+      table.occurredAt,
+    ),
+    index("inventory_movements_source_idx").on(
+      table.companyId,
+      table.sourceModule,
+      table.sourceType,
+      table.sourceId,
+    ),
   ],
 )
 
@@ -393,6 +484,12 @@ export const accounts = pgTable(
     accountNumber: text("account_number").notNull(),
     name: text("name").notNull(),
     type: text("type").notNull(),
+    subtype: text("subtype"),
+    systemKey: text("system_key"),
+    normalBalance: text("normal_balance").notNull().default("debit"),
+    isSystem: boolean("is_system").notNull().default(false),
+    isControlAccount: boolean("is_control_account").notNull().default(false),
+    allowManualPosting: boolean("allow_manual_posting").notNull().default(true),
     currency: text("currency").notNull().default("USD"),
     active: boolean("active").notNull().default(true),
     ...auditColumns,
@@ -402,6 +499,11 @@ export const accounts = pgTable(
       table.companyId,
       table.accountNumber,
     ),
+    uniqueIndex("accounts_company_system_key_uq")
+      .on(table.companyId, table.systemKey)
+      .where(sql`${table.systemKey} is not null`),
+    index("accounts_company_type_active_idx").on(table.companyId, table.type, table.active),
+    check("accounts_normal_balance_chk", sql`${table.normalBalance} in ('debit', 'credit')`),
   ],
 )
 
@@ -439,9 +541,16 @@ export const accountingTransactions = pgTable(
       withTimezone: true,
     }).notNull(),
     sourceModule: text("source_module").notNull(),
+    sourceType: text("source_type").notNull().default("journal"),
     sourceId: uuid("source_id"),
+    postingKind: text("posting_kind").notNull().default("primary"),
+    postingFingerprint: text("posting_fingerprint"),
+    idempotencyKey: text("idempotency_key"),
     fiscalPeriodId: uuid("fiscal_period_id").references(() => fiscalPeriods.id),
-    reversalOfId: uuid("reversal_of_id"),
+    reversalOfId: uuid("reversal_of_id").references(
+      (): AnyPgColumn => accountingTransactions.id,
+      { onDelete: "restrict" },
+    ),
     status: text("status").notNull().default("draft"),
     currency: text("currency").notNull(),
     exchangeRate: numeric("exchange_rate", { precision: 20, scale: 8 })
@@ -450,6 +559,8 @@ export const accountingTransactions = pgTable(
     memo: text("memo"),
     postedAt: timestamp("posted_at", { withTimezone: true }),
     postedBy: uuid("posted_by").references(() => users.id),
+    reversedAt: timestamp("reversed_at", { withTimezone: true }),
+    reversedBy: uuid("reversed_by").references(() => users.id),
     ...auditColumns,
   },
   (table) => [
@@ -457,6 +568,18 @@ export const accountingTransactions = pgTable(
       table.companyId,
       table.transactionNumber,
     ),
+    uniqueIndex("transactions_company_posting_fingerprint_uq")
+      .on(table.companyId, table.postingFingerprint)
+      .where(sql`${table.postingFingerprint} is not null`),
+    index("transactions_company_source_idx").on(
+      table.companyId,
+      table.sourceModule,
+      table.sourceType,
+      table.sourceId,
+      table.postingKind,
+    ),
+    index("transactions_reversal_idx").on(table.reversalOfId),
+    check("transactions_status_chk", sql`${table.status} in ('draft', 'posted', 'reversed', 'voided')`),
   ],
 )
 
@@ -479,6 +602,75 @@ export const accountingLines = pgTable(
   },
   (table) => [
     index("accounting_lines_transaction_idx").on(table.transactionId),
+    uniqueIndex("accounting_lines_transaction_number_uq").on(table.transactionId, table.lineNumber),
+    check("accounting_lines_non_negative_chk", sql`${table.debit} >= 0 and ${table.credit} >= 0`),
+    check(
+      "accounting_lines_one_side_chk",
+      sql`(${table.debit} > 0 and ${table.credit} = 0) or (${table.credit} > 0 and ${table.debit} = 0)`,
+    ),
+  ],
+)
+
+export const postingIdempotencyKeys = pgTable(
+  "posting_idempotency_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "restrict" }),
+    key: text("key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    sourceModule: text("source_module").notNull(),
+    sourceType: text("source_type").notNull(),
+    sourceId: uuid("source_id").notNull(),
+    postingKind: text("posting_kind").notNull().default("primary"),
+    transactionId: uuid("transaction_id").references(() => accountingTransactions.id, { onDelete: "restrict" }),
+    status: text("status").notNull().default("processing"),
+    response: jsonb("response").$type<Record<string, unknown>>(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdBy: uuid("created_by").notNull().references(() => users.id, { onDelete: "restrict" }),
+    updatedBy: uuid("updated_by").notNull().references(() => users.id, { onDelete: "restrict" }),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("posting_idempotency_company_key_uq").on(table.companyId, table.key),
+    uniqueIndex("posting_idempotency_source_uq").on(
+      table.companyId,
+      table.sourceModule,
+      table.sourceType,
+      table.sourceId,
+      table.postingKind,
+    ),
+    index("posting_idempotency_expiry_idx").on(table.expiresAt),
+    check("posting_idempotency_status_chk", sql`${table.status} in ('processing', 'completed', 'failed')`),
+  ],
+)
+
+export const migrationExceptions = pgTable(
+  "migration_exceptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    migrationTag: text("migration_tag").notNull(),
+    sourceTable: text("source_table").notNull(),
+    sourceId: text("source_id").notNull(),
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "restrict" }),
+    module: text("module"),
+    resource: text("resource"),
+    reasonCode: text("reason_code").notNull(),
+    reason: text("reason").notNull(),
+    rawData: jsonb("raw_data").$type<Record<string, unknown>>(),
+    details: jsonb("details").$type<Record<string, unknown>>(),
+    detectedAt: timestamp("detected_at", { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: uuid("resolved_by").references(() => users.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    uniqueIndex("migration_exceptions_source_reason_uq").on(
+      table.migrationTag,
+      table.sourceTable,
+      table.sourceId,
+      table.reasonCode,
+    ),
+    index("migration_exceptions_open_idx").on(table.migrationTag, table.resolvedAt),
+    index("migration_exceptions_company_idx").on(table.companyId, table.detectedAt),
   ],
 )
 

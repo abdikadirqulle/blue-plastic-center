@@ -6,7 +6,8 @@ export function decimalToMinor(value: unknown): bigint {
   const normalized = negative ? text.slice(1) : text
   const [whole = "0", fraction = ""] = normalized.split(".")
   if (!/^\d+$/.test(whole) || !/^\d*$/.test(fraction)) throw new Error("Invalid decimal amount")
-  const result = BigInt(whole) * scale + BigInt(fraction.padEnd(4, "0").slice(0, 4))
+  if (fraction.length > 4) throw new Error("Accounting amounts support at most 4 decimal places")
+  const result = BigInt(whole) * scale + BigInt(fraction.padEnd(4, "0"))
   return negative ? -result : result
 }
 
@@ -17,12 +18,28 @@ export function minorToDecimal(value: bigint): string {
 }
 
 export function assertBalanced(lines: Array<Record<string, unknown>>) {
+  if (lines.length < 2) throw new Error("Journal entry must contain at least two lines")
   const totals = lines.reduce<{ debit: bigint; credit: bigint }>((result, line) => ({
-    debit: result.debit + decimalToMinor(line.debit),
-    credit: result.credit + decimalToMinor(line.credit),
+    debit: result.debit + validateJournalLineAmount(line, "debit"),
+    credit: result.credit + validateJournalLineAmount(line, "credit"),
   }), { debit: 0n, credit: 0n })
   if (totals.debit <= 0n || totals.debit !== totals.credit) {
     throw new Error("Journal entry must have equal non-zero debits and credits")
   }
   return totals
+}
+
+function validateJournalLineAmount(
+  line: Record<string, unknown>,
+  side: "debit" | "credit",
+) {
+  const debit = decimalToMinor(line.debit)
+  const credit = decimalToMinor(line.credit)
+  if (debit < 0n || credit < 0n) {
+    throw new Error("Journal line debit and credit amounts cannot be negative")
+  }
+  if ((debit > 0n) === (credit > 0n)) {
+    throw new Error("Each journal line must contain exactly one positive debit or credit")
+  }
+  return side === "debit" ? debit : credit
 }

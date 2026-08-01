@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto"
+import type { InvoiceCreateData, InvoiceUpdateData } from "@blue-plastic/types"
 import { getResourceDefinition } from "../domain/modules.js"
 import { conflict, notFound, validation } from "../platform/errors.js"
 import type {
@@ -8,6 +9,7 @@ import type {
   TrashQuery,
 } from "../platform/types.js"
 import type { ResourceRepository } from "../repositories/resource-repository.js"
+import type { InvoiceRepository } from "../modules/sales/invoice-repository.js"
 import { validateOperationalData } from "../modules/operations/operational-validation.js"
 import { assertBalanced } from "../modules/accounting/ledger-math.js"
 
@@ -100,8 +102,21 @@ function validateJournalBalance(
   }
 }
 
+/** Resources that have been normalized out of the generic JSONB store. */
+function isRelationalResource(moduleName: string, resourceName: string) {
+  return moduleName === "sales" && resourceName === "invoices"
+}
+
 export class ResourceService {
-  constructor(private readonly repository: ResourceRepository) {}
+  /**
+   * Callers that still speak the generic resource language — conversions,
+   * progress billing, reports — are delegated to the normalized invoice
+   * repository so invoices keep exactly one source of truth.
+   */
+  constructor(
+    private readonly repository: ResourceRepository,
+    private readonly invoices?: InvoiceRepository,
+  ) {}
 
   validateData(
     moduleName: string,
@@ -126,6 +141,8 @@ export class ResourceService {
   ) {
     if (!getResourceDefinition(moduleName, resourceName))
       throw notFound(`Unknown API resource: ${moduleName}/${resourceName}`)
+    if (this.invoices && isRelationalResource(moduleName, resourceName))
+      return this.invoices.list(context, query)
     return this.repository.list(
       {
         companyId: context.companyId,
@@ -143,14 +160,17 @@ export class ResourceService {
     resourceName: string,
     id: string,
   ) {
-    const record = await this.repository.findById(
-      {
-        companyId: context.companyId,
-        module: moduleName,
-        resource: resourceName,
-      },
-      id,
-    )
+    const record =
+      this.invoices && isRelationalResource(moduleName, resourceName)
+        ? await this.invoices.findById(context, id)
+        : await this.repository.findById(
+            {
+              companyId: context.companyId,
+              module: moduleName,
+              resource: resourceName,
+            },
+            id,
+          )
     if (!record) throw notFound()
     return record
   }
@@ -165,6 +185,14 @@ export class ResourceService {
   ) {
     if (moduleName === "accounting" && resourceName === "audit-log")
       throw conflict("Audit records are read-only")
+    if (this.invoices && isRelationalResource(moduleName, resourceName))
+      return this.invoices.create(
+        context,
+        { status: input.status, data: input.data as InvoiceCreateData },
+        idempotency
+          ? { idempotencyKey: idempotency.key, requestHash: idempotency.requestHash }
+          : undefined,
+      )
     if (idempotency) {
       const previous = await this.repository.findByIdempotency(
         context.companyId,
@@ -242,6 +270,12 @@ export class ResourceService {
   ) {
     if (moduleName === "accounting" && resourceName === "audit-log")
       throw conflict("Audit records are read-only")
+    if (this.invoices && isRelationalResource(moduleName, resourceName))
+      return this.invoices.update(context, id, {
+        status: input.status,
+        version: input.version,
+        data: input.data as InvoiceUpdateData,
+      })
     const current = await this.get(context, moduleName, resourceName, id)
     if (input.version !== undefined && input.version !== current.version)
       throw conflict(
@@ -259,7 +293,7 @@ export class ResourceService {
     }
     const status = input.status ?? current.status
     const partial = status.toLowerCase() === "incomplete"
-    const data = validateOperationalData(moduleName, resourceName, {
+    let data = validateOperationalData(moduleName, resourceName, {
       ...current.data,
       ...input.data,
     }, { partial })
@@ -291,6 +325,8 @@ export class ResourceService {
   ) {
     if (moduleName === "accounting" && resourceName === "audit-log")
       throw conflict("Audit records are read-only")
+    if (this.invoices && isRelationalResource(moduleName, resourceName))
+      return this.invoices.remove(context, id)
     const current = await this.get(context, moduleName, resourceName, id)
     if (current.status === "posted")
       throw conflict(

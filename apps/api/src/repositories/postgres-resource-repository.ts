@@ -6,8 +6,6 @@ import {
   customers,
   documentSequences,
   idempotencyKeys,
-  invoiceLines,
-  invoices,
   items,
   resourceRecords,
 } from "../db/schema.js";
@@ -58,54 +56,6 @@ const customerRecord = (
   createdBy: row.createdBy ?? "",
   updatedAt: row.updatedAt.toISOString(),
   updatedBy: row.updatedBy ?? "",
-  isDeleted: row.isDeleted,
-  deletedAt: row.deletedAt?.toISOString(),
-})
-
-const invoiceRecord = (
-  row: typeof invoices.$inferSelect,
-  lines: Array<typeof invoiceLines.$inferSelect> = [],
-): ResourceRecord => ({
-  id: row.id,
-  module: "sales",
-  resource: "invoices",
-  companyId: row.companyId,
-  branchId: row.branchId,
-  status: row.status,
-  version: row.version,
-  data: {
-    customerId: row.customerId,
-    documentNumber: row.invoiceNumber,
-    invoiceDate: dateText(row.invoiceDate),
-    dueDate: dateText(row.dueDate),
-    currency: row.currency,
-    exchangeRate: row.exchangeRate,
-    customerPurchaseOrder: row.customerPurchaseOrder,
-    memo: row.memo,
-    subtotal: row.subtotal,
-    discountTotal: row.discountTotal,
-    taxTotal: row.taxTotal,
-    total: row.total,
-    amountPaid: row.amountPaid,
-    balanceDue: row.balanceDue,
-    lines: lines.map((line) => ({
-      id: line.id,
-      itemId: line.itemId,
-      accountId: line.accountId,
-      taxCodeId: line.taxCodeId,
-      description: line.description,
-      quantity: line.quantity,
-      unitPrice: line.unitPrice,
-      discountAmount: line.discountAmount,
-      taxAmount: line.taxAmount,
-      lineTotal: line.lineTotal,
-      lineNumber: line.lineNumber,
-    })),
-  },
-  createdAt: row.createdAt.toISOString(),
-  createdBy: row.createdBy,
-  updatedAt: row.updatedAt.toISOString(),
-  updatedBy: row.updatedBy,
   isDeleted: row.isDeleted,
   deletedAt: row.deletedAt?.toISOString(),
 })
@@ -163,7 +113,7 @@ const itemRecord = (row: typeof items.$inferSelect): ResourceRecord => ({
 })
 
 const isRelationalResource = (moduleName: string, resourceName: string) =>
-  (moduleName === "sales" && ["customers", "invoices"].includes(resourceName)) ||
+  (moduleName === "sales" && resourceName === "customers") ||
   (moduleName === "inventory" && resourceName === "items") ||
   (moduleName === "accounting" && resourceName === "chart-of-accounts")
 
@@ -261,22 +211,6 @@ export class PostgresResourceRepository implements ResourceRepository {
         .limit(query.pageSize).offset((query.page - 1) * query.pageSize)
       return { data: rows.map((row) => customerRecord(row, scope.branchId)), total: count }
     }
-    if (scope.module === "sales" && scope.resource === "invoices") {
-      const conditions = [
-        eq(invoices.companyId, scope.companyId),
-        eq(invoices.isDeleted, false),
-        isNull(invoices.deletedAt),
-      ]
-      if (scope.branchId) conditions.push(eq(invoices.branchId, scope.branchId))
-      if (query.status) conditions.push(eq(invoices.status, query.status))
-      if (query.search) conditions.push(sql`${invoices.invoiceNumber} ILIKE ${`%${query.search}%`}`)
-      const where = and(...conditions)
-      const [{ count }] = await this.db.select({ count: sql<number>`count(*)::int` }).from(invoices).where(where)
-      const rows = await this.db.select().from(invoices).where(where)
-        .orderBy(query.order === "asc" ? asc(invoices.createdAt) : desc(invoices.createdAt))
-        .limit(query.pageSize).offset((query.page - 1) * query.pageSize)
-      return { data: rows.map((row) => invoiceRecord(row)), total: count }
-    }
     const conditions = [
       eq(resourceRecords.companyId, scope.companyId),
       eq(resourceRecords.module, scope.module),
@@ -321,17 +255,6 @@ export class PostgresResourceRepository implements ResourceRepository {
       )).limit(1)
       if (!row) return undefined
       const record = await this.mergeShadow(customerRecord(row))
-      return record.isDeleted ? undefined : record
-    }
-    if (scope.module === "sales" && scope.resource === "invoices") {
-      const [row] = await this.db.select().from(invoices).where(and(
-        eq(invoices.id, id), eq(invoices.companyId, scope.companyId),
-        eq(invoices.isDeleted, false), isNull(invoices.deletedAt),
-      )).limit(1)
-      if (!row) return undefined
-      const lines = await this.db.select().from(invoiceLines)
-        .where(eq(invoiceLines.invoiceId, row.id)).orderBy(asc(invoiceLines.lineNumber))
-      const record = await this.mergeShadow(invoiceRecord(row, lines))
       return record.isDeleted ? undefined : record
     }
     const [row] = await this.db.select().from(resourceRecords).where(and(
@@ -400,83 +323,6 @@ export class PostgresResourceRepository implements ResourceRepository {
         updatedBy: record.updatedBy,
         createdAt: new Date(record.createdAt),
         updatedAt: new Date(record.updatedAt),
-      })
-      await this.shadow(record)
-      return record
-    }
-    if (record.module === "sales" && record.resource === "invoices") {
-      const sourceLines = Array.isArray(record.data.lines) ? record.data.lines as Array<Record<string, unknown>> : []
-      await this.db.transaction(async (transaction) => {
-        const customerReference = String(record.data.customerId)
-        const [customer] = await transaction.select({ id: customers.id }).from(customers).where(and(
-          eq(customers.companyId, record.companyId),
-          or(
-            sql`${customers.id}::text = ${customerReference}`,
-            eq(customers.displayName, customerReference),
-          ),
-          eq(customers.isDeleted, false),
-        )).limit(1)
-        if (!customer) throw new Error(`Customer "${customerReference}" does not exist`)
-        await transaction.insert(invoices).values({
-          id: record.id,
-          companyId: record.companyId,
-          branchId: record.branchId,
-          customerId: customer.id,
-          invoiceNumber: String(record.data.documentNumber),
-          invoiceDate: new Date(String(record.data.invoiceDate)),
-          dueDate: new Date(String(record.data.dueDate)),
-          currency: String(record.data.currency),
-          exchangeRate: String(record.data.exchangeRate ?? "1"),
-          status: record.status,
-          customerPurchaseOrder: typeof record.data.customerPurchaseOrder === "string"
-            ? record.data.customerPurchaseOrder
-            : typeof record.data.poNumber === "string" ? record.data.poNumber : null,
-          memo: typeof record.data.memo === "string" ? record.data.memo : null,
-          subtotal: String(record.data.subtotal ?? record.data.total ?? "0"),
-          discountTotal: String(record.data.discountTotal ?? "0"),
-          taxTotal: String(record.data.taxTotal ?? "0"),
-          total: String(record.data.total ?? "0"),
-          amountPaid: String(record.data.amountPaid ?? "0"),
-          balanceDue: String(record.data.balanceDue ?? record.data.total ?? "0"),
-          version: record.version,
-          createdBy: record.createdBy,
-          updatedBy: record.updatedBy,
-          createdAt: new Date(record.createdAt),
-          updatedAt: new Date(record.updatedAt),
-        })
-        if (sourceLines.length) {
-          const resolvedLines = []
-          for (const [index, line] of sourceLines.entries()) {
-            const reference = String(line.itemId ?? line.accountId ?? "")
-            const [item] = await transaction.select({ id: items.id }).from(items).where(and(
-              eq(items.companyId, record.companyId),
-              or(sql`${items.id}::text = ${reference}`, eq(items.sku, reference), eq(items.name, reference)),
-              eq(items.isDeleted, false),
-            )).limit(1)
-            const [account] = item ? [] : await transaction.select({ id: accounts.id }).from(accounts).where(and(
-              eq(accounts.companyId, record.companyId),
-              or(sql`${accounts.id}::text = ${reference}`, eq(accounts.accountNumber, reference), eq(accounts.name, reference)),
-              eq(accounts.active, true),
-            )).limit(1)
-            if (!item && !account) throw new Error(`Item or account "${reference}" does not exist`)
-            const quantity = String(line.quantity ?? "1")
-            const unitPrice = String(line.unitPrice ?? line.rate ?? "0")
-            resolvedLines.push({
-            invoiceId: record.id,
-            itemId: item?.id ?? null,
-            accountId: account?.id ?? null,
-            taxCodeId: null,
-            description: String(line.description ?? line.item ?? "Invoice line"),
-            quantity,
-            unitPrice,
-            discountAmount: String(line.discountAmount ?? "0"),
-            taxAmount: String(line.taxAmount ?? "0"),
-            lineTotal: String(line.lineTotal ?? line.amount ?? Number(quantity) * Number(unitPrice)),
-            lineNumber: index + 1,
-            })
-          }
-          await transaction.insert(invoiceLines).values(resolvedLines)
-        }
       })
       await this.shadow(record)
       return record
@@ -606,73 +452,6 @@ export class PostgresResourceRepository implements ResourceRepository {
         isDeleted: record.isDeleted,
         deletedAt: record.deletedAt ? new Date(record.deletedAt) : null,
       }).where(and(eq(customers.id, record.id), eq(customers.companyId, record.companyId)))
-      await this.shadow(record)
-      return record
-    }
-    if (record.module === "sales" && record.resource === "invoices") {
-      const customerReference = String(record.data.customerId)
-      const [customer] = await this.db.select({ id: customers.id }).from(customers).where(and(
-        eq(customers.companyId, record.companyId),
-        or(sql`${customers.id}::text = ${customerReference}`, eq(customers.displayName, customerReference)),
-        eq(customers.isDeleted, false),
-      )).limit(1)
-      if (!customer) throw new Error(`Customer "${customerReference}" does not exist`)
-      await this.db.update(invoices).set({
-        customerId: customer.id,
-        status: record.status,
-        invoiceDate: new Date(String(record.data.invoiceDate)),
-        dueDate: new Date(String(record.data.dueDate)),
-        currency: String(record.data.currency),
-        exchangeRate: String(record.data.exchangeRate ?? "1"),
-        customerPurchaseOrder: typeof record.data.customerPurchaseOrder === "string"
-          ? record.data.customerPurchaseOrder
-          : typeof record.data.poNumber === "string" ? record.data.poNumber : null,
-        memo: typeof record.data.memo === "string" ? record.data.memo : null,
-        subtotal: String(record.data.subtotal ?? record.data.total ?? "0"),
-        discountTotal: String(record.data.discountTotal ?? "0"),
-        taxTotal: String(record.data.taxTotal ?? "0"),
-        total: String(record.data.total ?? "0"),
-        amountPaid: String(record.data.amountPaid ?? "0"),
-        balanceDue: String(record.data.balanceDue ?? record.data.total ?? "0"),
-        version: record.version,
-        updatedBy: record.updatedBy,
-        updatedAt: new Date(record.updatedAt),
-        isDeleted: record.isDeleted,
-        deletedAt: record.deletedAt ? new Date(record.deletedAt) : null,
-      }).where(and(eq(invoices.id, record.id), eq(invoices.companyId, record.companyId)))
-      const sourceLines = Array.isArray(record.data.lines)
-        ? record.data.lines as Array<Record<string, unknown>>
-        : []
-      await this.db.delete(invoiceLines).where(eq(invoiceLines.invoiceId, record.id))
-      for (const [index, line] of sourceLines.entries()) {
-        const reference = String(line.itemId ?? line.accountId ?? "")
-        const [item] = await this.db.select({ id: items.id }).from(items).where(and(
-          eq(items.companyId, record.companyId),
-          or(sql`${items.id}::text = ${reference}`, eq(items.sku, reference), eq(items.name, reference)),
-          eq(items.isDeleted, false),
-        )).limit(1)
-        const [account] = item ? [] : await this.db.select({ id: accounts.id }).from(accounts).where(and(
-          eq(accounts.companyId, record.companyId),
-          or(sql`${accounts.id}::text = ${reference}`, eq(accounts.accountNumber, reference), eq(accounts.name, reference)),
-          eq(accounts.active, true),
-        )).limit(1)
-        if (!item && !account) throw new Error(`Item or account "${reference}" does not exist`)
-        const quantity = String(line.quantity ?? "1")
-        const unitPrice = String(line.unitPrice ?? line.rate ?? "0")
-        await this.db.insert(invoiceLines).values({
-          invoiceId: record.id,
-          itemId: item?.id ?? null,
-          accountId: account?.id ?? null,
-          taxCodeId: null,
-          description: String(line.description ?? "Invoice line"),
-          quantity,
-          unitPrice,
-          discountAmount: String(line.discountAmount ?? "0"),
-          taxAmount: String(line.taxAmount ?? "0"),
-          lineTotal: String(line.lineTotal ?? Number(quantity) * Number(unitPrice)),
-          lineNumber: index + 1,
-        })
-      }
       await this.shadow(record)
       return record
     }

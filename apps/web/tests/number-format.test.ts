@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatDecimal, formatDecimalInput } from "../lib/utils";
+import {
+  formatDecimal,
+  formatDecimalInput,
+  formatQuantityInput,
+} from "../lib/utils";
 
 describe("decimal display formatting", () => {
   it("keeps two decimal places for accounting values", () => {
@@ -15,5 +19,11 @@ describe("decimal display formatting", () => {
     expect(formatDecimalInput("18.5000")).toBe("18.50");
     expect(formatDecimalInput("18.5031")).toBe("18.5031");
     expect(formatDecimalInput("18")).toBe("18.00");
+  });
+
+  it("removes database padding from editable quantities", () => {
+    expect(formatQuantityInput("1.0000")).toBe("1");
+    expect(formatQuantityInput("18.5000")).toBe("18.5");
+    expect(formatQuantityInput("18.5031")).toBe("18.5031");
   });
 });

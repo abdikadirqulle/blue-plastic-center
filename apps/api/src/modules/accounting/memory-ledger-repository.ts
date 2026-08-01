@@ -1,9 +1,17 @@
 import { randomUUID } from "node:crypto"
-import { conflict } from "../../platform/errors.js"
+import { conflict, notFound } from "../../platform/errors.js"
 import type { RequestContext, ResourceRecord } from "../../platform/types.js"
 import type { ResourceRepository } from "../../repositories/resource-repository.js"
-import { assertBalanced, decimalToMinor, minorToDecimal } from "./ledger-math.js"
-import type { LedgerRepository } from "./ledger-repository.js"
+import { decimalToMinor, minorToDecimal } from "./ledger-math.js"
+import type { LedgerRepository, SourceReversalInput } from "./ledger-repository.js"
+import {
+  createReversalCommand,
+  postingFingerprint,
+  postingRequestHash,
+  validatePostingCommand,
+  type PostingCommand,
+  type PostingResult,
+} from "./posting-engine.js"
 
 interface PostedJournal {
   record: ResourceRecord
@@ -12,19 +20,148 @@ interface PostedJournal {
 }
 
 export class MemoryLedgerRepository implements LedgerRepository {
-  private readonly posted: PostedJournal[] = []
+  private posted: PostedJournal[] = []
+  private reversedJournalIds = new Set<string>()
+  private postingResults = new Map<string, { requestHash: string; result: PostingResult }>()
+  private postingSources = new Set<string>()
+  private readonly reversedTransactionIds = new Set<string>()
   private readonly closedPeriods = new Map<string, { startDate: string; endDate: string }>()
 
   constructor(private readonly resources: ResourceRepository) {}
 
-  async postJournal(context: RequestContext, journal: ResourceRecord) {
-    if (journal.status === "posted") throw conflict("Journal entry is already posted")
-    const date = String(journal.data.journalDate)
-    if ([...this.closedPeriods.values()].some((period) => date >= period.startDate && date <= period.endDate)) {
-      throw conflict("The fiscal period is closed")
+  /** Captures ledger state so a failed business action can be rolled back. */
+  snapshot() {
+    const posted = [...this.posted]
+    const reversedJournalIds = new Set(this.reversedJournalIds)
+    const postingResults = new Map(this.postingResults)
+    const postingSources = new Set(this.postingSources)
+    return () => {
+      this.posted = posted
+      this.reversedJournalIds = reversedJournalIds
+      this.postingResults = postingResults
+      this.postingSources = postingSources
     }
+  }
+
+  /** Read model for the invoice detail view and for posting assertions. */
+  findPosting(
+    companyId: string,
+    source: { sourceModule: string; sourceType: string; sourceId: string },
+    postingKind = "primary",
+  ) {
+    return this.posted.find((entry) => {
+      const command = entry.record.data as unknown as PostingCommand
+      return (
+        entry.record.companyId === companyId &&
+        command.sourceModule === source.sourceModule &&
+        command.sourceType === source.sourceType &&
+        command.sourceId === source.sourceId &&
+        (command.postingKind ?? "primary") === postingKind
+      )
+    })
+  }
+
+  linesOf(transactionId: string) {
+    return this.posted.find((entry) => entry.record.id === transactionId)?.lines ?? []
+  }
+
+  async reverseTransaction(context: RequestContext, input: SourceReversalInput) {
+    const original = this.findPosting(context.companyId, input)
+    if (!original) throw notFound("A posted transaction for this document was not found")
+    if (this.reversedTransactionIds.has(original.record.id))
+      throw conflict("The transaction was already reversed by another request")
+    const command = original.record.data as unknown as PostingCommand
+    const result = await this.post(
+      context,
+      createReversalCommand({
+        original: {
+          transactionId: original.record.id,
+          sourceModule: input.sourceModule,
+          sourceType: input.sourceType,
+          sourceId: input.sourceId,
+          currency: command.currency,
+          exchangeRate: command.exchangeRate ?? "1",
+          lines: original.lines.map((line) => ({
+            accountId: String(line.accountId ?? line.systemAccountKey),
+            description: line.description ? String(line.description) : undefined,
+            debit: String(line.debit ?? "0"),
+            credit: String(line.credit ?? "0"),
+          })),
+        },
+        reversalDate: input.reversalDate,
+        idempotencyKey: input.idempotencyKey,
+        memo: input.memo ?? `Reversal of ${original.record.id}`,
+      }),
+    )
+    this.reversedTransactionIds.add(original.record.id)
+    original.record.status = "reversed"
+    return result
+  }
+
+  async post(context: RequestContext, command: PostingCommand) {
+    validatePostingCommand(command)
+    if ([...this.closedPeriods.values()].some((period) =>
+      command.transactionDate >= period.startDate && command.transactionDate <= period.endDate
+    )) throw conflict("The fiscal period is closed")
+    const requestHash = postingRequestHash(command)
+    const known = this.postingResults.get(`${context.companyId}:${command.idempotencyKey}`)
+    if (known) {
+      if (known.requestHash !== requestHash)
+        throw conflict("Posting idempotency key was reused with a different request")
+      return known.result
+    }
+    const sourceKey = [context.companyId, command.sourceModule, command.sourceType,
+      command.sourceId, command.postingKind ?? "primary"].join(":")
+    if (this.postingSources.has(sourceKey)) throw conflict("Source transaction posting already exists")
+    const transactionId = randomUUID()
+    const result: PostingResult = {
+      transactionId,
+      transactionNumber: `JOU-${transactionId.slice(0, 8).toUpperCase()}`,
+      status: "posted",
+      sourceModule: command.sourceModule,
+      sourceType: command.sourceType,
+      sourceId: command.sourceId,
+      postingKind: command.postingKind ?? "primary",
+      postingFingerprint: postingFingerprint(context.companyId, command),
+    }
+    const now = new Date().toISOString()
+    this.posted.push({
+      date: command.transactionDate,
+      lines: command.lines as unknown as Array<Record<string, unknown>>,
+      record: {
+        id: transactionId, companyId: context.companyId, branchId: context.branchId,
+        module: "accounting", resource: "journal-entries", status: "posted", version: 1,
+        data: command as unknown as Record<string, unknown>, createdAt: now, updatedAt: now,
+        createdBy: context.principal.userId, updatedBy: context.principal.userId, isDeleted: false,
+      },
+    })
+    this.postingSources.add(sourceKey)
+    this.postingResults.set(`${context.companyId}:${command.idempotencyKey}`, { requestHash, result })
+    return result
+  }
+
+  async postJournal(context: RequestContext, journal: ResourceRecord) {
+    if (journal.status !== "draft") throw conflict("Only draft journal entries can be posted")
+    if (journal.data.reversalOfId) throw conflict("Use the secured reversal endpoint")
+    const date = String(journal.data.journalDate)
     const lines = journal.data.lines as Array<Record<string, unknown>>
-    assertBalanced(lines)
+    await this.post(context, {
+      sourceModule: "accounting",
+      sourceType: "journal",
+      sourceId: journal.id,
+      postingKind: "primary",
+      idempotencyKey: `journal:${journal.id}`,
+      transactionDate: date,
+      currency: String(journal.data.currency ?? "USD"),
+      exchangeRate: String(journal.data.exchangeRate ?? "1"),
+      memo: journal.data.memo ? String(journal.data.memo) : undefined,
+      lines: lines.map((line) => ({
+        accountId: String(line.accountId),
+        description: line.description ? String(line.description) : undefined,
+        debit: String(line.debit ?? "0"),
+        credit: String(line.credit ?? "0"),
+      })),
+    })
     const posted = {
       ...journal,
       status: "posted",
@@ -44,13 +181,13 @@ export class MemoryLedgerRepository implements LedgerRepository {
       entityId: journal.id,
       occurredAt: new Date().toISOString(),
     })
-    this.posted.push({ record: posted, date, lines })
     return posted
   }
 
   async reverseJournal(context: RequestContext, journal: ResourceRecord, reversalDate: string, memo?: string) {
     if (journal.status !== "posted") throw conflict("Only posted journals can be reversed")
-    const source = this.posted.find((entry) => entry.record.id === journal.id)
+    if (this.reversedJournalIds.has(journal.id)) throw conflict("Journal entry is already reversed")
+    const source = this.posted.find((entry) => entry.record.data.sourceId === journal.id)
     if (!source) throw conflict("Posted ledger transaction was not found")
     const reversal: ResourceRecord = {
       ...journal,
@@ -73,7 +210,36 @@ export class MemoryLedgerRepository implements LedgerRepository {
       updatedBy: context.principal.userId,
     }
     await this.resources.create(reversal)
-    return this.postJournal(context, reversal)
+    await this.post(context, {
+      sourceModule: "accounting",
+      sourceType: "journal",
+      sourceId: journal.id,
+      postingKind: "reversal",
+      idempotencyKey: `reversal:${source.record.id}`,
+      transactionDate: reversalDate,
+      currency: String(journal.data.currency ?? "USD"),
+      exchangeRate: String(journal.data.exchangeRate ?? "1"),
+      memo: memo ?? `Reversal of ${journal.id}`,
+      reversalOfId: source.record.id,
+      lines: reversal.data.lines as PostingCommand["lines"],
+    })
+    const posted = {
+      ...reversal,
+      status: "posted",
+      version: reversal.version + 1,
+      updatedAt: new Date().toISOString(),
+      updatedBy: context.principal.userId,
+    }
+    await this.resources.update(posted)
+    this.reversedJournalIds.add(journal.id)
+    await this.resources.update({
+      ...journal,
+      status: "reversed",
+      version: journal.version + 1,
+      updatedAt: new Date().toISOString(),
+      updatedBy: context.principal.userId,
+    })
+    return posted
   }
 
   async closePeriod(_context: RequestContext, input: { name: string; startDate: string; endDate: string }) {

@@ -52,10 +52,12 @@ export function useResourceMutations(module: string, resource: string) {
     mutationFn: ({
       data,
       status,
+      idempotencyKey,
     }: {
       data: Record<string, unknown>
       status?: string
-    }) => apiClient.create(module, resource, data, status),
+      idempotencyKey?: string
+    }) => apiClient.create(module, resource, data, status, idempotencyKey),
     onSuccess: invalidate,
   })
   const update = useMutation({

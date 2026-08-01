@@ -12,12 +12,14 @@ describe("resource field mapping", () => {
       poNumber: "PO-4482",
       class: "Wholesale",
       terms: "Net 30",
+      depositTo: "bank-account-uuid",
     });
 
     expect(data.customerId).toBe("customer-uuid");
     expect(data.customerPurchaseOrder).toBe("PO-4482");
     expect(data.class).toBe("Wholesale");
     expect(data.terms).toBe("Net 30");
+    expect(data.depositToAccountId).toBe("bank-account-uuid");
   });
 
   it("loads canonical backend fields into their configured form controls", () => {

@@ -37,9 +37,11 @@ import {
   useResourceMutations,
 } from "./resource-api";
 import { apiClient } from "@/lib/api-client";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-client";
 import { useReferenceData } from "./reference-data";
 import { resourceFieldValue } from "./resource-field-mapping";
-import { formatDecimal } from "../../lib/utils";
+import { cn, formatDecimal } from "../../lib/utils";
 
 const statusVariant = (status: string) => {
   if (["Paid", "Posted", "Active", "Approved", "Completed"].includes(status))
@@ -124,6 +126,157 @@ function displayValue(
   return "—";
 }
 
+const totalRows: Array<{ key: string; label: string; strong?: boolean }> = [
+  { key: "subtotal", label: "Subtotal" },
+  { key: "discountTotal", label: "Discount" },
+  { key: "taxTotal", label: "Tax" },
+  { key: "total", label: "Total", strong: true },
+  { key: "amountPaid", label: "Paid" },
+  { key: "balanceDue", label: "Balance due", strong: true },
+];
+
+/**
+ * Server-owned invoice figures: totals, the journal entry the posting created,
+ * the stock it moved, and who changed what.
+ */
+function InvoiceAccountingPanels({ data }: { data: Record<string, unknown> }) {
+  const movements = Array.isArray(data.inventoryMovements)
+    ? (data.inventoryMovements as Array<Record<string, unknown>>)
+    : [];
+  const history = Array.isArray(data.auditHistory)
+    ? (data.auditHistory as Array<Record<string, unknown>>)
+    : [];
+  const currency = String(data.currency ?? "USD");
+
+  return (
+    <>
+      <Card className="overflow-hidden">
+        <div className="border-b border-[#e8eef2] px-5 py-4">
+          <h2 className="text-sm font-bold text-[#263f4b]">
+            Totals & accounting
+          </h2>
+          <p className="mt-1 text-xs text-[#7b8d97]">
+            Calculated and stored by the server when the invoice was saved.
+          </p>
+        </div>
+        <div className="grid gap-6 p-5 md:grid-cols-2">
+          <dl className="space-y-2 text-xs">
+            {totalRows.map((totalRow) => (
+              <div
+                key={totalRow.key}
+                className={cn(
+                  "flex justify-between",
+                  totalRow.strong
+                    ? "border-t border-[#e8eef2] pt-2 text-sm font-bold text-[#17303d]"
+                    : "text-[#647984]",
+                )}
+              >
+                <dt>{totalRow.label}</dt>
+                <dd>
+                  {currency} {formatDecimal(String(data[totalRow.key] ?? "0"))}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <dl className="space-y-3 text-xs">
+            {[
+              ["Journal entry", data.postingTransactionNumber ?? data.postingTransactionId],
+              ["Reversal entry", data.reversalTransactionId],
+              ["Posted at", data.postedAt],
+              ["Voided at", data.voidedAt],
+              ["Void reason", data.voidReason],
+            ]
+              .filter(([, value]) => value !== undefined && value !== null && value !== "")
+              .map(([label, value]) => (
+                <div key={String(label)} className="flex justify-between gap-4">
+                  <dt className="text-[#81929c]">{String(label)}</dt>
+                  <dd className="truncate font-semibold text-[#304954]">
+                    {String(value)}
+                  </dd>
+                </div>
+              ))}
+            {!data.postingTransactionId ? (
+              <p className="text-[#7b8d97]">
+                This draft has not affected the general ledger yet.
+              </p>
+            ) : null}
+          </dl>
+        </div>
+      </Card>
+
+      {movements.length ? (
+        <Card className="overflow-hidden">
+          <div className="border-b border-[#e8eef2] px-5 py-4">
+            <h2 className="text-sm font-bold text-[#263f4b]">
+              Inventory movements
+            </h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-xs">
+              <thead className="bg-[#f8fafc] text-[10px] uppercase text-[#7b8e98]">
+                <tr>
+                  {["Date", "Direction", "Quantity", "Unit cost", "Total cost"].map(
+                    (heading) => (
+                      <th key={heading} className="px-5 py-3">
+                        {heading}
+                      </th>
+                    ),
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {movements.map((movement, index) => (
+                  <tr key={index} className="border-t border-[#edf1f4]">
+                    <td className="px-5 py-3">
+                      {String(movement.movementDate ?? "—")}
+                    </td>
+                    <td className="px-5 py-3 capitalize">
+                      {String(movement.direction ?? "out")}
+                    </td>
+                    <td className="px-5 py-3">
+                      {formatDecimal(String(movement.quantity ?? "0"))}
+                    </td>
+                    <td className="px-5 py-3">
+                      {formatDecimal(String(movement.unitCost ?? "0"))}
+                    </td>
+                    <td className="px-5 py-3 font-bold">
+                      {formatDecimal(String(movement.totalCost ?? "0"))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : null}
+
+      {history.length ? (
+        <Card className="overflow-hidden">
+          <div className="border-b border-[#e8eef2] px-5 py-4">
+            <h2 className="text-sm font-bold text-[#263f4b]">Audit history</h2>
+          </div>
+          <ol className="divide-y divide-[#edf1f4]">
+            {history.map((event, index) => (
+              <li key={index} className="flex gap-3 px-5 py-4">
+                <CheckCircle2 size={16} className="mt-0.5 text-emerald-500" />
+                <div>
+                  <p className="text-xs font-bold capitalize text-[#405762]">
+                    {String(event.action ?? "changed")}
+                  </p>
+                  <p className="mt-1 text-[10px] text-[#82949e]">
+                    {String(event.occurredAt ?? "").slice(0, 19).replace("T", " ")}
+                    {event.userId ? ` · ${String(event.userId)}` : ""}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      ) : null}
+    </>
+  );
+}
+
 export function ResourceDetailsPage({
   config,
   id,
@@ -132,10 +285,12 @@ export function ResourceDetailsPage({
   id: string;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const detail = useResourceDetail(config.module, config.slug, id);
   const mutations = useResourceMutations(config.module, config.slug);
   const references = useReferenceData();
   const record = detail.data?.data;
+  const isInvoice = config.module === "sales" && config.slug === "invoices";
   const row: ResourceRow = record
     ? {
         id: record.id,
@@ -180,10 +335,14 @@ export function ResourceDetailsPage({
     body: Record<string, unknown> | undefined,
     successTitle: string,
     description: string,
+    idempotencyKey?: string,
   ) => {
     try {
-      await apiClient.action(path, body);
+      await apiClient.action(path, body, "POST", idempotencyKey);
       await detail.refetch();
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.resource(config.module, config.slug),
+      });
       notify(successTitle, "success", description);
     } catch (caught) {
       notify(
@@ -402,7 +561,12 @@ export function ResourceDetailsPage({
                               {rate.toLocaleString()}
                             </td>
                             <td className="px-5 py-4 font-bold">
-                              ${(quantity * rate).toLocaleString()}
+                              $
+                              {formatDecimal(
+                                line.lineTotal !== undefined
+                                  ? String(line.lineTotal)
+                                  : quantity * rate,
+                              )}
                             </td>
                           </tr>
                         );
@@ -411,6 +575,10 @@ export function ResourceDetailsPage({
                   </table>
                 </div>
               </Card>
+            ) : null}
+
+            {isInvoice ? (
+              <InvoiceAccountingPanels data={record.data} />
             ) : null}
           </div>
 
@@ -440,8 +608,42 @@ export function ResourceDetailsPage({
                     <ArrowRight size={15} /> Convert to invoice
                   </button>
                 ) : null}
-                {config.module === "sales" && config.slug === "invoices" ? (
+                {isInvoice ? (
                   <>
+                    {row.status.toLowerCase() === "draft" ? (
+                      <button
+                        onClick={() =>
+                          void runAction(
+                            `/v1/sales/invoices/${encodeURIComponent(row.id)}/post`,
+                            undefined,
+                            "Invoice posted",
+                            `${displayId} was posted to the ledger.`,
+                            `invoice:${row.id}:post`,
+                          )
+                        }
+                        className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"
+                      >
+                        <CheckCircle2 size={15} /> Post invoice
+                      </button>
+                    ) : null}
+                    {["open", "partially_paid", "paid", "overdue"].includes(
+                      row.status.toLowerCase(),
+                    ) ? (
+                      <button
+                        onClick={() =>
+                          void runAction(
+                            `/v1/sales/invoices/${encodeURIComponent(row.id)}/void`,
+                            { reason: "Voided from the invoice detail page" },
+                            "Invoice voided",
+                            `${displayId} was reversed in the ledger.`,
+                            `invoice:${row.id}:void`,
+                          )
+                        }
+                        className="flex w-full items-center gap-3 rounded-xl bg-amber-50 px-3 py-3 text-xs font-bold text-amber-700"
+                      >
+                        <RefreshCcw size={15} /> Void invoice (reversal)
+                      </button>
+                    ) : null}
                     <Link
                       href={`/sales/payments/new?invoice=${encodeURIComponent(row.id)}`}
                       className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"
@@ -668,6 +870,7 @@ export function ResourceDetailsPage({
                 </button>
               </div>
             </Card>
+            {isInvoice ? null : (
             <Card className="p-5">
               <h2 className="text-sm font-bold text-[#263f4b]">Activity</h2>
               <div className="mt-4 space-y-4">
@@ -702,6 +905,7 @@ export function ResourceDetailsPage({
                 ))}
               </div>
             </Card>
+            )}
           </div>
         </div>
       </div>

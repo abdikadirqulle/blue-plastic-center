@@ -21,6 +21,7 @@ const aliases: Record<string, string[]> = {
   date: ["date", "transactionDate", "createdAt"],
   "payment method": ["paymentMethod"],
   amount: ["amount", "total", "grossPay", "cost"],
+  "paid amount": ["amountPaid", "paidAmount"],
   total: ["total", "amount"],
   "balance due": ["balanceDue", "outstanding", "balance"],
   balance: ["balance", "balanceDue", "openingBalance"],

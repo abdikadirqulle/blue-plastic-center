@@ -14,6 +14,8 @@ const fieldAliases: Record<string, string[]> = {
   expenseAccountId: ["cogsAccount", "expenseAccount"],
   inventoryAccountId: ["assetAccount", "inventoryAccount"],
   preferredVendorId: ["preferredVendor"],
+  depositTo: ["depositToAccountId"],
+  depositToAccountId: ["depositTo"],
 };
 
 export function resourceFieldValue(
@@ -56,6 +58,7 @@ export function normalizeResourceData(values: Record<string, unknown>) {
     employeeId: ["employeeId", "employee"],
     warehouseId: ["warehouseId", "warehouse"],
     accountId: ["accountId", "account"],
+    depositToAccountId: ["depositToAccountId", "depositTo"],
     displayName: [
       "displayName",
       "customerName",

@@ -27,6 +27,14 @@ export function formatDecimalInput(value: string | number) {
   return `${integer}.${meaningful.padEnd(2, "0")}`;
 }
 
+export function formatQuantityInput(value: string | number) {
+  const text = String(value);
+  if (text === "" || !/^-?\d+(\.\d+)?$/.test(text)) return text;
+  const numeric = Number(text);
+  if (!Number.isFinite(numeric)) return text;
+  return String(numeric);
+}
+
 export function formatCurrency(
   value: number,
   currency = "USD",

@@ -1,6 +1,7 @@
 import {
   createDraftFormSchema,
   getOperationalSchema,
+  invoiceCreateDataSchema,
   operationalSchemas,
   validateOperationalData,
   type FormField,
@@ -59,6 +60,55 @@ describe("shared operational contracts", () => {
     expect(validateOperationalData("sales", "invoices", { memo: "Work in progress" }, {
       partial: true,
     })).toEqual({ memo: "Work in progress" })
+  })
+
+  it.each([
+    [{ debit: "10", credit: "1" }, "exactly one positive"],
+    [{ debit: "-10", credit: "0" }, "non-negative"],
+    [{ debit: "10.00001", credit: "0" }, "at most 4 decimal places"],
+    [{ debit: "0", credit: "0" }, "exactly one positive"],
+  ])("rejects unsafe journal line %#", (invalidLine, message) => {
+    const result = getOperationalSchema("accounting", "journal-entries")?.safeParse({
+      journalDate: "2026-07-28",
+      lines: [{ accountId: "1000", ...invalidLine }, { debit: "0", credit: "10", accountId: "4000" }],
+    })
+    expect(result?.success).toBe(false)
+    if (result && !result.success) {
+      expect(result.error.issues.map((issue) => issue.message).join(" ")).toContain(message)
+    }
+  })
+
+  it("exposes a canonical invoice write contract without client totals", () => {
+    const invoice = invoiceCreateDataSchema.parse({
+      customerId: "customer-1",
+      invoiceDate: "2026-07-28",
+      dueDate: "2026-08-28",
+      currency: "usd",
+      lines: [{
+        itemId: "item-1",
+        description: "Blue plastic drum",
+        quantity: "2.5000",
+        unitPrice: "18.50",
+      }],
+    })
+
+    expect(invoice).toMatchObject({
+      currency: "USD",
+      exchangeRate: "1",
+      discountType: "none",
+      discountValue: "0",
+      lines: [expect.objectContaining({ discountAmount: "0" })],
+    })
+    expect(() => invoiceCreateDataSchema.parse({
+      ...invoice,
+      lines: [{
+        itemId: "item-1",
+        accountId: "income-1",
+        description: "Ambiguous line",
+        quantity: "1",
+        unitPrice: "10",
+      }],
+    })).toThrow()
   })
 })
 

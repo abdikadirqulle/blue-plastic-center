@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { resolveReportDefinition } from "../../features/reports/report-registry";
 
 const navigation = [
   {
@@ -409,15 +410,33 @@ export function Sidebar({
                                   View all {category.label}
                                 </Link>
                                 {category.reports.map(
-                                  ([reportLabel, reportName, kind]) => (
-                                    <Link
-                                      key={reportLabel}
-                                      href={reportHref(reportName, kind)}
-                                      className="block rounded-lg px-3 py-2 text-xs font-medium text-[#405762] hover:bg-[#eef7fd] hover:text-[#007DCC]"
-                                    >
-                                      {reportLabel}
-                                    </Link>
-                                  ),
+                                  ([reportLabel, reportName]) => {
+                                    const definition =
+                                      resolveReportDefinition(reportName);
+                                    return definition.status === "available" ? (
+                                      <Link
+                                        key={reportLabel}
+                                        href={reportHref(
+                                          reportName,
+                                          definition.kind,
+                                        )}
+                                        className="block rounded-lg px-3 py-2 text-xs font-medium text-[#405762] hover:bg-[#eef7fd] hover:text-[#007DCC]"
+                                      >
+                                        {reportLabel}
+                                      </Link>
+                                    ) : (
+                                      <div
+                                        key={reportLabel}
+                                        title={definition.reason}
+                                        className="flex cursor-not-allowed items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-[#8da0aa]"
+                                      >
+                                        <span>{reportLabel}</span>
+                                        <span className="text-[8px] font-bold uppercase tracking-wide">
+                                          Soon
+                                        </span>
+                                      </div>
+                                    );
+                                  },
                                 )}
                               </div>
                             </div>

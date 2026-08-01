@@ -14,6 +14,93 @@ const customerDocument = documentBase.extend({
   customerId: identifier,
 })
 
+/**
+ * Canonical invoice write contract. Financial totals are deliberately absent:
+ * the API calculates them and never trusts totals supplied by a browser.
+ */
+export const invoiceStatusSchema = z.enum([
+  "draft",
+  "open",
+  "partially_paid",
+  "paid",
+  "overdue",
+  "voided",
+])
+
+export const invoiceDecimalSchema = z
+  .string()
+  .regex(/^\d+(\.\d{1,4})?$/, "Must be a non-negative decimal with at most 4 places")
+
+export const invoicePositiveDecimalSchema = invoiceDecimalSchema.refine(
+  (value) => BigInt(value.replace(".", "")) > 0n,
+  "Must be greater than zero",
+)
+
+/** Tax rate expressed as a percentage, for example "5" or "17.5000". */
+export const invoiceTaxRateSchema = invoiceDecimalSchema.refine(
+  (value) => Number(value) <= 100,
+  "Tax rate cannot exceed 100 percent",
+)
+
+export const invoiceLineInputSchema = z
+  .object({
+    itemId: identifier.optional(),
+    accountId: identifier.optional(),
+    description: z.string().trim().min(1).max(500),
+    quantity: invoicePositiveDecimalSchema.default("1"),
+    unitPrice: invoiceDecimalSchema.default("0"),
+    discountAmount: invoiceDecimalSchema.default("0"),
+    taxRate: invoiceTaxRateSchema.default("0"),
+    unit: z.string().trim().min(1).max(50).optional(),
+    warehouseId: identifier.optional(),
+  })
+  .refine((line) => Boolean(line.itemId) !== Boolean(line.accountId), {
+    message: "Each invoice line requires exactly one itemId or accountId",
+    path: ["itemId"],
+  })
+
+const invoiceDataShape = {
+  customerId: identifier,
+  invoiceDate: isoDate,
+  dueDate: isoDate,
+  currency: currencyCode,
+  exchangeRate: invoicePositiveDecimalSchema.default("1"),
+  documentNumber: z.string().trim().min(1).max(100).optional(),
+  customerPurchaseOrder: z.string().trim().max(100).optional(),
+  memo: z.string().trim().max(2000).optional(),
+  discountType: z.enum(["none", "percentage", "fixed"]).default("none"),
+  discountValue: invoiceDecimalSchema.default("0"),
+  lines: z.array(invoiceLineInputSchema).min(1).max(500),
+}
+
+export const invoiceCreateDataSchema = z.object(invoiceDataShape).passthrough()
+export const invoiceUpdateDataSchema = z.object(invoiceDataShape).partial().passthrough()
+
+export const invoiceCalculatedLineSchema = invoiceLineInputSchema.and(
+  z.object({ lineTotal: invoiceDecimalSchema }),
+)
+
+export const invoiceTotalsSchema = z.object({
+  subtotal: invoiceDecimalSchema,
+  discountTotal: invoiceDecimalSchema,
+  taxTotal: invoiceDecimalSchema,
+  total: invoiceDecimalSchema,
+  amountPaid: invoiceDecimalSchema,
+  balanceDue: invoiceDecimalSchema,
+})
+
+export const invoiceVoidSchema = z.object({
+  voidDate: isoDate.optional(),
+  reason: z.string().trim().min(1).max(500).optional(),
+})
+
+export type InvoiceStatus = z.infer<typeof invoiceStatusSchema>
+export type InvoiceVoidInput = z.infer<typeof invoiceVoidSchema>
+export type InvoiceLineInput = z.infer<typeof invoiceLineInputSchema>
+export type InvoiceCreateData = z.infer<typeof invoiceCreateDataSchema>
+export type InvoiceUpdateData = z.infer<typeof invoiceUpdateDataSchema>
+export type InvoiceTotals = z.infer<typeof invoiceTotalsSchema>
+
 export const salesSchemas: Record<string, OperationalSchema> = {
   customers: partySchema,
   estimates: customerDocument.extend({
@@ -24,10 +111,7 @@ export const salesSchemas: Record<string, OperationalSchema> = {
     orderDate: isoDate,
     requestedShipDate: isoDate.optional(),
   }),
-  invoices: customerDocument.extend({
-    invoiceDate: isoDate,
-    dueDate: isoDate,
-  }),
+  invoices: invoiceCreateDataSchema,
   payments: z
     .object({
       customerId: identifier,

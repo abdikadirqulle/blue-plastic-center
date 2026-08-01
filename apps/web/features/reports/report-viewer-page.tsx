@@ -38,6 +38,7 @@ import {
   exportReportPdf,
   printReportPdf,
 } from "./report-export"
+import { isReportKind } from "./report-registry"
 
 interface ReportResult {
   reportId: string
@@ -87,7 +88,7 @@ function display(value: unknown) {
 export function ReportViewerPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const name = searchParams.get("name") ?? "Financial report"
-  const kind = searchParams.get("kind") ?? "trial-balance"
+  const kind = searchParams.get("kind") ?? ""
   const [from, setFrom] = useState(
     searchParams.get("from") ?? format(startOfMonth(new Date()), "yyyy-MM-dd"),
   )
@@ -106,6 +107,14 @@ export function ReportViewerPage() {
   const [message, setMessage] = useState<ToastMessage | null>(null)
 
   useEffect(() => {
+    if (!isReportKind(kind)) {
+      setResult(null)
+      setLoading(false)
+      setError(
+        "This report has no registered read model. Return to All reports and choose an available report.",
+      )
+      return
+    }
     let active = true
     setLoading(true)
     setError("")

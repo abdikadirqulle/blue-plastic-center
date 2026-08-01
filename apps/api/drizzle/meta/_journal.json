@@ -50,6 +50,27 @@
       "when": 1785250888499,
       "tag": "0006_watery_dreadnoughts",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785586379429,
+      "tag": "0007_equal_doctor_strange",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785586942945,
+      "tag": "0008_bouncy_blockbuster",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785589105609,
+      "tag": "0009_parallel_lord_tyger",
+      "breakpoints": true
     }
   ]
 }

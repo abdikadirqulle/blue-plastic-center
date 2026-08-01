@@ -52,6 +52,35 @@ async function getSession(app) {
 const request = async (app, path, init = {}) =>
   inject(app, path, init, await getSession(app));
 
+/**
+ * Invoices are relational, so their customer, item and account references must
+ * exist before an invoice can be created.
+ */
+async function seedSalesReferences(app) {
+  const create = async (path, data, status = "draft") =>
+    (await request(app, path, {
+      method: "POST",
+      body: JSON.stringify({ status, data }),
+    })).json().data.id;
+  return {
+    customerId: await create("/v1/sales/customers", {
+      displayName: "Banaadir Trading Co.",
+      currency: "USD",
+    }),
+    itemId: await create("/v1/inventory/items", {
+      name: "Blue plastic crate",
+      sku: "CRT-1",
+      type: "service",
+      salesPrice: "125.00",
+    }),
+    accountId: await create("/v1/accounting/chart-of-accounts", {
+      accountNumber: "4000",
+      accountName: "Product sales",
+      accountType: "income",
+    }),
+  };
+}
+
 test("development CORS allows the supported local frontend ports", () => {
   const origins = allowedWebOrigins({
     NODE_ENV: "development",
@@ -294,7 +323,31 @@ test("journal entries must balance before creation and posting", async () => {
 
   const posted = await request(app, `/v1/accounting/journal-entries/${journal.id}/post`, { method: "POST" });
   assert.equal((await posted.json()).data.status, "posted");
+  assert.equal((await request(app, `/v1/accounting/journal-entries/${journal.id}/post`, {
+    method: "POST",
+  })).status, 409);
   assert.equal((await request(app, `/v1/accounting/journal-entries/${journal.id}`, { method: "DELETE" })).status, 409);
+});
+
+test("manual journals cannot reserve an operational source tuple", async () => {
+  const app = createApp();
+  const create = () => request(app, "/v1/accounting/journal-entries", {
+    method: "POST",
+    body: JSON.stringify({ data: {
+      journalDate: "2026-07-26",
+      sourceModule: "sales",
+      sourceType: "invoice",
+      sourceId: "50000000-0000-4000-8000-000000000099",
+      lines: [
+        { accountId: "cash", debit: "100", credit: "0" },
+        { accountId: "sales", debit: "0", credit: "100" },
+      ],
+    } }),
+  });
+  const first = (await create()).json().data;
+  const second = (await create()).json().data;
+  assert.equal((await request(app, `/v1/accounting/journal-entries/${first.id}/post`, { method: "POST" })).status, 200);
+  assert.equal((await request(app, `/v1/accounting/journal-entries/${second.id}/post`, { method: "POST" })).status, 200);
 });
 
 test("report generation and bulk import validation endpoints respond with jobs", async () => {
@@ -316,8 +369,9 @@ test("report generation and bulk import validation endpoints respond with jobs",
 
 test("Phase 2 CRUD validates operational documents, numbers them, and honors idempotency", async () => {
   const app = createApp();
+  const references = await seedSalesReferences(app);
   const line = {
-    accountId: "4000-sales",
+    itemId: references.itemId,
     description: "Blue plastic products",
     quantity: "2",
     unitPrice: "125.00",
@@ -325,15 +379,12 @@ test("Phase 2 CRUD validates operational documents, numbers them, and honors ide
   const invoiceInput = {
     status: "draft",
     data: {
-      customerId: "customer-1",
+      customerId: references.customerId,
       invoiceDate: "2026-07-28",
       dueDate: "2026-08-27",
       currency: "USD",
-      template: "Product invoice",
-      class: "Wholesale",
-      terms: "Net 30",
-      poNumber: "CUSTOMER-PO-88",
-      shippingMethod: "Company truck",
+      customerPurchaseOrder: "CUSTOMER-PO-88",
+      memo: "Company truck delivery",
       lines: [line],
     },
   };
@@ -375,31 +426,136 @@ test("Phase 2 CRUD validates operational documents, numbers them, and honors ide
   assert.equal(listed.json().meta.total, 1);
   const fetched = await request(app, `/v1/sales/invoices/${first.json().data.id}`);
   assert.equal(fetched.status, 200);
-  assert.equal(fetched.json().data.data.template, "Product invoice");
-  assert.equal(fetched.json().data.data.class, "Wholesale");
-  assert.equal(fetched.json().data.data.poNumber, "CUSTOMER-PO-88");
+  assert.equal(fetched.json().data.data.customerId, references.customerId);
+  assert.equal(fetched.json().data.data.customerName, "Banaadir Trading Co.");
+  assert.equal(fetched.json().data.data.customerPurchaseOrder, "CUSTOMER-PO-88");
+  // Totals come from the server, never from the submitted payload.
+  assert.equal(fetched.json().data.data.subtotal, "250.0000");
+  assert.equal(fetched.json().data.data.total, "250.0000");
+  assert.equal(fetched.json().data.data.balanceDue, "250.0000");
+  assert.equal(fetched.json().data.data.lines.length, 1);
   const updated = await request(app, `/v1/sales/invoices/${first.json().data.id}`, {
     method: "PATCH",
     body: JSON.stringify({
       version: 1,
-      data: {
-        memo: "Customer requested delivery",
-        shippingMethod: "Third-party delivery",
-      },
+      data: { memo: "Customer requested delivery" },
     }),
   });
   assert.equal(updated.json().data.version, 2);
-  assert.equal(updated.json().data.data.template, "Product invoice");
-  assert.equal(updated.json().data.data.shippingMethod, "Third-party delivery");
+  assert.equal(updated.json().data.data.memo, "Customer requested delivery");
+  assert.equal(updated.json().data.data.customerPurchaseOrder, "CUSTOMER-PO-88");
   assert.equal((await request(app, `/v1/sales/invoices/${first.json().data.id}`, {
     method: "DELETE",
   })).status, 204);
 });
 
+test("the invoice lifecycle posts, voids and deletes over HTTP", async () => {
+  const app = createApp();
+  const references = await seedSalesReferences(app);
+  const draft = (await request(app, "/v1/sales/invoices", {
+    method: "POST",
+    body: JSON.stringify({
+      status: "draft",
+      data: {
+        customerId: references.customerId,
+        invoiceDate: "2026-07-28",
+        dueDate: "2026-08-27",
+        currency: "USD",
+        lines: [{
+          itemId: references.itemId,
+          description: "Consulting",
+          quantity: "2",
+          unitPrice: "100.00",
+          taxRate: "5",
+        }],
+      },
+    }),
+  })).json().data;
+  assert.equal(draft.status, "draft");
+  assert.equal(draft.data.taxTotal, "10.0000");
+  assert.equal(draft.data.total, "210.0000");
+
+  const unkeyed = await request(app, `/v1/sales/invoices/${draft.id}/post`, {
+    method: "POST",
+  });
+  assert.equal(unkeyed.status, 422);
+
+  const posted = await request(app, `/v1/sales/invoices/${draft.id}/post`, {
+    method: "POST",
+    headers: { "Idempotency-Key": `post-${draft.id}` },
+  });
+  assert.equal(posted.status, 200);
+  assert.equal(posted.json().data.status, "open");
+  const journalId = posted.json().data.data.postingTransactionId;
+  assert.ok(journalId);
+
+  const replayed = await request(app, `/v1/sales/invoices/${draft.id}/post`, {
+    method: "POST",
+    headers: { "Idempotency-Key": `post-${draft.id}` },
+  });
+  assert.equal(replayed.json().data.data.postingTransactionId, journalId);
+
+  const editPosted = await request(app, `/v1/sales/invoices/${draft.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version: 2, data: { memo: "too late" } }),
+  });
+  assert.equal(editPosted.status, 409);
+  assert.equal(
+    (await request(app, `/v1/sales/invoices/${draft.id}`, { method: "DELETE" })).status,
+    409,
+  );
+
+  const listed = await request(app, "/v1/sales/invoices");
+  const listedInvoice = listed.json().data.find((entry) => entry.id === draft.id);
+  assert.equal(listedInvoice.status, "open");
+  assert.equal(listedInvoice.data.balanceDue, "210.0000");
+  assert.equal(listedInvoice.data.customerName, "Banaadir Trading Co.");
+
+  const voided = await request(app, `/v1/sales/invoices/${draft.id}/void`, {
+    method: "POST",
+    headers: { "Idempotency-Key": `void-${draft.id}` },
+    body: JSON.stringify({ reason: "Customer cancelled" }),
+  });
+  assert.equal(voided.status, 200);
+  assert.equal(voided.json().data.status, "voided");
+  assert.equal(voided.json().data.data.voidReason, "Customer cancelled");
+  assert.ok(voided.json().data.data.reversalTransactionId);
+  // The original posting is preserved next to its reversal.
+  assert.equal(voided.json().data.data.postingTransactionId, journalId);
+
+  const secondDraft = (await request(app, "/v1/sales/invoices", {
+    method: "POST",
+    body: JSON.stringify({
+      status: "draft",
+      data: {
+        customerId: references.customerId,
+        invoiceDate: "2026-07-29",
+        dueDate: "2026-08-28",
+        currency: "USD",
+        lines: [{
+          itemId: references.itemId,
+          description: "Consulting",
+          quantity: "1",
+          unitPrice: "50.00",
+        }],
+      },
+    }),
+  })).json().data;
+  assert.equal(
+    (await request(app, `/v1/sales/invoices/${secondDraft.id}`, { method: "DELETE" })).status,
+    204,
+  );
+  assert.equal(
+    (await request(app, `/v1/sales/invoices/${secondDraft.id}`)).status,
+    404,
+  );
+});
+
 test("Phase 2 secured workflows cover sales, purchasing, inventory, and banking", async () => {
   const app = createApp();
+  const references = await seedSalesReferences(app);
   const line = {
-    accountId: "4000-sales",
+    accountId: references.accountId,
     description: "Operational line",
     quantity: "2",
     unitPrice: "50.00",
@@ -410,7 +566,7 @@ test("Phase 2 secured workflows cover sales, purchasing, inventory, and banking"
     body: JSON.stringify({
       status: "draft",
       data: {
-        customerId: "customer-1",
+        customerId: references.customerId,
         estimateDate: "2026-07-28",
         currency: "USD",
         lines: [line],
@@ -422,14 +578,15 @@ test("Phase 2 secured workflows cover sales, purchasing, inventory, and banking"
     body: JSON.stringify({ targetResource: "invoices" }),
   });
   assert.equal(converted.status, 201);
-  assert.equal(converted.json().data.data.sourceDocumentId, estimate.id);
+  assert.equal(converted.json().data.data.customerId, references.customerId);
+  assert.equal(converted.json().data.data.total, "100.0000");
 
   const payment = (await request(app, "/v1/sales/payments", {
     method: "POST",
     body: JSON.stringify({
       status: "draft",
       data: {
-        customerId: "customer-1",
+        customerId: references.customerId,
         paymentDate: "2026-07-28",
         amount: "100.00",
         currency: "USD",
@@ -614,6 +771,10 @@ test("Phase 3 ledger posting, exact reports, reversal, and fiscal locks are enfo
   });
   assert.equal(reversed.status, 201);
   assert.equal(reversed.json().data.status, "posted");
+  assert.equal((await request(app, `/v1/accounting/journal-entries/${journal.id}/reverse`, {
+    method: "POST",
+    body: JSON.stringify({ reversalDate: "2026-07-30", memo: "Duplicate reversal" }),
+  })).status, 409);
 
   assert.equal((await request(app, "/v1/accounting/periods/close", {
     method: "POST",
@@ -669,13 +830,14 @@ test("Phase 3 operational reports include aging and audit trails", async () => {
 
 test("Phase 3 project billing and profitability use exact financial values", async () => {
   const app = createApp();
+  const references = await seedSalesReferences(app);
   const project = (await request(app, "/v1/projects/projects", {
     method: "POST",
     body: JSON.stringify({
       status: "active",
       data: {
         projectName: "Factory expansion",
-        customerId: "customer-1",
+        customerId: references.customerId,
         startDate: "2026-07-01",
         contractAmount: "5000",
       },
@@ -698,8 +860,8 @@ test("Phase 3 project billing and profitability use exact financial values", asy
   const billing = (await request(app, "/v1/projects/progress-billing", {
     method: "POST",
     body: JSON.stringify({ data: {
-      projectId: project.id, customerId: "customer-1", invoiceDate: "2026-07-28",
-      amount: "250", revenueAccountId: "4000", description: "Milestone 1",
+      projectId: project.id, customerId: references.customerId, invoiceDate: "2026-07-28",
+      amount: "250", revenueAccountId: references.accountId, description: "Milestone 1",
     } }),
   })).json().data;
   const invoice = await request(app, `/v1/projects/progress-billing/${billing.id}/create-invoice`, {
@@ -707,7 +869,8 @@ test("Phase 3 project billing and profitability use exact financial values", asy
     body: JSON.stringify({ dueDate: "2026-08-27", receivableAccountId: "1100" }),
   });
   assert.equal(invoice.status, 201);
-  assert.equal(invoice.json().data.data.sourceDocumentId, billing.id);
+  assert.equal(invoice.json().data.data.customerId, references.customerId);
+  assert.equal(invoice.json().data.data.total, "250.0000");
 
   const profitability = await request(app, `/v1/projects/projects/${project.id}/profitability`);
   assert.deepEqual(

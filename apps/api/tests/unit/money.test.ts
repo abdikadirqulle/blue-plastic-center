@@ -7,7 +7,6 @@ describe("exact financial arithmetic", () => {
     ["0", 0n],
     ["12.34", 123400n],
     ["-7.0001", -70001n],
-    ["999.99999", 9_999_999n],
   ])("converts %s to four-decimal minor units", (input, expected) => {
     expect(decimalToMinor(input)).toBe(expected)
   })
@@ -33,5 +32,14 @@ describe("exact financial arithmetic", () => {
       { debit: "10", credit: "0" },
       { debit: "0", credit: "9" },
     ])).toThrow("equal non-zero debits and credits")
+  })
+
+  it.each([
+    [[{ debit: "10", credit: "1" }, { debit: "0", credit: "9" }], "exactly one positive"],
+    [[{ debit: "-10", credit: "0" }, { debit: "0", credit: "-10" }], "cannot be negative"],
+    [[{ debit: "10.00001", credit: "0" }, { debit: "0", credit: "10.00001" }], "at most 4 decimal places"],
+    [[{ debit: "0", credit: "0" }, { debit: "0", credit: "0" }], "exactly one positive"],
+  ])("rejects unsafe journal lines", (lines, message) => {
+    expect(() => assertBalanced(lines)).toThrow(message)
   })
 })

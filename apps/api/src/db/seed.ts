@@ -7,6 +7,8 @@ import {
   branches,
   companies,
   fiscalPeriods,
+  invoiceLines,
+  invoices,
   items,
   resourceRecords,
   users,
@@ -118,6 +120,7 @@ async function seed() {
     ["1450", "Accumulated Depreciation", "asset"],
     ["2000", "Accounts Payable", "liability"],
     ["2050", "Accrued Expenses", "liability"],
+    ["2060", "Tax Payable", "liability"],
     ["2100", "Payroll Payable", "liability"],
     ["2150", "Customer Deposits", "liability"],
     ["2200", "Short-term Loans", "liability"],
@@ -149,7 +152,35 @@ async function seed() {
     ["6900", "Other Expenses", "expense"],
   ] as const;
 
+  const systemAccountByNumber: Record<string, string> = {
+    "1000": "cash",
+    "1020": "bank",
+    "1030": "mobile_money",
+    "1100": "accounts_receivable",
+    "1200": "inventory_asset",
+    "2000": "accounts_payable",
+    "2060": "tax_payable",
+    "3000": "owner_capital",
+    "3100": "owner_drawings",
+    "3200": "retained_earnings",
+    "4000": "sales_revenue",
+    "4020": "service_revenue",
+    "4090": "sales_discounts",
+    "4200": "other_income",
+    "5000": "cost_of_goods_sold",
+    "6000": "salary_expense",
+    "6010": "rent_expense",
+    "6020": "utilities_expense",
+    "6070": "bank_fees",
+    "6900": "other_expense",
+  };
+
   for (const [accountNumber, name, type] of seedAccounts) {
+    const systemKey = systemAccountByNumber[accountNumber];
+    const normalBalance = ["liability", "equity", "income"].includes(type)
+      ? "credit"
+      : "debit";
+    const isControlAccount = ["1100", "1200", "2000", "2060"].includes(accountNumber);
     await db
       .insert(accounts)
       .values({
@@ -158,11 +189,26 @@ async function seed() {
         accountNumber,
         name,
         type,
+        systemKey,
+        normalBalance,
+        isSystem: Boolean(systemKey),
+        isControlAccount,
+        allowManualPosting: !isControlAccount,
         currency: "USD",
       })
       .onConflictDoUpdate({
         target: [accounts.companyId, accounts.accountNumber],
-        set: { name, type, currency: "USD", active: true },
+        set: {
+          name,
+          type,
+          systemKey,
+          normalBalance,
+          isSystem: Boolean(systemKey),
+          isControlAccount,
+          allowManualPosting: !isControlAccount,
+          currency: "USD",
+          active: true,
+        },
       });
   }
 
@@ -705,23 +751,47 @@ async function seed() {
     unitPrice,
     total,
     balanceDue,
-  ] of invoiceData)
-    await demo(id, "sales", "invoices", status, {
-      documentNumber,
-      customerId,
-      invoiceDate,
-      dueDate,
-      currency: "USD",
-      exchangeRate: "1",
-      terms: "Net 30",
-      template: "Product invoice",
-      subtotal: total,
-      total,
-      amountPaid: status === "paid" ? total : "0",
-      balanceDue,
-      memo: "BLUE PLASTIC CENTER demonstration transaction",
-      lines: [{ itemId, description: "Plastic products", quantity, unitPrice }],
-    });
+  ] of invoiceData) {
+    // Invoices are relational only: seed the header and its lines directly so no
+    // demo data lands back in the legacy JSONB store.
+    await db
+      .insert(invoices)
+      .values({
+        id,
+        companyId,
+        branchId,
+        customerId,
+        invoiceNumber: documentNumber,
+        invoiceDate: new Date(invoiceDate),
+        dueDate: new Date(dueDate),
+        currency: "USD",
+        exchangeRate: "1",
+        status,
+        memo: "BLUE PLASTIC CENTER demonstration transaction",
+        subtotal: total,
+        total,
+        amountPaid: status === "paid" ? total : "0",
+        balanceDue,
+        createdBy: userId,
+        updatedBy: userId,
+        createdAt: new Date(createdAt),
+        updatedAt: new Date(createdAt),
+      })
+      .onConflictDoNothing();
+    await db
+      .insert(invoiceLines)
+      .values({
+        invoiceId: id,
+        itemId,
+        description: "Plastic products",
+        unit: "Each",
+        quantity,
+        unitPrice,
+        lineTotal: total,
+        lineNumber: 1,
+      })
+      .onConflictDoNothing();
+  }
 
   const genericDemo: Array<
     [string, string, string, string, Record<string, unknown>]

@@ -31,6 +31,7 @@ import { DatePicker } from "../../components/ui/date-picker";
 import { Select } from "../../components/ui/select";
 import { Toast, type ToastMessage } from "../../components/ui/toast";
 import { cn } from "../../lib/utils";
+import { resolveReportDefinition } from "./report-registry";
 
 const tabs = [
   ["financial", "Financial"],
@@ -319,61 +320,36 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
   };
 
   const run = (report: string) => {
-    const kinds: Record<string, string> = {
-      "Profit and Loss": "profit-and-loss",
-      "Balance Sheet": "balance-sheet",
-      "Statement of Cash Flows": "cash-flow",
-      "Trial Balance": "trial-balance",
-      "General Ledger": "general-ledger",
-      "Audit Trail": "audit-trail",
-      "Sales by Customer Summary": "sales-by-customer",
-      "Sales by Customer Detail": "sales-by-customer",
-      "Customer Balance Summary": "sales-by-customer",
-      "Customer Balance Detail": "sales-by-customer",
-      "Sales by Item Summary": "sales-by-item",
-      "Sales by Item Detail": "sales-by-item",
-      "Invoice List": "invoice-list",
-      "Open Invoices": "invoice-list",
-      "Collections Report": "collections",
-      "Weekly Collections": "collections",
-      "A/R Aging Summary": "receivables-aging",
-      "A/R Aging Detail": "receivables-aging",
-      "A/P Aging Summary": "payables-aging",
-      "A/P Aging Detail": "payables-aging",
-      "Inventory Valuation Summary": "inventory-valuation",
-      "Inventory Valuation Detail": "inventory-valuation",
-    };
-    const kind =
-      kinds[report] ??
-      {
-        financial: "trial-balance",
-        sales: "invoice-list",
-        purchasing: "payables-aging",
-        inventory: "inventory-valuation",
-        projects: "audit-trail",
-        assets: "audit-trail",
-        payroll: "audit-trail",
-        custom: "trial-balance",
-      }[currentTab];
+    const definition = resolveReportDefinition(report);
+    if (definition.status === "unsupported") {
+      setMessage({
+        title: "Report not available yet",
+        description: definition.reason,
+        variant: "info",
+      });
+      return;
+    }
     setRunningReport(report);
     navigate(
-      `/reports/view?${new URLSearchParams({ name: report, kind, from, to, basis: basis.toLowerCase() })}`,
+      `/reports/view?${new URLSearchParams({ name: report, kind: definition.kind, from, to, basis: basis.toLowerCase() })}`,
     );
   };
 
   const memorize = (report: string) => {
-    const kinds: Record<string, string> = {
-      "Profit and Loss": "profit-and-loss",
-      "Balance Sheet": "balance-sheet",
-      "Statement of Cash Flows": "cash-flow",
-      "Trial Balance": "trial-balance",
-      "General Ledger": "general-ledger",
-    };
+    const definition = resolveReportDefinition(report);
+    if (definition.status === "unsupported") {
+      setMessage({
+        title: "Report not available yet",
+        description: definition.reason,
+        variant: "info",
+      });
+      return;
+    }
     const next = [
       ...memorized.filter((item) => item.name !== report),
       {
         name: report,
-        kind: kinds[report] ?? "trial-balance",
+        kind: definition.kind,
         from,
         to,
         basis: basis.toLowerCase(),
@@ -515,6 +491,8 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
               <div className="divide-y divide-[#edf1f4]">
                 {group.reports.map((report) => {
                   const favorite = favorites.includes(report);
+                  const definition = resolveReportDefinition(report);
+                  const available = definition.status === "available";
                   return (
                     <div
                       key={report}
@@ -523,9 +501,15 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
                       <BarChart3 size={16} className="text-[#738894]" />
                       <button
                         onClick={() => run(report)}
-                        className="flex-1 text-left text-xs font-medium text-[#304954]"
+                        className="flex-1 text-left text-xs font-medium text-[#304954] disabled:cursor-not-allowed disabled:text-[#8da0aa]"
+                        disabled={!available}
                       >
                         {report}
+                        {!available ? (
+                          <span className="ml-2 rounded-full bg-[#eef2f5] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#71848f]">
+                            Coming soon
+                          </span>
+                        ) : null}
                       </button>
                       <button
                         aria-label={`${favorite ? "Remove" : "Add"} ${report} favorite`}
@@ -549,26 +533,23 @@ export function ReportsPage({ activeTab }: { activeTab: string }) {
                         aria-label={`Memorize ${report}`}
                         title="Memorize report"
                         onClick={() => memorize(report)}
+                        disabled={!available}
                         className="rounded-lg p-2 text-[#758995] hover:bg-amber-50 hover:text-amber-600"
                       >
                         <Star size={15} />
                       </button>
                       <button
                         aria-label={`Export ${report}`}
-                        onClick={() =>
-                          setMessage({
-                            title: "Export prepared",
-                            description: `${report} is ready to download.`,
-                            variant: "success",
-                          })
-                        }
-                        className="rounded-lg p-2 text-[#758995] hover:bg-[#eaf5fc] hover:text-[#007DCC]"
+                        onClick={() => run(report)}
+                        disabled={!available}
+                        className="rounded-lg p-2 text-[#758995] hover:bg-[#eaf5fc] hover:text-[#007DCC] disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <Download size={15} />
                       </button>
                       <button
                         onClick={() => run(report)}
-                        className="flex items-center gap-1 rounded-lg bg-[#eaf5fc] px-2.5 py-2 text-[11px] font-medium text-[#007DCC]"
+                        disabled={!available}
+                        className="flex items-center gap-1 rounded-lg bg-[#eaf5fc] px-2.5 py-2 text-[11px] font-medium text-[#007DCC] disabled:cursor-not-allowed disabled:bg-[#eef2f5] disabled:text-[#8da0aa]"
                       >
                         {runningReport === report ? (
                           <span className="size-3 animate-spin rounded-full border-2 border-[#9bcdeb] border-t-[#007DCC]" />

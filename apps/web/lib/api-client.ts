@@ -100,9 +100,16 @@ export class ApiClient {
     );
   }
 
-  create<TData extends Record<string, unknown>>(moduleName: string, resource: string, data: TData, status = "draft") {
+  create<TData extends Record<string, unknown>>(
+    moduleName: string,
+    resource: string,
+    data: TData,
+    status = "draft",
+    idempotencyKey?: string,
+  ) {
     return this.request<ApiEnvelope<ApiRecord<TData>>>(`/v1/${moduleName}/${resource}`, {
       method: "POST",
+      headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
       body: JSON.stringify({ data, status }),
     });
   }
@@ -135,9 +142,11 @@ export class ApiClient {
     path: string,
     body?: Record<string, unknown>,
     method = "POST",
+    idempotencyKey?: string,
   ) {
     return this.request<ApiEnvelope<T>>(path, {
       method,
+      ...(idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : {}),
       ...(body ? { body: JSON.stringify(body) } : {}),
     })
   }

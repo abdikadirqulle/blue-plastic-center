@@ -1,13 +1,29 @@
 import { z } from "zod"
 import { decimalString, identifier, isoDate, type OperationalSchema } from "./operational.js"
 
+const journalAmount = decimalString.refine(
+  (value) => /^(?:0|[1-9]\d*)(?:\.\d{1,4})?$/.test(value),
+  "Journal amounts must be non-negative and contain at most 4 decimal places",
+)
+
 const journalLine = z.object({
   accountId: identifier,
   description: z.string().max(500).optional(),
-  debit: decimalString.default("0"),
-  credit: decimalString.default("0"),
+  debit: journalAmount.default("0"),
+  credit: journalAmount.default("0"),
   classId: identifier.optional(),
   projectId: identifier.optional(),
+}).superRefine((line, context) => {
+  const isPositive = (value: string) => !/^0(?:\.0+)?$/.test(value)
+  const debitIsPositive = isPositive(line.debit)
+  const creditIsPositive = isPositive(line.credit)
+  if (debitIsPositive === creditIsPositive) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Each journal line must contain exactly one positive debit or credit",
+      path: [debitIsPositive ? "credit" : "debit"],
+    })
+  }
 })
 
 export const accountingSchemas: Record<string, OperationalSchema> = {
@@ -24,7 +40,10 @@ export const accountingSchemas: Record<string, OperationalSchema> = {
     exchangeRate: decimalString.default("1"),
     memo: z.string().max(2000).optional(),
     sourceModule: z.string().optional(),
+    sourceType: z.string().optional(),
     sourceId: identifier.optional(),
+    postingKind: z.enum(["primary", "reversal", "adjustment"]).optional(),
+    idempotencyKey: z.string().min(1).max(200).optional(),
     reversalOfId: identifier.optional(),
     lines: z.array(journalLine).min(2).max(1000),
   }).passthrough(),

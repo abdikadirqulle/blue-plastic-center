@@ -17,6 +17,10 @@ import { inventoryRoutes } from "./modules/inventory/inventory.routes.js"
 import { OperationalWorkflowService } from "./modules/operations/operational-workflow.service.js"
 import { purchasingRoutes } from "./modules/purchasing/purchasing.routes.js"
 import { salesRoutes } from "./modules/sales/sales.routes.js"
+import { InvoiceService } from "./modules/sales/invoice-service.js"
+import type { InvoiceRepository } from "./modules/sales/invoice-repository.js"
+import { MemoryInvoiceRepository } from "./modules/sales/memory-invoice-repository.js"
+import { MemoryInventoryMovements } from "./modules/inventory/memory-inventory-movements.js"
 import { projectRoutes } from "./modules/projects/project.routes.js"
 import { payrollRoutes } from "./modules/payroll/payroll.routes.js"
 import { importRoutes } from "./modules/imports/import.routes.js"
@@ -46,15 +50,29 @@ export function createApp(
   env: AppEnv = defaultEnv,
   identityRepository: IdentityRepository = new MemoryIdentityRepository(),
   ledgerRepository?: LedgerRepository,
+  invoiceRepository?: InvoiceRepository,
 ) {
   const app = Fastify({
     logger: env.LOG_LEVEL === "silent" ? false : { level: env.LOG_LEVEL },
     requestIdHeader: "x-request-id",
   })
-  const service = new ResourceService(repository)
+  const ledger = ledgerRepository ?? new MemoryLedgerRepository(repository)
+  // Invoices are always served by a normalized repository. Without a database
+  // the in-memory implementation keeps the same tables, posting order and
+  // constraints, so the JSONB resource store never holds invoice data.
+  const invoiceStore =
+    invoiceRepository ??
+    new MemoryInvoiceRepository(
+      repository,
+      ledger instanceof MemoryLedgerRepository
+        ? ledger
+        : new MemoryLedgerRepository(repository),
+      new MemoryInventoryMovements(),
+    )
+  const service = new ResourceService(repository, invoiceStore)
+  const invoices = new InvoiceService(invoiceStore)
   const authService = new AuthService(identityRepository, env.SESSION_TTL_HOURS)
   const workflows = new OperationalWorkflowService(service)
-  const ledger = ledgerRepository ?? new MemoryLedgerRepository(repository)
 
   registerErrorHandler(app)
   app.register(helmet)
@@ -91,7 +109,7 @@ export function createApp(
         prefix: "/auth",
       })
       await v1.register(
-        async (sales) => salesRoutes(sales, workflows, service),
+        async (sales) => salesRoutes(sales, workflows, service, invoices),
         { prefix: "/sales" },
       )
       await v1.register(

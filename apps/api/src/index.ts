@@ -6,6 +6,8 @@ import { MemoryIdentityRepository } from "./modules/auth/memory-identity-reposit
 import { PostgresIdentityRepository } from "./modules/auth/postgres-identity-repository.js";
 import { MemoryLedgerRepository } from "./modules/accounting/memory-ledger-repository.js";
 import { PostgresLedgerRepository } from "./modules/accounting/postgres-ledger-repository.js";
+import { PostgresInvoiceRepository } from "./modules/sales/postgres-invoice-repository.js";
+import { PostgresInventoryMovements } from "./modules/inventory/postgres-inventory-movements.js";
 import { MemoryResourceRepository } from "./repositories/memory-resource-repository.js";
 import { PostgresResourceRepository } from "./repositories/postgres-resource-repository.js";
 import { allowedWebOrigins } from "./config/env.js";
@@ -21,7 +23,14 @@ const identityRepository = database
 const ledgerRepository = database
   ? new PostgresLedgerRepository(database.db)
   : new MemoryLedgerRepository(repository);
-const app = createApp(repository, env, identityRepository, ledgerRepository);
+const invoiceRepository = database && ledgerRepository instanceof PostgresLedgerRepository
+  ? new PostgresInvoiceRepository(
+      database.db,
+      ledgerRepository,
+      new PostgresInventoryMovements(database.db),
+    )
+  : undefined;
+const app = createApp(repository, env, identityRepository, ledgerRepository, invoiceRepository);
 
 try {
   await app.listen({ host: env.HOST, port: env.PORT });
