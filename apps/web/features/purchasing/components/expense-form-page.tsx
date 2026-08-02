@@ -5,6 +5,10 @@ import { ArrowLeft, LoaderCircle, Save } from "lucide-react";
 import { AppShell } from "../../../components/layout/app-shell";
 import { Card } from "../../../components/ui/card";
 import { DatePicker } from "../../../components/ui/date-picker";
+import {
+  useDirtyFlag,
+  type DedicatedFormProps,
+} from "../../../components/ui/form-dialog";
 import { Select } from "../../../components/ui/select";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import { useReferenceData } from "../../resources/reference-data";
@@ -38,10 +42,18 @@ const PAYMENT_METHODS = [
  * QuickBooks Desktop-style Write Check / Expense: payee, payment account,
  * expense account, amount.
  */
-export function ExpenseFormPage() {
+export function ExpenseFormPage({
+  variant = "page",
+  editId: editIdProp,
+  onRequestClose,
+  onSaved,
+  onDirtyChange,
+}: DedicatedFormProps = {}) {
   const router = useRouter();
   const [searchParams] = useSearchParams();
-  const editId = searchParams.get("edit") ?? "";
+  const editId = editIdProp ?? searchParams.get("edit") ?? "";
+  const isDialog = variant === "dialog";
+  const { markDirty, clearDirty } = useDirtyFlag(onDirtyChange);
   const detail = useResourceDetail("purchasing", "expenses", editId);
   const mutations = useResourceMutations("purchasing", "expenses");
   const references = useReferenceData();
@@ -103,6 +115,7 @@ export function ExpenseFormPage() {
   }, [detail.data, editId]);
 
   const resetForm = () => {
+    clearDirty();
     setPayee("");
     setPayeeVendorId("");
     setPaymentDate(todayIso());
@@ -114,7 +127,7 @@ export function ExpenseFormPage() {
     setMemo("");
     idempotencyKey.current = crypto.randomUUID();
     loadedKey.current = "";
-    if (editId) router.push("/purchasing/expenses/new");
+    if (editId && !isDialog) router.push("/purchasing/expenses/new");
   };
 
   const save = async (mode: SaveMode) => {
@@ -178,9 +191,18 @@ export function ExpenseFormPage() {
             : "Returning to expenses.",
         variant: "success",
       });
+      clearDirty();
+      onSaved?.();
       if (mode === "close") {
-        window.setTimeout(() => router.push("/purchasing/expenses"), 500);
-      } else resetForm();
+        if (isDialog) {
+          onRequestClose?.();
+        } else {
+          window.setTimeout(() => router.push("/purchasing/expenses"), 500);
+        }
+      } else {
+        resetForm();
+        clearDirty();
+      }
     } catch (caught) {
       setMessage({
         title: "Could not save",
@@ -195,16 +217,16 @@ export function ExpenseFormPage() {
     }
   };
 
-  return (
-    <AppShell>
-      <form
-        className="mx-auto max-w-[900px]"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save("new");
-        }}
-      >
-        <div className="flex flex-wrap items-end justify-between gap-3">
+  const form = (
+    <form
+      className={isDialog ? "w-full max-w-[900px]" : "mx-auto max-w-[900px]"}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save("new");
+      }}
+    >
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        {!isDialog ? (
           <div>
             <Link
               href="/purchasing/expenses"
@@ -216,143 +238,171 @@ export function ExpenseFormPage() {
               {editId ? "Edit expense" : "Write check / expense"}
             </h1>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex h-10 items-center gap-2 rounded-xl border border-[#007DCC] bg-white px-4 text-xs font-bold text-[#007DCC]"
-            >
-              {saving && saveMode === "new" ? (
-                <LoaderCircle size={14} className="animate-spin" />
-              ) : (
-                <Save size={14} />
-              )}
-              Save & new
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void save("close")}
-              className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"
-            >
-              {saving && saveMode === "close" ? (
-                <LoaderCircle size={14} className="animate-spin" />
-              ) : null}
-              Save & close
-            </button>
-          </div>
+        ) : (
+          <div />
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex h-10 items-center gap-2 rounded-xl border border-[#007DCC] bg-white px-4 text-xs font-bold text-[#007DCC]"
+          >
+            {saving && saveMode === "new" ? (
+              <LoaderCircle size={14} className="animate-spin" />
+            ) : (
+              <Save size={14} />
+            )}
+            Save & new
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void save("close")}
+            className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"
+          >
+            {saving && saveMode === "close" ? (
+              <LoaderCircle size={14} className="animate-spin" />
+            ) : null}
+            Save & close
+          </button>
         </div>
+      </div>
 
-        <Toast message={message} onClose={() => setMessage(null)} />
+      <Toast message={message} onClose={() => setMessage(null)} />
 
-        <Card className="mt-5 overflow-hidden p-0">
-          <div className="grid gap-3 border-b border-[#e5ecf1] bg-[#f7fafc] px-4 py-3 sm:grid-cols-2 lg:grid-cols-3">
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] lg:col-span-2">
-              Payee
-              <Select
-                value={payeeVendorId || undefined}
-                onValueChange={(value) => {
-                  setPayeeVendorId(value);
-                  const option = vendorOptions.find(
-                    (entry) =>
-                      typeof entry !== "string" && entry.value === value,
-                  );
-                  if (option && typeof option !== "string")
-                    setPayee(option.label);
+      <Card className="mt-5 overflow-hidden p-0">
+        <div className="grid gap-3 border-b border-[#e5ecf1] bg-[#f7fafc] px-4 py-3 sm:grid-cols-2 lg:grid-cols-3">
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] lg:col-span-2">
+            Payee
+            <Select
+              value={payeeVendorId || undefined}
+              onValueChange={(value) => {
+                markDirty();
+                setPayeeVendorId(value);
+                const option = vendorOptions.find(
+                  (entry) =>
+                    typeof entry !== "string" && entry.value === value,
+                );
+                if (option && typeof option !== "string")
+                  setPayee(option.label);
+              }}
+              options={vendorOptions}
+              placeholder="Select vendor or type below"
+              allowAddNew
+              addNewLabel="vendor"
+              quickAddKind="vendor"
+              onCreateOption={references.createOption}
+              className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+            />
+            <input
+              value={payee}
+              onChange={(event) => {
+                markDirty();
+                setPayee(event.target.value);
+                setPayeeVendorId("");
+              }}
+              placeholder="Or type payee name"
+              className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Date
+            <div className="mt-1.5">
+              <DatePicker
+                value={paymentDate}
+                onChange={(value) => {
+                  markDirty();
+                  setPaymentDate(value);
                 }}
-                options={vendorOptions}
-                placeholder="Select vendor or type below"
-                allowAddNew
-                addNewLabel="vendor"
-                quickAddKind="vendor"
-                onCreateOption={references.createOption}
-                className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+                className="h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
               />
-              <input
-                value={payee}
-                onChange={(event) => {
-                  setPayee(event.target.value);
-                  setPayeeVendorId("");
-                }}
-                placeholder="Or type payee name"
-                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Date
-              <div className="mt-1.5">
-                <DatePicker
-                  value={paymentDate}
-                  onChange={setPaymentDate}
-                  className="h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-                />
-              </div>
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Bank / payment account
-              <Select
-                value={paymentAccountId || undefined}
-                onValueChange={setPaymentAccountId}
-                options={paymentAccounts}
-                placeholder="Select account"
-                className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Payment method
-              <Select
-                value={paymentMethod}
-                onValueChange={setPaymentMethod}
-                options={PAYMENT_METHODS}
-                searchable={false}
-                className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Ref. no.
-              <input
-                value={reference}
-                onChange={(event) => setReference(event.target.value)}
-                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] lg:col-span-2">
-              Expense account
-              <Select
-                value={accountId || undefined}
-                onValueChange={setAccountId}
-                options={expenseAccounts}
-                placeholder="Select expense account"
-                allowAddNew
-                addNewLabel="account"
-                quickAddKind="account"
-                onCreateOption={references.createOption}
-                className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Amount
-              <input
-                value={amount}
-                onChange={(event) => setAmount(moneyInput(event.target.value))}
-                inputMode="decimal"
-                placeholder="0.00"
-                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
-              />
-            </label>
-          </div>
-          <div className="px-4 py-3">
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Memo
-              <input
-                value={memo}
-                onChange={(event) => setMemo(event.target.value)}
-                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
-              />
-            </label>
-          </div>
-        </Card>
-      </form>
-    </AppShell>
+            </div>
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Bank / payment account
+            <Select
+              value={paymentAccountId || undefined}
+              onValueChange={(value) => {
+                markDirty();
+                setPaymentAccountId(value);
+              }}
+              options={paymentAccounts}
+              placeholder="Select account"
+              className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Payment method
+            <Select
+              value={paymentMethod}
+              onValueChange={(value) => {
+                markDirty();
+                setPaymentMethod(value);
+              }}
+              options={PAYMENT_METHODS}
+              searchable={false}
+              className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Ref. no.
+            <input
+              value={reference}
+              onChange={(event) => {
+                markDirty();
+                setReference(event.target.value);
+              }}
+              className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] lg:col-span-2">
+            Expense account
+            <Select
+              value={accountId || undefined}
+              onValueChange={(value) => {
+                markDirty();
+                setAccountId(value);
+              }}
+              options={expenseAccounts}
+              placeholder="Select expense account"
+              allowAddNew
+              addNewLabel="account"
+              quickAddKind="account"
+              onCreateOption={references.createOption}
+              className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Amount
+            <input
+              value={amount}
+              onChange={(event) => {
+                markDirty();
+                setAmount(moneyInput(event.target.value));
+              }}
+              inputMode="decimal"
+              placeholder="0.00"
+              className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
+            />
+          </label>
+        </div>
+        <div className="px-4 py-3">
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Memo
+            <input
+              value={memo}
+              onChange={(event) => {
+                markDirty();
+                setMemo(event.target.value);
+              }}
+              className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
+            />
+          </label>
+        </div>
+      </Card>
+    </form>
   );
+
+  if (isDialog) return form;
+  return <AppShell>{form}</AppShell>;
 }

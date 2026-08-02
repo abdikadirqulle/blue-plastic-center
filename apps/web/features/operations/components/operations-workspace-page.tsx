@@ -33,6 +33,10 @@ import {
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
 import {
+  isModalCreateResource,
+  WorkspaceCreateButton,
+} from "../../resources/workspace-create-button";
+import {
   isNumericColumn,
   tableCellValue,
 } from "../../resources/table-cell-value";
@@ -238,13 +242,21 @@ export function OperationsWorkspacePage({
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-              <Link
-                href={`/${opsModule}/${resource}/new`}
-                className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold"
-              >
-                <Plus size={16} />
-                {config.primaryAction}
-              </Link>
+              {isModalCreateResource(opsModule, resource) ? (
+                <WorkspaceCreateButton
+                  module={opsModule}
+                  slug={resource}
+                  label={config.primaryAction}
+                />
+              ) : (
+                <Link
+                  href={`/${opsModule}/${resource}/new`}
+                  className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold"
+                >
+                  <Plus size={16} />
+                  {config.primaryAction}
+                </Link>
+              )}
             </div>
           </div>
           <nav className="flex overflow-x-auto border-t border-white/10 bg-black/10 px-3">

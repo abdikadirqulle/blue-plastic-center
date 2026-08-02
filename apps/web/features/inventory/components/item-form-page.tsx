@@ -5,6 +5,10 @@ import { ArrowLeft, LoaderCircle, Save } from "lucide-react";
 import { AppShell } from "../../../components/layout/app-shell";
 import { Card } from "../../../components/ui/card";
 import { DatePicker } from "../../../components/ui/date-picker";
+import {
+  useDirtyFlag,
+  type DedicatedFormProps,
+} from "../../../components/ui/form-dialog";
 import { Select } from "../../../components/ui/select";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import { useReferenceData } from "../../resources/reference-data";
@@ -40,10 +44,18 @@ const UNITS = ["Each", "Box", "Kg", "Liter", "Meter", "Hour", "Case", "Dozen"];
  * QuickBooks Desktop-style New Item: type at the top, then sales / purchase /
  * inventory sections that appear based on type.
  */
-export function ItemFormPage() {
+export function ItemFormPage({
+  variant = "page",
+  editId: editIdProp,
+  onRequestClose,
+  onSaved,
+  onDirtyChange,
+}: DedicatedFormProps = {}) {
   const router = useRouter();
   const [searchParams] = useSearchParams();
-  const editId = searchParams.get("edit") ?? "";
+  const editId = editIdProp ?? searchParams.get("edit") ?? "";
+  const isDialog = variant === "dialog";
+  const { markDirty, clearDirty } = useDirtyFlag(onDirtyChange);
   const detail = useResourceDetail("inventory", "items", editId);
   const mutations = useResourceMutations("inventory", "items");
   const references = useReferenceData();
@@ -135,6 +147,7 @@ export function ItemFormPage() {
   }, [detail.data, editId]);
 
   const resetForm = () => {
+    clearDirty();
     setType("inventory");
     setName("");
     setUnit("Each");
@@ -152,7 +165,7 @@ export function ItemFormPage() {
     setAsOf(todayIso());
     idempotencyKey.current = crypto.randomUUID();
     loadedKey.current = "";
-    if (editId) router.push("/inventory/items/new");
+    if (editId && !isDialog) router.push("/inventory/items/new");
   };
 
   const save = async (mode: SaveMode) => {
@@ -215,9 +228,18 @@ export function ItemFormPage() {
             : "Returning to items.",
         variant: "success",
       });
+      clearDirty();
+      onSaved?.();
       if (mode === "close") {
-        window.setTimeout(() => router.push("/inventory/items"), 500);
-      } else resetForm();
+        if (isDialog) {
+          onRequestClose?.();
+        } else {
+          window.setTimeout(() => router.push("/inventory/items"), 500);
+        }
+      } else {
+        resetForm();
+        clearDirty();
+      }
     } catch (caught) {
       setMessage({
         title: "Could not save",
@@ -232,16 +254,16 @@ export function ItemFormPage() {
     }
   };
 
-  return (
-    <AppShell>
-      <form
-        className="mx-auto max-w-[900px]"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save("new");
-        }}
-      >
-        <div className="flex flex-wrap items-end justify-between gap-3">
+  const form = (
+    <form
+      className={isDialog ? "w-full max-w-[900px]" : "mx-auto max-w-[900px]"}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save("new");
+      }}
+    >
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        {!isDialog ? (
           <div>
             <Link
               href="/inventory/items"
@@ -253,236 +275,276 @@ export function ItemFormPage() {
               {editId ? "Edit item" : "New item"}
             </h1>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex h-10 items-center gap-2 rounded-xl border border-[#007DCC] bg-white px-4 text-xs font-bold text-[#007DCC]"
-            >
-              {saving && saveMode === "new" ? (
-                <LoaderCircle size={14} className="animate-spin" />
-              ) : (
-                <Save size={14} />
-              )}
-              Save & new
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void save("close")}
-              className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"
-            >
-              {saving && saveMode === "close" ? (
-                <LoaderCircle size={14} className="animate-spin" />
-              ) : null}
-              Save & close
-            </button>
-          </div>
+        ) : (
+          <div />
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex h-10 items-center gap-2 rounded-xl border border-[#007DCC] bg-white px-4 text-xs font-bold text-[#007DCC]"
+          >
+            {saving && saveMode === "new" ? (
+              <LoaderCircle size={14} className="animate-spin" />
+            ) : (
+              <Save size={14} />
+            )}
+            Save & new
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void save("close")}
+            className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"
+          >
+            {saving && saveMode === "close" ? (
+              <LoaderCircle size={14} className="animate-spin" />
+            ) : null}
+            Save & close
+          </button>
+        </div>
+      </div>
+
+      <Toast message={message} onClose={() => setMessage(null)} />
+
+      <Card className="mt-5 overflow-hidden p-0">
+        <div className="grid gap-3 border-b border-[#e5ecf1] bg-[#f7fafc] px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Type
+            <Select
+              value={type}
+              onValueChange={(value) => {
+                markDirty();
+                setType(value as ItemType);
+              }}
+              options={ITEM_TYPES}
+              searchable={false}
+              className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
+            Item name/number
+            <input
+              value={name}
+              onChange={(event) => {
+                markDirty();
+                setName(event.target.value);
+              }}
+              required
+              className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Unit of measure
+            <Select
+              value={unit}
+              onValueChange={(value) => {
+                markDirty();
+                setUnit(value);
+              }}
+              options={UNITS}
+              searchable={false}
+              className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Category
+            <input
+              value={category}
+              onChange={(event) => {
+                markDirty();
+                setCategory(event.target.value);
+              }}
+              className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
+            />
+          </label>
         </div>
 
-        <Toast message={message} onClose={() => setMessage(null)} />
+        <div className="border-b border-[#e5ecf1] bg-[#eef4f8] px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-[#6f8390]">
+          Sales information
+        </div>
+        <div className="grid gap-3 px-4 py-3 sm:grid-cols-2">
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Sales price
+            <input
+              value={salesPrice}
+              onChange={(event) => {
+                markDirty();
+                setSalesPrice(moneyInput(event.target.value));
+              }}
+              inputMode="decimal"
+              placeholder="0.00"
+              className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Income account
+            <Select
+              value={incomeAccountId || undefined}
+              onValueChange={(value) => {
+                markDirty();
+                setIncomeAccountId(value);
+              }}
+              options={incomeOptions}
+              placeholder="Select account"
+              allowAddNew
+              addNewLabel="account"
+              quickAddKind="account"
+              onCreateOption={references.createOption}
+              className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
+            Description on sales forms
+            <textarea
+              value={salesDescription}
+              onChange={(event) => {
+                markDirty();
+                setSalesDescription(event.target.value);
+              }}
+              rows={2}
+              className="mt-1.5 w-full rounded-lg border border-[#c9d6df] bg-white px-3 py-2 text-xs outline-none"
+            />
+          </label>
+        </div>
 
-        <Card className="mt-5 overflow-hidden p-0">
-          <div className="grid gap-3 border-b border-[#e5ecf1] bg-[#f7fafc] px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Type
-              <Select
-                value={type}
-                onValueChange={(value) => setType(value as ItemType)}
-                options={ITEM_TYPES}
-                searchable={false}
-                className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
-              Item name/number
-              <input
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                required
-                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Unit of measure
-              <Select
-                value={unit}
-                onValueChange={setUnit}
-                options={UNITS}
-                searchable={false}
-                className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Category
-              <input
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
-              />
-            </label>
-          </div>
+        {isPurchased ? (
+          <>
+            <div className="border-y border-[#e5ecf1] bg-[#eef4f8] px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-[#6f8390]">
+              Purchase information
+            </div>
+            <div className="grid gap-3 px-4 py-3 sm:grid-cols-2">
+              <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+                Cost
+                <input
+                  value={purchaseCost}
+                  onChange={(event) => {
+                    markDirty();
+                    setPurchaseCost(moneyInput(event.target.value));
+                  }}
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
+                />
+              </label>
+              <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+                {isInventory ? "COGS account" : "Expense account"}
+                <Select
+                  value={expenseAccountId || undefined}
+                  onValueChange={(value) => {
+                    markDirty();
+                    setExpenseAccountId(value);
+                  }}
+                  options={cogsOptions}
+                  placeholder="Select account"
+                  allowAddNew
+                  addNewLabel="account"
+                  quickAddKind="account"
+                  onCreateOption={references.createOption}
+                  className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+                />
+              </label>
+              <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
+                Preferred vendor
+                <Select
+                  value={preferredVendorId || undefined}
+                  onValueChange={(value) => {
+                    markDirty();
+                    setPreferredVendorId(value);
+                  }}
+                  options={vendorOptions}
+                  placeholder="Optional"
+                  allowAddNew
+                  addNewLabel="vendor"
+                  quickAddKind="vendor"
+                  onCreateOption={references.createOption}
+                  className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+                />
+              </label>
+              <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
+                Description on purchase forms
+                <textarea
+                  value={purchaseDescription}
+                  onChange={(event) => {
+                    markDirty();
+                    setPurchaseDescription(event.target.value);
+                  }}
+                  rows={2}
+                  className="mt-1.5 w-full rounded-lg border border-[#c9d6df] bg-white px-3 py-2 text-xs outline-none"
+                />
+              </label>
+            </div>
+          </>
+        ) : null}
 
-          <div className="border-b border-[#e5ecf1] bg-[#eef4f8] px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-[#6f8390]">
-            Sales information
-          </div>
-          <div className="grid gap-3 px-4 py-3 sm:grid-cols-2">
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Sales price
-              <input
-                value={salesPrice}
-                onChange={(event) =>
-                  setSalesPrice(moneyInput(event.target.value))
-                }
-                inputMode="decimal"
-                placeholder="0.00"
-                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Income account
-              <Select
-                value={incomeAccountId || undefined}
-                onValueChange={setIncomeAccountId}
-                options={incomeOptions}
-                placeholder="Select account"
-                allowAddNew
-                addNewLabel="account"
-                quickAddKind="account"
-                onCreateOption={references.createOption}
-                className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
-              Description on sales forms
-              <textarea
-                value={salesDescription}
-                onChange={(event) => setSalesDescription(event.target.value)}
-                rows={2}
-                className="mt-1.5 w-full rounded-lg border border-[#c9d6df] bg-white px-3 py-2 text-xs outline-none"
-              />
-            </label>
-          </div>
-
-          {isPurchased ? (
-            <>
-              <div className="border-y border-[#e5ecf1] bg-[#eef4f8] px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-[#6f8390]">
-                Purchase information
-              </div>
-              <div className="grid gap-3 px-4 py-3 sm:grid-cols-2">
-                <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-                  Cost
-                  <input
-                    value={purchaseCost}
-                    onChange={(event) =>
-                      setPurchaseCost(moneyInput(event.target.value))
-                    }
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
+        {isInventory ? (
+          <>
+            <div className="border-y border-[#e5ecf1] bg-[#eef4f8] px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-[#6f8390]">
+              Inventory information
+            </div>
+            <div className="grid gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
+                Asset account
+                <Select
+                  value={inventoryAccountId || undefined}
+                  onValueChange={(value) => {
+                    markDirty();
+                    setInventoryAccountId(value);
+                  }}
+                  options={inventoryOptions}
+                  placeholder="Select account"
+                  allowAddNew
+                  addNewLabel="account"
+                  quickAddKind="account"
+                  onCreateOption={references.createOption}
+                  className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+                />
+              </label>
+              <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+                Reorder point
+                <input
+                  value={reorderPoint}
+                  onChange={(event) => {
+                    markDirty();
+                    setReorderPoint(moneyInput(event.target.value));
+                  }}
+                  inputMode="decimal"
+                  className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
+                />
+              </label>
+              <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+                On hand
+                <input
+                  value={openingQuantity}
+                  onChange={(event) => {
+                    markDirty();
+                    setOpeningQuantity(moneyInput(event.target.value));
+                  }}
+                  inputMode="decimal"
+                  placeholder="0"
+                  className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
+                />
+              </label>
+              <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+                As of
+                <div className="mt-1.5">
+                  <DatePicker
+                    value={asOf}
+                    onChange={(value) => {
+                      markDirty();
+                      setAsOf(value);
+                    }}
+                    className="h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
                   />
-                </label>
-                <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-                  {isInventory ? "COGS account" : "Expense account"}
-                  <Select
-                    value={expenseAccountId || undefined}
-                    onValueChange={setExpenseAccountId}
-                    options={cogsOptions}
-                    placeholder="Select account"
-                    allowAddNew
-                    addNewLabel="account"
-                    quickAddKind="account"
-                    onCreateOption={references.createOption}
-                    className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-                  />
-                </label>
-                <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
-                  Preferred vendor
-                  <Select
-                    value={preferredVendorId || undefined}
-                    onValueChange={setPreferredVendorId}
-                    options={vendorOptions}
-                    placeholder="Optional"
-                    allowAddNew
-                    addNewLabel="vendor"
-                    quickAddKind="vendor"
-                    onCreateOption={references.createOption}
-                    className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-                  />
-                </label>
-                <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
-                  Description on purchase forms
-                  <textarea
-                    value={purchaseDescription}
-                    onChange={(event) =>
-                      setPurchaseDescription(event.target.value)
-                    }
-                    rows={2}
-                    className="mt-1.5 w-full rounded-lg border border-[#c9d6df] bg-white px-3 py-2 text-xs outline-none"
-                  />
-                </label>
-              </div>
-            </>
-          ) : null}
-
-          {isInventory ? (
-            <>
-              <div className="border-y border-[#e5ecf1] bg-[#eef4f8] px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-[#6f8390]">
-                Inventory information
-              </div>
-              <div className="grid gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
-                <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
-                  Asset account
-                  <Select
-                    value={inventoryAccountId || undefined}
-                    onValueChange={setInventoryAccountId}
-                    options={inventoryOptions}
-                    placeholder="Select account"
-                    allowAddNew
-                    addNewLabel="account"
-                    quickAddKind="account"
-                    onCreateOption={references.createOption}
-                    className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-                  />
-                </label>
-                <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-                  Reorder point
-                  <input
-                    value={reorderPoint}
-                    onChange={(event) =>
-                      setReorderPoint(moneyInput(event.target.value))
-                    }
-                    inputMode="decimal"
-                    className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
-                  />
-                </label>
-                <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-                  On hand
-                  <input
-                    value={openingQuantity}
-                    onChange={(event) =>
-                      setOpeningQuantity(moneyInput(event.target.value))
-                    }
-                    inputMode="decimal"
-                    placeholder="0"
-                    className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
-                  />
-                </label>
-                <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-                  As of
-                  <div className="mt-1.5">
-                    <DatePicker
-                      value={asOf}
-                      onChange={setAsOf}
-                      className="h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-                    />
-                  </div>
-                </label>
-              </div>
-            </>
-          ) : null}
-        </Card>
-      </form>
-    </AppShell>
+                </div>
+              </label>
+            </div>
+          </>
+        ) : null}
+      </Card>
+    </form>
   );
+
+  if (isDialog) return form;
+  return <AppShell>{form}</AppShell>;
 }

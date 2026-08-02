@@ -35,6 +35,10 @@ import {
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
 import {
+  isModalCreateResource,
+  WorkspaceCreateButton,
+} from "../../resources/workspace-create-button";
+import {
   isNumericColumn,
   tableCellValue,
 } from "../../resources/table-cell-value";
@@ -184,13 +188,21 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-              <Link
-                href={`/sales/${resource}/new`}
-                className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold"
-              >
-                <Plus size={16} />
-                {config.primaryAction}
-              </Link>
+              {isModalCreateResource("sales", resource) ? (
+                <WorkspaceCreateButton
+                  module="sales"
+                  slug={resource}
+                  label={config.primaryAction}
+                />
+              ) : (
+                <Link
+                  href={`/sales/${resource}/new`}
+                  className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold"
+                >
+                  <Plus size={16} />
+                  {config.primaryAction}
+                </Link>
+              )}
             </div>
           </div>
           <nav className="flex overflow-x-auto border-t border-white/10 bg-black/10 px-3">

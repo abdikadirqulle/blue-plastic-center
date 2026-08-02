@@ -5,6 +5,10 @@ import { ArrowLeft, LoaderCircle, Save } from "lucide-react";
 import { AppShell } from "../../../components/layout/app-shell";
 import { Card } from "../../../components/ui/card";
 import { DatePicker } from "../../../components/ui/date-picker";
+import {
+  useDirtyFlag,
+  type DedicatedFormProps,
+} from "../../../components/ui/form-dialog";
 import { Select } from "../../../components/ui/select";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import { useReferenceData } from "../../resources/reference-data";
@@ -29,10 +33,18 @@ function moneyInput(value: string) {
 /**
  * QuickBooks Desktop-style New Customer: identity, contact, payment settings.
  */
-export function CustomerFormPage() {
+export function CustomerFormPage({
+  variant = "page",
+  editId: editIdProp,
+  onRequestClose,
+  onSaved,
+  onDirtyChange,
+}: DedicatedFormProps = {}) {
   const router = useRouter();
   const [searchParams] = useSearchParams();
-  const editId = searchParams.get("edit") ?? "";
+  const editId = editIdProp ?? searchParams.get("edit") ?? "";
+  const isDialog = variant === "dialog";
+  const { markDirty, clearDirty } = useDirtyFlag(onDirtyChange);
   const detail = useResourceDetail("sales", "customers", editId);
   const mutations = useResourceMutations("sales", "customers");
   const references = useReferenceData();
@@ -84,6 +96,7 @@ export function CustomerFormPage() {
   }, [detail.data, editId]);
 
   const resetForm = () => {
+    clearDirty();
     setDisplayName("");
     setCompanyName("");
     setEmail("");
@@ -97,7 +110,7 @@ export function CustomerFormPage() {
     setNotes("");
     idempotencyKey.current = crypto.randomUUID();
     loadedKey.current = "";
-    if (editId) router.push("/sales/customers/new");
+    if (editId && !isDialog) router.push("/sales/customers/new");
   };
 
   const save = async (mode: SaveMode) => {
@@ -148,9 +161,18 @@ export function CustomerFormPage() {
             : "Returning to customers.",
         variant: "success",
       });
+      clearDirty();
+      onSaved?.();
       if (mode === "close") {
-        window.setTimeout(() => router.push("/sales/customers"), 500);
-      } else resetForm();
+        if (isDialog) {
+          onRequestClose?.();
+        } else {
+          window.setTimeout(() => router.push("/sales/customers"), 500);
+        }
+      } else {
+        resetForm();
+        clearDirty();
+      }
     } catch (caught) {
       setMessage({
         title: "Could not save",
@@ -165,16 +187,16 @@ export function CustomerFormPage() {
     }
   };
 
-  return (
-    <AppShell>
-      <form
-        className="mx-auto max-w-[900px]"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save("new");
-        }}
-      >
-        <div className="flex flex-wrap items-end justify-between gap-3">
+  const form = (
+    <form
+      className={isDialog ? "w-full max-w-[900px]" : "mx-auto max-w-[900px]"}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save("new");
+      }}
+    >
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        {!isDialog ? (
           <div>
             <Link
               href="/sales/customers"
@@ -186,153 +208,187 @@ export function CustomerFormPage() {
               {editId ? "Edit customer" : "New customer"}
             </h1>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex h-10 items-center gap-2 rounded-xl border border-[#007DCC] bg-white px-4 text-xs font-bold text-[#007DCC]"
-            >
-              {saving && saveMode === "new" ? (
-                <LoaderCircle size={14} className="animate-spin" />
-              ) : (
-                <Save size={14} />
-              )}
-              Save & new
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void save("close")}
-              className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"
-            >
-              {saving && saveMode === "close" ? (
-                <LoaderCircle size={14} className="animate-spin" />
-              ) : null}
-              Save & close
-            </button>
-          </div>
+        ) : (
+          <div />
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex h-10 items-center gap-2 rounded-xl border border-[#007DCC] bg-white px-4 text-xs font-bold text-[#007DCC]"
+          >
+            {saving && saveMode === "new" ? (
+              <LoaderCircle size={14} className="animate-spin" />
+            ) : (
+              <Save size={14} />
+            )}
+            Save & new
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void save("close")}
+            className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"
+          >
+            {saving && saveMode === "close" ? (
+              <LoaderCircle size={14} className="animate-spin" />
+            ) : null}
+            Save & close
+          </button>
+        </div>
+      </div>
+
+      <Toast message={message} onClose={() => setMessage(null)} />
+
+      <Card className="mt-5 overflow-hidden p-0">
+        <div className="border-b border-[#e5ecf1] bg-[#f7fafc] px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+          Customer
+        </div>
+        <div className="grid gap-3 px-4 py-3 sm:grid-cols-2">
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
+            Customer name
+            <input
+              value={displayName}
+              onChange={(event) => {
+                markDirty();
+                setDisplayName(event.target.value);
+              }}
+              required
+              className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Company name
+            <input
+              value={companyName}
+              onChange={(event) => {
+                markDirty();
+                setCompanyName(event.target.value);
+              }}
+              className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Phone
+            <input
+              value={phone}
+              onChange={(event) => {
+                markDirty();
+                setPhone(event.target.value);
+              }}
+              className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => {
+                markDirty();
+                setEmail(event.target.value);
+              }}
+              className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Terms
+            <Select
+              value={terms}
+              onValueChange={(value) => {
+                markDirty();
+                setTerms(value);
+              }}
+              options={["Due on receipt", "Net 15", "Net 30", "Net 60"]}
+              searchable={false}
+              className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
+            Billing address
+            <textarea
+              value={billingAddress}
+              onChange={(event) => {
+                markDirty();
+                setBillingAddress(event.target.value);
+              }}
+              rows={3}
+              className="mt-1.5 w-full rounded-lg border border-[#c9d6df] bg-white px-3 py-2 text-xs outline-none"
+            />
+          </label>
         </div>
 
-        <Toast message={message} onClose={() => setMessage(null)} />
-
-        <Card className="mt-5 overflow-hidden p-0">
-          <div className="border-b border-[#e5ecf1] bg-[#f7fafc] px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-            Customer
-          </div>
-          <div className="grid gap-3 px-4 py-3 sm:grid-cols-2">
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
-              Customer name
-              <input
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-                required
-                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
+        <div className="border-t border-[#e5ecf1] bg-[#f7fafc] px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+          Payment & credit
+        </div>
+        <div className="grid gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-3">
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Opening balance
+            <input
+              value={openingBalance}
+              onChange={(event) => {
+                markDirty();
+                setOpeningBalance(moneyInput(event.target.value));
+              }}
+              inputMode="decimal"
+              className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            As of
+            <div className="mt-1.5">
+              <DatePicker
+                value={asOf}
+                onChange={(value) => {
+                  markDirty();
+                  setAsOf(value);
+                }}
+                className="h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
               />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Company name
-              <input
-                value={companyName}
-                onChange={(event) => setCompanyName(event.target.value)}
-                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Phone
-              <input
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Email
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Terms
-              <Select
-                value={terms}
-                onValueChange={setTerms}
-                options={["Due on receipt", "Net 15", "Net 30", "Net 60"]}
-                searchable={false}
-                className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
-              Billing address
-              <textarea
-                value={billingAddress}
-                onChange={(event) => setBillingAddress(event.target.value)}
-                rows={3}
-                className="mt-1.5 w-full rounded-lg border border-[#c9d6df] bg-white px-3 py-2 text-xs outline-none"
-              />
-            </label>
-          </div>
-
-          <div className="border-t border-[#e5ecf1] bg-[#f7fafc] px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-            Payment & credit
-          </div>
-          <div className="grid gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-3">
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Opening balance
-              <input
-                value={openingBalance}
-                onChange={(event) =>
-                  setOpeningBalance(moneyInput(event.target.value))
-                }
-                inputMode="decimal"
-                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              As of
-              <div className="mt-1.5">
-                <DatePicker
-                  value={asOf}
-                  onChange={setAsOf}
-                  className="h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-                />
-              </div>
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Credit limit
-              <input
-                value={creditLimit}
-                onChange={(event) =>
-                  setCreditLimit(moneyInput(event.target.value))
-                }
-                inputMode="decimal"
-                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2 lg:col-span-3">
-              Accounts receivable
-              <Select
-                value={receivableAccountId || undefined}
-                onValueChange={setReceivableAccountId}
-                options={receivableOptions}
-                placeholder="Select A/R account"
-                className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2 lg:col-span-3">
-              Notes
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                rows={2}
-                className="mt-1.5 w-full rounded-lg border border-[#c9d6df] bg-white px-3 py-2 text-xs outline-none"
-              />
-            </label>
-          </div>
-        </Card>
-      </form>
-    </AppShell>
+            </div>
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+            Credit limit
+            <input
+              value={creditLimit}
+              onChange={(event) => {
+                markDirty();
+                setCreditLimit(moneyInput(event.target.value));
+              }}
+              inputMode="decimal"
+              className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2 lg:col-span-3">
+            Accounts receivable
+            <Select
+              value={receivableAccountId || undefined}
+              onValueChange={(value) => {
+                markDirty();
+                setReceivableAccountId(value);
+              }}
+              options={receivableOptions}
+              placeholder="Select A/R account"
+              className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2 lg:col-span-3">
+            Notes
+            <textarea
+              value={notes}
+              onChange={(event) => {
+                markDirty();
+                setNotes(event.target.value);
+              }}
+              rows={2}
+              className="mt-1.5 w-full rounded-lg border border-[#c9d6df] bg-white px-3 py-2 text-xs outline-none"
+            />
+          </label>
+        </div>
+      </Card>
+    </form>
   );
+
+  if (isDialog) return form;
+  return <AppShell>{form}</AppShell>;
 }

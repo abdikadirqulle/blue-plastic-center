@@ -26,6 +26,10 @@ import {
   type ResourceRow,
 } from "./resource-config";
 import {
+  isModalCreateResource,
+  WorkspaceCreateButton,
+} from "./workspace-create-button";
+import {
   recordIdentifier,
   useResourceList,
   useResourceMutations,
@@ -179,12 +183,20 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
             </p>
           </div>
           <div className="flex gap-2">
-            <Link
-              href={`/${config.module}/${config.slug}/new`}
-              className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white hover:bg-[#0069ad]"
-            >
-              <Plus size={17} /> {config.primaryAction}
-            </Link>
+            {isModalCreateResource(config.module, config.slug) ? (
+              <WorkspaceCreateButton
+                module={config.module}
+                slug={config.slug}
+                label={config.primaryAction}
+              />
+            ) : (
+              <Link
+                href={`/${config.module}/${config.slug}/new`}
+                className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white hover:bg-[#0069ad]"
+              >
+                <Plus size={17} /> {config.primaryAction}
+              </Link>
+            )}
           </div>
         </div>
 
