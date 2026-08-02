@@ -199,7 +199,16 @@ export function EnterpriseWorkspacePage({
   const showWorkspaceSummaries = false;
   const enterpriseCell = (record: EnterpriseRecord, column: string) =>
     tableCellValue(column, record.data, {
-      document: record.id,
+      document: String(
+        record.data.documentNumber ??
+          record.data.journalNumber ??
+          record.id.slice(0, 8),
+      ),
+      journal: String(
+        record.data.journalNumber ??
+          record.data.documentNumber ??
+          record.id.slice(0, 8),
+      ),
       name: record.name,
       account: record.name,
       amount: record.value,

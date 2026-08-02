@@ -53,6 +53,16 @@ const referenceSources = {
     resource: "chart-of-accounts",
     target: "accountName",
   },
+  bankAccount: {
+    module: "accounting",
+    resource: "chart-of-accounts",
+    target: "bankAccountName",
+  },
+  paymentAccountId: {
+    module: "accounting",
+    resource: "chart-of-accounts",
+    target: "paymentAccountName",
+  },
   depositToAccountId: {
     module: "accounting",
     resource: "chart-of-accounts",
@@ -63,7 +73,17 @@ const referenceSources = {
     resource: "chart-of-accounts",
     target: "expenseAccountName",
   },
-} as const
+  receivableAccountId: {
+    module: "accounting",
+    resource: "chart-of-accounts",
+    target: "receivableAccountName",
+  },
+  payableAccountId: {
+    module: "accounting",
+    resource: "chart-of-accounts",
+    target: "payableAccountName",
+  },
+} as const;
 
 const listAll: ListQuery = { page: 1, pageSize: 500, order: "desc" }
 
@@ -583,20 +603,52 @@ export class RecordReadModel implements RecordEnricher {
  * amounts. Each line total and the document total are worked out here, on the
  * server, in minor units — the same money arithmetic the posting engine uses —
  * so no screen ever multiplies or adds up money itself.
+ *
+ * Journal lines store debit/credit instead of quantity × rate; those sides are
+ * used for line and document totals so the list never shows 0.00 for a posted
+ * balanced entry.
  */
 function withLineTotal(record: ResourceRecord) {
   if (!Array.isArray(record.data.lines)) return record
   const lines = record.data.lines as Array<Record<string, unknown>>
   if (!lines.length) return record
-  const priced = lines.map((line) =>
-    line.lineTotal === undefined ? { ...line, lineTotal: lineAmount(line) } : line,
+  const isJournal = lines.some(
+    (line) => line.debit !== undefined || line.credit !== undefined,
   )
+  const priced = lines.map((line) => {
+    if (isJournal) {
+      const debit = String(line.debit ?? "0")
+      const credit = String(line.credit ?? "0")
+      const side =
+        Number(debit) > 0 ? debit : Number(credit) > 0 ? credit : "0"
+      return { ...line, lineTotal: normalizeMoney(side) }
+    }
+    return line.lineTotal === undefined
+      ? { ...line, lineTotal: lineAmount(line) }
+      : line
+  })
+  if (isJournal) {
+    const debitTotal = priced.reduce(
+      (sum, line) => addMoney(sum, String(line.debit ?? "0")),
+      "0.0000",
+    )
+    return withData(record, { lines: priced, total: debitTotal })
+  }
   return withData(record, {
     lines: priced,
     ...(record.data.total === undefined
       ? { total: sumLineAmounts(lines) }
       : {}),
   })
+}
+
+function normalizeMoney(value: string) {
+  const scaled = decimalToMinor(value)
+  return minorToDecimal(scaled)
+}
+
+function addMoney(left: string, right: string) {
+  return minorToDecimal(decimalToMinor(left) + decimalToMinor(right))
 }
 
 const voidedStatuses = new Set(["void", "voided", "cancelled", "canceled"])

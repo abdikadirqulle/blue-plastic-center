@@ -105,7 +105,13 @@ export function useResourceMutations(module: string, resource: string) {
 export function firstValue(record: ApiRecord, keys: string[], fallback = "—") {
   for (const key of keys) {
     const value = record.data[key]
-    if (value !== undefined && value !== null && value !== "")
+    if (
+      value !== undefined &&
+      value !== null &&
+      value !== "" &&
+      value !== "undefined" &&
+      value !== "null"
+    )
       return String(value)
   }
   return fallback

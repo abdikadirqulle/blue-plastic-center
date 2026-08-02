@@ -27,7 +27,7 @@ const aliases: Record<string, string[]> = {
   account: ["accountName", "name"],
   "account number": ["accountNumber"],
   "account name": ["accountName", "name"],
-  "bank account": ["bankAccount", "paymentAccount", "depositTo"],
+  "bank account": ["bankAccountName", "bankAccount", "paymentAccountName", "paymentAccount", "depositToAccountName", "depositTo"],
   company: ["companyName", "tradingName", "legalName"],
   "legal name": ["legalName", "companyName"],
   branch: ["branchName", "name"],
@@ -49,7 +49,7 @@ const aliases: Record<string, string[]> = {
   amount: ["amount", "total", "totalPayment", "debitAmount", "grossPay", "cost"],
   "paid amount": ["amountPaid", "paidAmount"],
   total: ["total", "amount"],
-  "balance due": ["balanceDue", "outstanding"],
+  "balance due": ["balanceDue", "outstanding", "total"],
   "open balance": ["openBalance"],
   overdue: ["overdueBalance"],
   balance: ["balance", "openBalance", "balanceDue"],
@@ -70,8 +70,14 @@ export function isNumericColumn(column: string) {
   return moneyColumn.test(column) || /on hand|quantity|qty/i.test(column);
 }
 
+function isBlankDisplay(value: unknown) {
+  if (value === undefined || value === null || value === "") return true;
+  const text = String(value).trim();
+  return text === "" || text === "undefined" || text === "null";
+}
+
 function display(value: unknown, money: boolean) {
-  if (value === undefined || value === null || value === "") return "—";
+  if (isBlankDisplay(value)) return "—";
   if (Array.isArray(value)) return `${value.length} line${value.length === 1 ? "" : "s"}`;
   if (typeof value === "object") return "Details";
   const text = String(value);
@@ -91,6 +97,9 @@ export function tableCellValue(
     ...(aliases[key] ?? []),
     column.replace(/[^a-zA-Z0-9]+(.)/g, (_, character: string) => character.toUpperCase()).replace(/^[A-Z]/, (character) => character.toLowerCase()),
   ];
-  const field = candidates.find((candidate) => source[candidate] !== undefined && source[candidate] !== "");
+  const field = candidates.find((candidate) => {
+    const value = source[candidate];
+    return value !== undefined && value !== "" && value !== "undefined" && value !== "null";
+  });
   return display(field ? source[field] : fallback[key], moneyColumn.test(column));
 }

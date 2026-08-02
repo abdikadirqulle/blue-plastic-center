@@ -200,11 +200,20 @@ export function OperationsWorkspacePage({
   const operationCell = (record: OperationRecord, column: string) =>
     tableCellValue(column, record.data, {
       document: record.reference || record.id,
+      payment: record.reference || record.id,
+      bill: record.reference || record.id,
+      expense: record.reference || record.id,
       sku: record.reference || record.id,
       item: record.name,
       name: record.name,
       vendor: resource === "vendors" ? record.name : record.secondary,
       account: record.name,
+      "bank account": String(
+        record.data.bankAccountName ??
+          record.data.paymentAccountName ??
+          record.data.depositToAccountName ??
+          "",
+      ),
       amount: record.amount,
       total: record.amount,
       date: record.date,

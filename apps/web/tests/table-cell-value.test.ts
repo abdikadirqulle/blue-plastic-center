@@ -125,4 +125,19 @@ describe("tableCellValue", () => {
       }),
     ).toBe("Inventory Asset");
   });
+
+  it("uses resolved bank account names and hides junk sku values", () => {
+    expect(
+      tableCellValue("Bank account", {
+        bankAccount: "10000000-0000-4000-8000-000000006000",
+        bankAccountName: "Operating Cash",
+      }),
+    ).toBe("Operating Cash");
+    expect(
+      tableCellValue("SKU", {
+        sku: "undefined",
+        name: "iphone 15 pro max",
+      }),
+    ).toBe("—");
+  });
 });

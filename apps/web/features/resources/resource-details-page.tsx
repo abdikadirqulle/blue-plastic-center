@@ -320,7 +320,7 @@ function displayValue(
     )
       return formatDecimal(actual);
     if (
-      /(Id$)|customer|vendor|project|employee|warehouse|account|item/i.test(
+      /(Id$)|customer|vendor|project|employee|warehouse|account|item|bankAccount|paymentAccount|depositTo/i.test(
         field.name,
       )
     )
@@ -662,7 +662,9 @@ export function ResourceDetailsPage({
                     {fieldLabel(key)}
                   </p>
                   <p className="mt-1.5 text-sm font-bold text-[#29424e]">
-                    {/Id$/.test(key)
+                    {/Id$|Account$|^bankAccount$|^paymentAccount$|^depositTo$/i.test(
+                      key,
+                    )
                       ? references.resolve(value)
                       : /amount|total|balance|price|cost|debit|credit|rate/i.test(
                             key,
@@ -751,20 +753,38 @@ export function ResourceDetailsPage({
                             {String(line.description ?? "—")}
                           </td>
                           <td className="px-5 py-4 text-right tabular-nums">
-                            {String(line.quantity ?? "1")}
+                            {line.quantity !== undefined &&
+                            line.quantity !== null &&
+                            line.quantity !== ""
+                              ? formatDecimal(String(line.quantity))
+                              : line.debit !== undefined ||
+                                  line.credit !== undefined
+                                ? ""
+                                : "1"}
                           </td>
                           <td className="px-5 py-4 text-right tabular-nums">
                             {formatDecimal(
                               String(
-                                line.unitPrice ?? line.rate ?? line.debit ??
-                                  line.credit ?? "0",
+                                line.unitPrice ??
+                                  line.rate ??
+                                  (Number(line.debit) > 0
+                                    ? line.debit
+                                    : line.credit) ??
+                                  "0",
                               ),
                             )}
                           </td>
                           <td className="px-5 py-4 text-right font-bold tabular-nums">
-                            {line.lineTotal !== undefined
-                              ? formatDecimal(String(line.lineTotal))
-                              : "—"}
+                            {(() => {
+                              const amount =
+                                line.lineTotal ??
+                                (Number(line.debit) > 0
+                                  ? line.debit
+                                  : line.credit);
+                              return amount !== undefined
+                                ? formatDecimal(String(amount))
+                                : "—";
+                            })()}
                           </td>
                         </tr>
                       ))}
