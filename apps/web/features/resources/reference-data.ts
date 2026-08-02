@@ -13,6 +13,26 @@ interface ReferenceSource {
 }
 
 /**
+ * Account *reference* fields (incomeAccountId, receivableAccountId…).
+ * Excludes chart meta fields and optional parent/subaccount links that must
+ * stay blank unless the user picks them.
+ */
+export function isAccountReferenceField(fieldName: string) {
+  if (/^(accountNumber|accountName|accountType|parentId|subaccountOf)$/i.test(fieldName))
+    return false
+  return /account/i.test(fieldName)
+}
+
+/**
+ * Fields that should load the chart-of-accounts dropdown (includes optional
+ * parent/subaccount pickers).
+ */
+export function isAccountLookupField(fieldName: string) {
+  if (/^(accountNumber|accountName|accountType)$/i.test(fieldName)) return false
+  return /account|parentId|subaccountOf/i.test(fieldName)
+}
+
+/**
  * Lookups the MVP forms can offer. Projects and employees are deferred, so no
  * screen asks for them and no request is made for them.
  */
@@ -21,7 +41,12 @@ const sources: ReferenceSource[] = [
   { module: "purchasing", resource: "vendors", pattern: /vendor|payee/i },
   { module: "inventory", resource: "items", pattern: /item|product|service/i },
   { module: "inventory", resource: "warehouses", pattern: /warehouse/i },
-  { module: "accounting", resource: "chart-of-accounts", pattern: /account/i },
+  {
+    module: "accounting",
+    resource: "chart-of-accounts",
+    // Matched via isAccountReferenceField, not this pattern alone.
+    pattern: /account|parentId|subaccountOf/i,
+  },
 ]
 
 export function useReferenceData() {
@@ -58,7 +83,11 @@ export function useReferenceData() {
     })
 
     const sourceFor = (fieldName: string) =>
-      sources.find((source) => source.pattern.test(fieldName))
+      sources.find((source) => {
+        if (source.resource === "chart-of-accounts")
+          return isAccountLookupField(fieldName)
+        return source.pattern.test(fieldName)
+      })
 
     const accountRecords = accounts.data?.data ?? []
     const itemRecords = items.data?.data ?? []

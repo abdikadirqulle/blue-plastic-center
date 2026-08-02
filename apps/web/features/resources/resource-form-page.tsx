@@ -34,7 +34,11 @@ import {
   useResourceList,
   useResourceMutations,
 } from "./resource-api";
-import { useReferenceData } from "./reference-data";
+import {
+  isAccountLookupField,
+  isAccountReferenceField,
+  useReferenceData,
+} from "./reference-data";
 import {
   hydrateResourceFormValues,
   normalizeResourceData,
@@ -174,13 +178,15 @@ function PaymentAllocationTable({
 }
 
 function supportsQuickAdd(field: FormField) {
-  return /(customer|vendor|account|warehouse|employee|project|salesRep|approver|payee)(Id)?$/i.test(
+  if (/^(parentId|subaccountOf)$/i.test(field.name)) return false;
+  if (isAccountLookupField(field.name)) return true;
+  return /(customer|vendor|warehouse|employee|project|salesRep|approver|payee)(Id)?$/i.test(
     field.name,
   );
 }
 
 function quickAddKind(field: FormField): QuickAddKind {
-  if (/account/i.test(field.name)) return "account";
+  if (isAccountLookupField(field.name)) return "account";
   if (/item|product|service/i.test(field.name)) return "item";
   if (/vendor|payee/i.test(field.name)) return "vendor";
   return "customer";
@@ -228,7 +234,9 @@ function FormControl({
         value={value || undefined}
         onValueChange={onChange}
         options={options ?? field.options ?? []}
-        placeholder={`Select ${field.label.toLowerCase()}`}
+        placeholder={
+          field.placeholder ?? `Select ${field.label.toLowerCase()}`
+        }
         allowAddNew={supportsQuickAdd(field)}
         addNewLabel={field.label.toLowerCase()}
         quickAddKind={quickAddKind(field)}
@@ -299,7 +307,14 @@ const isoDate = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
-function initialValues(config: ResourceConfig) {
+function optionValue(
+  option: string | { label: string; value: string } | undefined,
+) {
+  if (!option) return "";
+  return typeof option === "string" ? option : option.value;
+}
+
+function initialValues(config: ResourceConfig): Record<string, string> {
   const today = new Date();
   const dueDate = new Date(today);
   dueDate.setDate(dueDate.getDate() + 30);
@@ -316,7 +331,7 @@ function initialValues(config: ResourceConfig) {
         if (/exchangeRate/i.test(field.name)) return [field.name, "1"];
         if (/^terms$/i.test(field.name)) return [field.name, "Net 30"];
         if (/^template$/i.test(field.name))
-          return [field.name, field.options?.[0] ?? ""];
+          return [field.name, optionValue(field.options?.[0])];
         if (/^unit$/i.test(field.name)) return [field.name, "Each"];
         if (
           config.module === "inventory" &&
@@ -417,7 +432,7 @@ export function ResourceFormPage({ config }: { config: ResourceConfig }) {
     setValues((current) => {
       const next = { ...current };
       for (const field of allFields) {
-        if (!/account/i.test(field.name) || next[field.name]) continue;
+        if (!isAccountReferenceField(field.name) || next[field.name]) continue;
         const option = references.accountOptionsFor(field.name)[0];
         if (option && typeof option !== "string")
           next[field.name] = option.value;

@@ -15,7 +15,7 @@ export interface FormField {
   label: string
   type: FieldType
   required?: boolean
-  options?: string[]
+  options?: Array<string | { label: string; value: string }>
   placeholder?: string
   width?: "half" | "third" | "full"
 }
