@@ -117,4 +117,15 @@ export class MemoryResourceRepository implements ResourceRepository {
   async listAudit(companyId: string, limit = 100) {
     return this.audit.filter((event) => event.companyId === companyId).slice(-limit).reverse();
   }
+
+  async listAuditFor(companyId: string, entityType: string, entityId: string, limit = 50) {
+    return this.audit
+      .filter((event) =>
+        event.companyId === companyId
+        && event.entityType === entityType
+        && event.entityId === entityId,
+      )
+      .slice(-limit)
+      .reverse();
+  }
 }

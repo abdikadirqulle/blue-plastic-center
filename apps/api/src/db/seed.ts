@@ -387,6 +387,58 @@ async function seed() {
     return id;
   };
 
+  const itemData = [
+    [
+      "40000000-0000-4000-8000-000000000001",
+      "BPC-HDPE-25",
+      "HDPE Blue Container 25L",
+      "18.50",
+      "12.25",
+      "240",
+    ],
+    [
+      "40000000-0000-4000-8000-000000000002",
+      "BPC-HDPE-50",
+      "HDPE Blue Drum 50L",
+      "32.00",
+      "22.40",
+      "165",
+    ],
+    [
+      "40000000-0000-4000-8000-000000000003",
+      "BPC-PET-01",
+      "PET Bottle 1L",
+      "1.20",
+      "0.68",
+      "2400",
+    ],
+    [
+      "40000000-0000-4000-8000-000000000004",
+      "BPC-CAP-01",
+      "Tamper-proof Cap",
+      "0.18",
+      "0.08",
+      "7800",
+    ],
+    [
+      "40000000-0000-4000-8000-000000000005",
+      "BPC-DELIVERY",
+      "Customer Delivery Service",
+      "35.00",
+      "18.00",
+      "0",
+    ],
+  ] as const;
+
+  /** What the warehouse starts with, valued at the cost the movements use. */
+  const openingInventoryValue = itemData
+    .reduce(
+      (total, [, , , , purchaseCost, openingQuantity]) =>
+        total + Number(openingQuantity) * Number(purchaseCost),
+      0,
+    )
+    .toFixed(2);
+
   const ledgerEntries = [
     [
       "2026-01-02",
@@ -574,6 +626,73 @@ async function seed() {
         ["1020", "0", "9840.00"],
       ],
     ],
+    // Stock the company started with and the stock it bought back each month.
+    // Without these the inventory account would only ever be credited by cost
+    // of sales, and the ledger would report negative stock the warehouse holds.
+    [
+      "2026-01-01",
+      "Opening inventory contribution",
+      [
+        ["1200", openingInventoryValue, "0"],
+        ["3000", "0", openingInventoryValue],
+      ],
+    ],
+    [
+      "2026-01-15",
+      "January inventory purchases",
+      [
+        ["1200", "11200.00", "0"],
+        ["1020", "0", "11200.00"],
+      ],
+    ],
+    [
+      "2026-02-11",
+      "February inventory purchases",
+      [
+        ["1200", "13400.00", "0"],
+        ["1020", "0", "13400.00"],
+      ],
+    ],
+    [
+      "2026-03-09",
+      "March inventory purchases",
+      [
+        ["1200", "15100.00", "0"],
+        ["1020", "0", "15100.00"],
+      ],
+    ],
+    [
+      "2026-04-13",
+      "April inventory purchases",
+      [
+        ["1200", "16800.00", "0"],
+        ["1020", "0", "16800.00"],
+      ],
+    ],
+    [
+      "2026-05-12",
+      "May inventory purchases",
+      [
+        ["1200", "18450.00", "0"],
+        ["1020", "0", "18450.00"],
+      ],
+    ],
+    [
+      "2026-06-10",
+      "June inventory purchases",
+      [
+        ["1200", "20100.00", "0"],
+        ["1020", "0", "20100.00"],
+      ],
+    ],
+    [
+      "2026-07-07",
+      "July inventory purchases",
+      [
+        ["1200", "22600.00", "0"],
+        ["1020", "0", "22600.00"],
+      ],
+    ],
   ] as const;
   for (const [entryIndex, [date, memo, lines]] of ledgerEntries.entries()) {
     const transactionId = `60000000-0000-4000-8000-${String(entryIndex + 1).padStart(12, "0")}`;
@@ -624,48 +743,6 @@ async function seed() {
         });
     }
   }
-  const itemData = [
-    [
-      "40000000-0000-4000-8000-000000000001",
-      "BPC-HDPE-25",
-      "HDPE Blue Container 25L",
-      "18.50",
-      "12.25",
-      "240",
-    ],
-    [
-      "40000000-0000-4000-8000-000000000002",
-      "BPC-HDPE-50",
-      "HDPE Blue Drum 50L",
-      "32.00",
-      "22.40",
-      "165",
-    ],
-    [
-      "40000000-0000-4000-8000-000000000003",
-      "BPC-PET-01",
-      "PET Bottle 1L",
-      "1.20",
-      "0.68",
-      "2400",
-    ],
-    [
-      "40000000-0000-4000-8000-000000000004",
-      "BPC-CAP-01",
-      "Tamper-proof Cap",
-      "0.18",
-      "0.08",
-      "7800",
-    ],
-    [
-      "40000000-0000-4000-8000-000000000005",
-      "BPC-DELIVERY",
-      "Customer Delivery Service",
-      "35.00",
-      "18.00",
-      "0",
-    ],
-  ] as const;
   // Stock has to live somewhere before an inventory invoice can move it. The
   // relational row and the resource record share one id so the warehouse a user
   // picks in the UI is the warehouse the posting engine resolves.

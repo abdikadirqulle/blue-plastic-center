@@ -77,6 +77,7 @@ const accountRecord = (
     accountType: row.type,
     parentId: row.parentId,
     currency: row.currency,
+    systemKey: row.systemKey,
   },
   createdAt: row.createdAt.toISOString(),
   createdBy: "",
@@ -528,6 +529,20 @@ export class PostgresResourceRepository implements ResourceRepository {
 
   async listAudit(companyId: string, limit = 100) {
     const rows = await this.db.select().from(auditEvents).where(eq(auditEvents.companyId, companyId)).orderBy(desc(auditEvents.occurredAt)).limit(limit);
+    return rows.map((row) => ({ ...row, occurredAt: row.occurredAt.toISOString(), changes: row.changes ?? undefined }));
+  }
+
+  async listAuditFor(companyId: string, entityType: string, entityId: string, limit = 50) {
+    const rows = await this.db
+      .select()
+      .from(auditEvents)
+      .where(and(
+        eq(auditEvents.companyId, companyId),
+        eq(auditEvents.entityType, entityType),
+        eq(auditEvents.entityId, entityId),
+      ))
+      .orderBy(desc(auditEvents.occurredAt))
+      .limit(limit);
     return rows.map((row) => ({ ...row, occurredAt: row.occurredAt.toISOString(), changes: row.changes ?? undefined }));
   }
 }

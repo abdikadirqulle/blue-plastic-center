@@ -28,7 +28,12 @@ import {
 } from "../../../components/ui/skeleton";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
-import { tableCellValue } from "../../resources/table-cell-value";
+import {
+  isNumericColumn,
+  tableCellValue,
+} from "../../resources/table-cell-value";
+import { summableValues } from "../../resources/record-value";
+import { formatDecimal, sumDecimals } from "../../../lib/utils";
 import type {
   EnterpriseModule,
   EnterpriseRecord,
@@ -154,10 +159,8 @@ export function EnterpriseWorkspacePage({
     () => setPage((current) => Math.min(current, totalPages)),
     [totalPages],
   );
-  const totalValue = records.reduce((sum, record) => {
-    const value = Number(record.value.replace(/[^0-9.-]/g, ""));
-    return sum + (Number.isFinite(value) ? value : 0);
-  }, 0);
+  const valued = summableValues(records);
+  const totalValue = sumDecimals(valued);
   const activeCount = records.filter((record) =>
     /posted|active|approved|complete|paid|closed|ready/i.test(record.status),
   ).length;
@@ -174,7 +177,7 @@ export function EnterpriseWorkspacePage({
     },
     {
       label: "Recorded value",
-      value: `$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: valued.length ? formatDecimal(totalValue) : "—",
       helper: "Current filtered result",
     },
     {
@@ -844,7 +847,7 @@ function EnterpriseTable({
             {config.columns.map((column) => (
               <th
                 key={column}
-                className="px-5 py-3 text-[9px] font-bold uppercase text-[#788b96]"
+                className={`px-5 py-3 text-[9px] font-bold uppercase text-[#788b96] ${isNumericColumn(column) ? "text-right" : ""}`}
               >
                 {column}
               </th>
@@ -865,7 +868,7 @@ function EnterpriseTable({
               {config.columns.map((column, index) => (
                 <td
                   key={column}
-                  className={`px-5 py-4 text-xs ${index === 0 ? "font-bold text-[#007DCC]" : "font-medium text-[#405762]"}`}
+                  className={`px-5 py-4 text-xs ${index === 0 ? "font-bold text-[#007DCC]" : "font-medium text-[#405762]"} ${isNumericColumn(column) ? "text-right tabular-nums" : ""}`}
                 >
                   {cellValue(record, column)}
                 </td>

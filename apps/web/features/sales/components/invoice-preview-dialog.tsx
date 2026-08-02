@@ -1,23 +1,23 @@
 "use client";
 
-import { Download, Mail, Printer, X } from "lucide-react";
-import type { ResourceRow } from "../../resources/resource-config";
+import { Download, Printer, X } from "lucide-react";
+import type { DocumentPreview } from "../domain/document-preview";
 
+/**
+ * Prints what the record actually holds. Nothing on this sheet is illustrative:
+ * an empty document shows as empty rather than as an example invoice.
+ */
 export function InvoicePreviewDialog({
   open,
-  row,
-  title,
+  document,
   onClose,
-  onEmail,
 }: {
   open: boolean;
-  row: ResourceRow;
-  title: string;
+  document: DocumentPreview;
   onClose: () => void;
-  onEmail: () => void;
 }) {
   if (!open) return null;
-  const amount = row.cells[1] ?? "$8,420.00";
+  const { currency } = document;
 
   const downloadPdf = async () => {
     const { jsPDF } = await import("jspdf");
@@ -29,38 +29,44 @@ export function InvoicePreviewDialog({
     pdf.text("BLUE PLASTIC CENTER", 16, 18);
     pdf.setTextColor(25, 49, 63);
     pdf.setFontSize(20);
-    pdf.text(title.toUpperCase(), 150, 44, { align: "right" });
+    pdf.text(document.documentTitle.toUpperCase(), 194, 44, { align: "right" });
     pdf.setFontSize(10);
-    pdf.text(`Document: ${row.id}`, 150, 52, { align: "right" });
-    pdf.text("BLUE PLASTIC CENTER", 16, 44);
-    pdf.text("Maka Al Mukarama Road, Mogadishu", 16, 51);
-    pdf.text("finance@blueplastic.example", 16, 58);
+    pdf.text(document.documentNumber, 194, 52, { align: "right" });
+    if (document.date) pdf.text(`Date: ${document.date}`, 194, 58, { align: "right" });
+    if (document.dueDate)
+      pdf.text(`Due: ${document.dueDate}`, 194, 64, { align: "right" });
+    pdf.setFontSize(9);
+    pdf.text(document.partyLabel.toUpperCase(), 16, 44);
+    pdf.setFontSize(13);
+    pdf.text(document.partyName, 16, 52);
     pdf.setDrawColor(220, 230, 237);
-    pdf.line(16, 70, 194, 70);
-    pdf.setFontSize(11);
-    pdf.text("BILL TO", 16, 80);
-    pdf.setFontSize(13);
-    pdf.text(row.cells[0] ?? "Banaadir Trading Co.", 16, 89);
+    pdf.line(16, 74, 194, 74);
     pdf.setFillColor(245, 249, 252);
-    pdf.rect(16, 105, 178, 12, "F");
+    pdf.rect(16, 80, 178, 10, "F");
     pdf.setFontSize(9);
-    pdf.text("DESCRIPTION", 20, 113);
-    pdf.text("QTY", 120, 113);
-    pdf.text("RATE", 145, 113);
-    pdf.text("AMOUNT", 190, 113, { align: "right" });
+    pdf.text("DESCRIPTION", 20, 87);
+    pdf.text("QTY", 120, 87);
+    pdf.text("RATE", 145, 87);
+    pdf.text("AMOUNT", 190, 87, { align: "right" });
     pdf.setFontSize(10);
-    pdf.text("Products and services", 20, 128);
-    pdf.text("1", 122, 128);
-    pdf.text(amount, 145, 128);
-    pdf.text(amount, 190, 128, { align: "right" });
-    pdf.line(120, 145, 194, 145);
-    pdf.setFontSize(13);
-    pdf.text("TOTAL", 145, 158);
-    pdf.text(amount, 190, 158, { align: "right" });
-    pdf.setFontSize(9);
-    pdf.setTextColor(100, 120, 132);
-    pdf.text("Thank you for your business.", 105, 275, { align: "center" });
-    pdf.save(`${row.id}.pdf`);
+    let cursor = 98;
+    for (const line of document.lines) {
+      pdf.text(line.description.slice(0, 60), 20, cursor);
+      pdf.text(line.quantity, 120, cursor);
+      pdf.text(line.rate, 145, cursor);
+      pdf.text(line.amount, 190, cursor, { align: "right" });
+      cursor += 8;
+    }
+    cursor += 4;
+    pdf.line(120, cursor, 194, cursor);
+    cursor += 8;
+    for (const total of document.totals) {
+      pdf.setFontSize(total.strong ? 12 : 10);
+      pdf.text(total.label, 145, cursor);
+      pdf.text(`${currency} ${total.value}`, 190, cursor, { align: "right" });
+      cursor += total.strong ? 9 : 7;
+    }
+    pdf.save(`${document.documentNumber}.pdf`);
   };
 
   return (
@@ -76,16 +82,10 @@ export function InvoicePreviewDialog({
           <div>
             <h2 className="text-sm font-bold">Document preview</h2>
             <p className="text-[10px] text-[#82949e]">
-              {row.id} · ready to send
+              {document.documentNumber}
             </p>
           </div>
           <div className="ml-auto flex gap-2">
-            <button
-              onClick={onEmail}
-              className="flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold"
-            >
-              <Mail size={14} /> Email
-            </button>
             <button
               onClick={() => window.print()}
               className="flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold"
@@ -110,48 +110,39 @@ export function InvoicePreviewDialog({
         <div className="overflow-y-auto p-4 md:p-8">
           <article className="mx-auto min-h-[820px] max-w-[720px] bg-white p-8 shadow-lg md:p-12">
             <div className="flex justify-between border-b-4 border-[#007DCC] pb-7">
-              <div>
-                <p className="text-lg font-black text-[#007DCC]">
-                  BLUE PLASTIC CENTER
-                </p>
-                <p className="mt-2 text-xs leading-5 text-[#687d88]">
-                  Maka Al Mukarama Road
-                  <br />
-                  Mogadishu, Somalia
-                  <br />
-                  finance@blueplastic.example
-                </p>
-              </div>
+              <p className="text-lg font-black text-[#007DCC]">
+                BLUE PLASTIC CENTER
+              </p>
               <div className="text-right">
                 <p className="text-3xl font-light uppercase tracking-wide text-[#334c59]">
-                  {title.replace(/s$/, "")}
+                  {document.documentTitle}
                 </p>
-                <p className="mt-3 text-xs font-bold">{row.id}</p>
-                <p className="mt-1 text-xs text-[#687d88]">
-                  25 Jul 2026 · Due 24 Aug 2026
+                <p className="mt-3 text-xs font-bold">
+                  {document.documentNumber}
                 </p>
+                {document.date ? (
+                  <p className="mt-1 text-xs text-[#687d88]">
+                    {document.date}
+                    {document.dueDate ? ` · Due ${document.dueDate}` : ""}
+                  </p>
+                ) : null}
               </div>
             </div>
             <div className="mt-8 grid grid-cols-2 gap-8">
               <div>
                 <p className="text-[10px] font-bold uppercase text-[#82949e]">
-                  Bill to
+                  {document.partyLabel}
                 </p>
-                <p className="mt-2 text-sm font-bold">{row.cells[0]}</p>
-                <p className="mt-1 text-xs leading-5 text-[#687d88]">
-                  Maka Al Mukarama Road
-                  <br />
-                  Mogadishu, Somalia
-                </p>
+                <p className="mt-2 text-sm font-bold">{document.partyName}</p>
               </div>
-              <div className="text-right">
-                <p className="text-[10px] uppercase text-[#82949e]">Terms</p>
-                <p className="mt-1 text-xs font-bold">Net 30</p>
-                <p className="mt-4 text-[10px] uppercase text-[#82949e]">
-                  Customer PO
-                </p>
-                <p className="mt-1 text-xs font-bold">PO-2401</p>
-              </div>
+              {document.reference ? (
+                <div className="text-right">
+                  <p className="text-[10px] uppercase text-[#82949e]">
+                    Reference
+                  </p>
+                  <p className="mt-1 text-xs font-bold">{document.reference}</p>
+                </div>
+              ) : null}
             </div>
             <table className="mt-10 w-full text-left text-xs">
               <thead className="bg-[#eef7fd] text-[10px] uppercase text-[#456171]">
@@ -163,40 +154,50 @@ export function InvoicePreviewDialog({
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b">
-                  <td className="p-3">
-                    <strong>Plastic products and supplies</strong>
-                    <p className="mt-1 text-[10px] text-[#82949e]">
-                      Primary transaction line
-                    </p>
-                  </td>
-                  <td className="p-3 text-right">1</td>
-                  <td className="p-3 text-right">{amount}</td>
-                  <td className="p-3 text-right font-bold">{amount}</td>
-                </tr>
+                {document.lines.map((line, index) => (
+                  <tr key={index} className="border-b">
+                    <td className="p-3 font-semibold">{line.description}</td>
+                    <td className="p-3 text-right">{line.quantity}</td>
+                    <td className="p-3 text-right tabular-nums">{line.rate}</td>
+                    <td className="p-3 text-right font-bold tabular-nums">
+                      {line.amount}
+                    </td>
+                  </tr>
+                ))}
+                {!document.lines.length ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="p-6 text-center text-[#82949e]"
+                    >
+                      This document has no lines.
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
             <div className="ml-auto mt-8 w-64 space-y-3 text-xs">
-              <div className="flex justify-between">
-                <span>Subtotal</span>
-                <strong>{amount}</strong>
-              </div>
-              <div className="flex justify-between border-t-2 border-[#1c3948] pt-3 text-base">
-                <strong>Total</strong>
-                <strong>{amount}</strong>
-              </div>
-              <div className="flex justify-between text-[#007DCC]">
-                <span>Balance due</span>
-                <strong>{amount}</strong>
-              </div>
+              {document.totals.map((total) => (
+                <div
+                  key={total.label}
+                  className={
+                    total.strong
+                      ? "flex justify-between border-t-2 border-[#1c3948] pt-3 text-base font-bold"
+                      : "flex justify-between"
+                  }
+                >
+                  <span>{total.label}</span>
+                  <span className="tabular-nums">
+                    {currency} {total.value}
+                  </span>
+                </div>
+              ))}
             </div>
-            <div className="mt-16 rounded-xl bg-[#f7fafc] p-4 text-xs text-[#607681]">
-              <strong>Payment instructions</strong>
-              <p className="mt-1 leading-5">
-                Please include {row.id} as your payment reference. Bank and
-                mobile-money details are available from our finance team.
-              </p>
-            </div>
+            {document.memo ? (
+              <div className="mt-16 rounded-xl bg-[#f7fafc] p-4 text-xs leading-5 text-[#607681]">
+                {document.memo}
+              </div>
+            ) : null}
           </article>
         </div>
       </div>

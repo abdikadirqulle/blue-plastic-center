@@ -16,11 +16,17 @@ function fromScaled(value: bigint): string {
   return `${negative ? "-" : ""}${whole}.${fraction}`
 }
 
+/** Quantity times unit price, in the same exact arithmetic a posting uses. */
+export function lineAmount(line: Record<string, unknown>): string {
+  const quantity = toScaled(String(line.quantity ?? "1"))
+  const unitPrice = toScaled(String(line.unitPrice ?? line.rate ?? "0"))
+  return fromScaled((quantity * unitPrice) / scale)
+}
+
 export function sumLineAmounts(lines: Array<Record<string, unknown>>): string {
-  const total = lines.reduce((sum, line) => {
-    const quantity = toScaled(String(line.quantity ?? "1"))
-    const unitPrice = toScaled(String(line.unitPrice ?? "0"))
-    return sum + (quantity * unitPrice) / scale
-  }, 0n)
+  const total = lines.reduce(
+    (sum, line) => sum + toScaled(lineAmount(line)),
+    0n,
+  )
   return fromScaled(total)
 }

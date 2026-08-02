@@ -18,6 +18,29 @@ export function formatDecimal(
   }).format(numeric);
 }
 
+const scale = 10_000n;
+
+function toMinor(value: unknown) {
+  const text = String(value ?? "").replace(/[^0-9.-]/g, "");
+  if (!/^-?\d*(\.\d+)?$/.test(text) || text === "" || text === "-") return 0n;
+  const negative = text.startsWith("-");
+  const [whole = "0", fraction = ""] = (negative ? text.slice(1) : text).split(".");
+  const minor =
+    BigInt(whole || "0") * scale + BigInt(fraction.padEnd(4, "0").slice(0, 4));
+  return negative ? -minor : minor;
+}
+
+/**
+ * Adds decimal strings exactly. Money never passes through a float, not even
+ * for a figure that is only shown on a summary card.
+ */
+export function sumDecimals(values: unknown[]) {
+  const total = values.reduce<bigint>((sum, value) => sum + toMinor(value), 0n);
+  const negative = total < 0n;
+  const absolute = negative ? -total : total;
+  return `${negative ? "-" : ""}${absolute / scale}.${String(absolute % scale).padStart(4, "0")}`;
+}
+
 export function formatDecimalInput(value: string | number) {
   const text = String(value);
   if (text === "" || !/^-?\d+(\.\d+)?$/.test(text)) return text;

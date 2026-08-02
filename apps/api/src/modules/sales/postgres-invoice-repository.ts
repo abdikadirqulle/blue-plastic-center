@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import {
   invoiceCreateDataSchema,
   type InvoiceVoidInput,
@@ -29,6 +29,7 @@ import {
   canEditInvoice,
   canPostInvoice,
   canVoidInvoice,
+  deriveInvoiceStatus,
   reducesStock,
   revenueTarget,
   type InvoiceLineSource,
@@ -169,6 +170,40 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
 
   async findById(context: RequestContext, id: string) {
     return this.readInvoice(this.db, context, id)
+  }
+
+  async listByCustomers(context: RequestContext, customerIds: string[]) {
+    if (!customerIds.length) return []
+    const rows = await this.db
+      .select()
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.companyId, context.companyId),
+          eq(invoices.isDeleted, false),
+          isNull(invoices.deletedAt),
+          inArray(invoices.customerId, customerIds),
+        ),
+      )
+      .orderBy(desc(invoices.invoiceDate))
+    const asOf = new Date().toISOString().slice(0, 10)
+    return rows.map((row) => ({
+      id: row.id,
+      customerId: row.customerId,
+      invoiceNumber: row.invoiceNumber,
+      invoiceDate: dateText(row.invoiceDate),
+      dueDate: dateText(row.dueDate),
+      status: deriveInvoiceStatus({
+        status: row.status,
+        total: row.total,
+        amountPaid: row.amountPaid,
+        dueDate: dateText(row.dueDate),
+        asOf,
+      }),
+      total: row.total,
+      amountPaid: row.amountPaid,
+      balanceDue: row.balanceDue,
+    }))
   }
 
   async create(

@@ -29,6 +29,7 @@ export * from "./contracts/accounting.js";
 export * from "./contracts/projects.js";
 export * from "./contracts/payroll.js";
 export * from "./contracts/registry.js";
+export * from "./contracts/activity.js";
 export * from "./forms.js";
 export * from "./api.js";
 export * from "./mvp-scope.js";

@@ -32,7 +32,12 @@ import {
 } from "../../../components/ui/skeleton";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
-import { tableCellValue } from "../../resources/table-cell-value";
+import {
+  isNumericColumn,
+  tableCellValue,
+} from "../../resources/table-cell-value";
+import { summableValues } from "../../resources/record-value";
+import { formatDecimal, sumDecimals } from "../../../lib/utils";
 import type {
   OperationRecord,
   OperationsModule,
@@ -152,14 +157,8 @@ export function OperationsWorkspacePage({
     [totalPages],
   );
   const workflow = workflowLabels[resource];
-  const numericAmount = (record: OperationRecord) => {
-    const value = Number(record.amount.replace(/[^0-9.-]/g, ""));
-    return Number.isFinite(value) ? value : 0;
-  };
-  const totalValue = records.reduce(
-    (sum, record) => sum + numericAmount(record),
-    0,
-  );
+  const valued = summableValues(records);
+  const totalValue = sumDecimals(valued);
   const activeCount = records.filter((record) =>
     /active|paid|approved|posted|received|cleared|ready|reconciled/i.test(
       record.status,
@@ -178,7 +177,7 @@ export function OperationsWorkspacePage({
     },
     {
       label: "Recorded value",
-      value: `$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: valued.length ? formatDecimal(totalValue) : "—",
       helper: "Current filtered result",
     },
     {
@@ -852,7 +851,7 @@ function OperationsTable({
             {config.columns.map((column) => (
               <th
                 key={column}
-                className="border-b px-5 py-3 text-[9px] font-bold uppercase tracking-wide text-[#788b96]"
+                className={`border-b px-5 py-3 text-[9px] font-bold uppercase tracking-wide text-[#788b96] ${isNumericColumn(column) ? "text-right" : ""}`}
               >
                 {column}
               </th>
@@ -875,7 +874,7 @@ function OperationsTable({
               {config.columns.map((column, index) => (
                 <td
                   key={column}
-                  className={`px-5 py-4 text-xs ${index === 0 ? "font-bold text-[#007DCC]" : "font-medium text-[#405762]"}`}
+                  className={`px-5 py-4 text-xs ${index === 0 ? "font-bold text-[#007DCC]" : "font-medium text-[#405762]"} ${isNumericColumn(column) ? "text-right tabular-nums" : ""}`}
                 >
                   {cellValue(record, column)}
                 </td>

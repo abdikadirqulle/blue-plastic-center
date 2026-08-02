@@ -30,7 +30,7 @@ import {
   useResourceList,
   useResourceMutations,
 } from "./resource-api";
-import { tableCellValue } from "./table-cell-value";
+import { isNumericColumn, tableCellValue } from "./table-cell-value";
 
 const badgeVariant = (status: string) => {
   if (["Paid", "Posted", "Active", "Approved", "Completed"].includes(status))
@@ -71,14 +71,19 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
   useEffect(() => {
     if (!apiRows.data) return;
     setRows(
-      apiRows.data.data.map((record) => ({
-        id: record.id,
-        displayId: recordIdentifier(record),
-        status: record.status,
-        cells: config.columns
-          .slice(1)
-          .map((column) => tableCellValue(column, record.data)),
-      })),
+      apiRows.data.data.map((record) => {
+        const cells = config.columns.map((column) =>
+          tableCellValue(column, record.data, {
+            [config.columns[0].toLowerCase()]: recordIdentifier(record),
+          }),
+        );
+        return {
+          id: record.id,
+          displayId: cells[0],
+          status: record.status,
+          cells: cells.slice(1),
+        };
+      }),
     );
   }, [apiRows.data, config.columns]);
   const statusOptions = useMemo(
@@ -183,12 +188,12 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
           {[
             {
               label: `Total ${config.title.toLowerCase()}`,
               value: String(apiRows.data?.meta?.total ?? rows.length),
-              helper: "Database records",
+              helper: "All records",
             },
             {
               label: "Active",
@@ -203,7 +208,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                   ].includes(row.status.toLowerCase()),
                 ).length,
               ),
-              helper: "Current records",
+              helper: "On this page",
             },
             {
               label: "Pending",
@@ -214,9 +219,8 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                   ),
                 ).length,
               ),
-              helper: "Needs attention",
+              helper: "On this page",
             },
-            { label: "Deleted", value: "0", helper: "Available in Trash" },
           ].map((stat) => (
             <Card key={stat.label} className="p-4">
               <p className="text-xs font-semibold text-[#71848f]">
@@ -276,7 +280,7 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
               setDateFrom("");
               setDateTo("");
             }}
-            columns={["ID", ...config.columns.slice(1), "Status"]}
+            columns={[...config.columns, "Status"]}
             rows={filteredRows.map((row) => [
               row.displayId ?? row.cells[0],
               ...row.cells,
@@ -403,7 +407,10 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                     {config.columns.map((column) => (
                       <th
                         key={column}
-                        className="border-b border-[#e5ecf1] px-5 py-3 text-[10px] font-bold uppercase tracking-[0.08em] text-[#788b96]"
+                        className={cn(
+                          "border-b border-[#e5ecf1] px-5 py-3 text-[10px] font-bold uppercase tracking-[0.08em] text-[#788b96]",
+                          isNumericColumn(column) && "text-right",
+                        )}
                       >
                         {column}
                       </th>
@@ -442,18 +449,13 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
                         .map((cell, index) => (
                           <td
                             key={`${row.id}-${index}`}
-                            className="px-5 py-4 text-xs font-semibold text-[#334b57]"
-                          >
-                            {index === 0 ? (
-                              <>
-                                <p>{cell}</p>
-                                <p className="mt-1 text-[10px] font-normal text-[#83949e]">
-                                  {keyFilterLabel} · {row.status}
-                                </p>
-                              </>
-                            ) : (
-                              cell
+                            className={cn(
+                              "px-5 py-4 text-xs font-semibold text-[#334b57]",
+                              isNumericColumn(config.columns[index + 1] ?? "") &&
+                                "text-right tabular-nums",
                             )}
+                          >
+                            {cell}
                           </td>
                         ))}
                       <td className="px-5 py-4">

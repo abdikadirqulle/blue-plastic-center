@@ -16,7 +16,29 @@ export interface InvoiceCreateOptions {
   requestHash?: string
 }
 
+/** Flat invoice projection used by customer balances and the customer register. */
+export interface InvoiceDocumentView {
+  id: string
+  customerId: string
+  invoiceNumber: string
+  invoiceDate: string
+  dueDate: string
+  status: string
+  total: string
+  amountPaid: string
+  balanceDue: string
+}
+
 export interface InvoiceRepository {
+  /**
+   * Every live invoice for the given customers, newest first. Balances are
+   * derived from these rows rather than stored on the customer, so a customer
+   * can never carry a figure the invoice tables disagree with.
+   */
+  listByCustomers(
+    context: RequestContext,
+    customerIds: string[],
+  ): Promise<InvoiceDocumentView[]>
   list(
     context: RequestContext,
     query: ListQuery,

@@ -21,6 +21,9 @@ import { InvoiceService } from "./modules/sales/invoice-service.js"
 import type { InvoiceRepository } from "./modules/sales/invoice-repository.js"
 import { MemoryInvoiceRepository } from "./modules/sales/memory-invoice-repository.js"
 import { MemoryInventoryMovements } from "./modules/inventory/memory-inventory-movements.js"
+import type { InventoryReadPort } from "./modules/inventory/inventory-movement-port.js"
+import { activityRoutes } from "./modules/read-models/activity.routes.js"
+import { RecordReadModel } from "./modules/read-models/record-read-model.js"
 import { projectRoutes } from "./modules/projects/project.routes.js"
 import { payrollRoutes } from "./modules/payroll/payroll.routes.js"
 import { importRoutes } from "./modules/imports/import.routes.js"
@@ -51,6 +54,7 @@ export function createApp(
   identityRepository: IdentityRepository = new MemoryIdentityRepository(),
   ledgerRepository?: LedgerRepository,
   invoiceRepository?: InvoiceRepository,
+  inventoryReadPort?: InventoryReadPort,
 ) {
   const app = Fastify({
     logger: env.LOG_LEVEL === "silent" ? false : { level: env.LOG_LEVEL },
@@ -60,6 +64,7 @@ export function createApp(
   // Invoices are always served by a normalized repository. Without a database
   // the in-memory implementation keeps the same tables, posting order and
   // constraints, so the JSONB resource store never holds invoice data.
+  const stock = new MemoryInventoryMovements()
   const invoiceStore =
     invoiceRepository ??
     new MemoryInvoiceRepository(
@@ -67,9 +72,17 @@ export function createApp(
       ledger instanceof MemoryLedgerRepository
         ? ledger
         : new MemoryLedgerRepository(repository),
-      new MemoryInventoryMovements(),
+      stock,
     )
-  const service = new ResourceService(repository, invoiceStore)
+  // Balances are read from the ledger, the invoice tables and the stock ledger
+  // on every request, so no screen can show a figure the books disagree with.
+  const readModel = new RecordReadModel(
+    repository,
+    ledger,
+    invoiceStore,
+    inventoryReadPort ?? stock,
+  )
+  const service = new ResourceService(repository, invoiceStore, readModel)
   const invoices = new InvoiceService(invoiceStore)
   const authService = new AuthService(identityRepository, env.SESSION_TTL_HOURS)
   const workflows = new OperationalWorkflowService(service)
@@ -146,6 +159,7 @@ export function createApp(
       await systemRoutes(v1, repository)
       await reportRoutes(v1, ledger, service, repository)
       await importRoutes(v1, service)
+      await activityRoutes(v1, service, readModel)
       await resourceRoutes(v1, service)
     },
     { prefix: "/v1" },

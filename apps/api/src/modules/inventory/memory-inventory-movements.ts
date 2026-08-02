@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { validation } from "../../platform/errors.js"
 import type { RequestContext } from "../../platform/types.js"
+import { addDecimals } from "../read-models/balance-math.js"
 import {
   WeightedAverageInventoryCostingService,
   type InventoryBalanceSnapshot,
@@ -10,6 +11,8 @@ import type {
   InventoryMovementPort,
   InventoryMovementRecord,
   InventoryMovementRequest,
+  InventoryReadPort,
+  InventoryStockLevel,
 } from "./inventory-movement-port.js"
 
 interface StoredMovement extends InventoryMovementRecord {
@@ -30,7 +33,9 @@ const sourceKey = (
  * In-memory stock ledger with the same idempotency and costing rules as the
  * PostgreSQL implementation. Used by the default runtime and by tests.
  */
-export class MemoryInventoryMovements implements InventoryMovementPort<unknown> {
+export class MemoryInventoryMovements
+  implements InventoryMovementPort<unknown>, InventoryReadPort
+{
   private readonly costing = new WeightedAverageInventoryCostingService()
   private balances = new Map<string, InventoryBalanceSnapshot>()
   private movements: StoredMovement[] = []
@@ -153,5 +158,38 @@ export class MemoryInventoryMovements implements InventoryMovementPort<unknown> 
         movement.sourceType === source.sourceType &&
         movement.sourceId === source.sourceId,
     )
+  }
+
+  async stockLevels(context: RequestContext, itemIds: string[]) {
+    const wanted = new Set(itemIds)
+    const totals = new Map<string, InventoryStockLevel>()
+    for (const [key, balance] of this.balances) {
+      const [companyId, , itemId] = key.split(":")
+      if (companyId !== context.companyId || !wanted.has(itemId)) continue
+      const current = totals.get(itemId) ?? {
+        itemId,
+        quantity: "0.0000",
+        inventoryValue: "0.0000",
+      }
+      totals.set(itemId, {
+        itemId,
+        quantity: addDecimals(current.quantity, balance.quantity),
+        inventoryValue: addDecimals(
+          current.inventoryValue,
+          balance.inventoryValue,
+        ),
+      })
+    }
+    return [...totals.values()]
+  }
+
+  async listByItem(context: RequestContext, itemId: string, limit: number) {
+    return this.movements
+      .filter(
+        (movement) =>
+          movement.companyId === context.companyId && movement.itemId === itemId,
+      )
+      .sort((left, right) => left.occurredAt.localeCompare(right.occurredAt))
+      .slice(-limit)
   }
 }

@@ -24,5 +24,7 @@ export const queryKeys = {
   ) => ["resource", module, resource, "list", query] as const,
   resourceDetail: (module: string, resource: string, id: string) =>
     ["resource", module, resource, "detail", id] as const,
+  resourceActivity: (module: string, resource: string, id: string) =>
+    ["resource", module, resource, "activity", id] as const,
   trash: (query: object) => ["trash", query] as const,
 }

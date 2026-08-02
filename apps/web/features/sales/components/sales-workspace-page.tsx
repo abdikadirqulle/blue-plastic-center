@@ -34,7 +34,12 @@ import {
 } from "../../../components/ui/skeleton";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import type { ResourceConfig } from "../../resources/resource-config";
-import { tableCellValue } from "../../resources/table-cell-value";
+import {
+  isNumericColumn,
+  tableCellValue,
+} from "../../resources/table-cell-value";
+import { summableValues } from "../../resources/record-value";
+import { formatDecimal, sumDecimals } from "../../../lib/utils";
 import { isNavigableResource } from "@blue-plastic/types";
 import type { SalesRecord, SalesResource } from "../domain/sales-record";
 import { useSalesRecords } from "../hooks/use-sales-records";
@@ -111,10 +116,8 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
   const isStatementCenter = resource === "statements";
   const statusCount = (pattern: RegExp) =>
     records.filter((record) => pattern.test(record.status)).length;
-  const totalAmount = records.reduce((total, record) => {
-    const numeric = Number(record.amount.replace(/[^0-9.-]/g, ""));
-    return total + (Number.isFinite(numeric) ? numeric : 0);
-  }, 0);
+  const valued = summableValues(records);
+  const totalAmount = sumDecimals(valued);
   const liveStats = [
     {
       label: `Total ${config.title.toLowerCase()}`,
@@ -135,7 +138,7 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
     },
     {
       label: "Total value",
-      value: `$${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: valued.length ? formatDecimal(totalAmount) : "—",
       helper: "Current filtered result",
     },
   ];
@@ -361,7 +364,7 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
                     {config.columns.map((column) => (
                       <th
                         key={column}
-                        className="border-b border-[#e5ecf1] px-5 py-3 text-[9px] font-bold uppercase tracking-wide text-[#788b96]"
+                        className={`border-b border-[#e5ecf1] px-5 py-3 text-[9px] font-bold uppercase tracking-wide text-[#788b96] ${isNumericColumn(column) ? "text-right" : ""}`}
                       >
                         {column}
                       </th>
@@ -388,7 +391,7 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
                       {config.columns.map((column, index) => (
                         <td
                           key={column}
-                          className={`px-5 py-4 text-xs ${index === 0 ? "font-bold text-[#007DCC]" : "font-medium text-[#405762]"}`}
+                          className={`px-5 py-4 text-xs ${index === 0 ? "font-bold text-[#007DCC]" : "font-medium text-[#405762]"} ${isNumericColumn(column) ? "text-right tabular-nums" : ""}`}
                         >
                           {salesCell(record, column)}
                         </td>

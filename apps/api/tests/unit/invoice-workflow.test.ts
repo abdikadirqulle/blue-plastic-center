@@ -375,6 +375,32 @@ describe("invoice vertical slice", () => {
     )
   })
 
+  it("leaves every account balance where it started after a void", async () => {
+    const before = await ledger.trialBalance(companyA, "1900-01-01", "2100-01-01")
+    const created = await service.create(contextA, {
+      status: "draft",
+      data: { ...draftInput, lines: [stockLine] },
+    })
+    await service.post(contextA, created.id, "post-void-balance")
+
+    await service.void(
+      contextA,
+      created.id,
+      { voidDate: "2026-08-05", reason: "Customer cancelled" },
+      "void-balance",
+    )
+
+    const after = await ledger.trialBalance(companyA, "1900-01-01", "2100-01-01")
+    const balanceOf = (rows: typeof after, accountId: string) =>
+      Number(rows.find((row) => row.accountId === accountId)?.balance ?? "0")
+    // The reversal cancels the posting; neither may be dropped from the books,
+    // or every balance after the void shifts by the amount of the survivor.
+    for (const row of after)
+      expect(balanceOf(after, row.accountId)).toBe(
+        balanceOf(before, row.accountId),
+      )
+  })
+
   it("deletes a draft invoice but never a posted one", async () => {
     const draft = await service.create(contextA, { status: "draft", data: draftInput })
     const posted = await service.create(contextA, { status: "draft", data: draftInput })

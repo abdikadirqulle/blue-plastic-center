@@ -13,6 +13,11 @@ import {
   type PostingResult,
 } from "./posting-engine.js"
 
+/** However a line names its account, that name is its trial-balance key. */
+function postingAccountReference(line: Record<string, unknown>) {
+  return String(line.accountId ?? line.accountNumber ?? line.systemAccountKey ?? "")
+}
+
 interface PostedJournal {
   record: ResourceRecord
   date: string
@@ -250,13 +255,56 @@ export class MemoryLedgerRepository implements LedgerRepository {
     this.closedPeriods.delete(name)
   }
 
+  async accountLedger(companyId: string, accountId: string, limit: number) {
+    const aliases = await this.accountAliases(companyId, accountId)
+    const lines = this.posted
+      .filter((entry) => entry.record.companyId === companyId)
+      .flatMap((entry) => {
+        const command = entry.record.data as unknown as PostingCommand
+        return entry.lines
+          .filter((line) => aliases.has(postingAccountReference(line)))
+          .map((line) => ({
+            transactionId: entry.record.id,
+            transactionNumber: `JOU-${entry.record.id.slice(0, 8).toUpperCase()}`,
+            date: entry.date,
+            memo: command.memo ?? "",
+            description: line.description ? String(line.description) : "",
+            debit: String(line.debit ?? "0"),
+            credit: String(line.credit ?? "0"),
+            sourceModule: command.sourceModule,
+            sourceType: command.sourceType,
+            ...(command.sourceId ? { sourceId: command.sourceId } : {}),
+          }))
+      })
+      .sort((left, right) => left.date.localeCompare(right.date))
+    return lines.slice(-limit)
+  }
+
+  /**
+   * A posting line names an account by id, by number or by system key. All
+   * three point at the same account, so the register accepts any of them.
+   */
+  private async accountAliases(companyId: string, accountId: string) {
+    const account = await this.resources.findById(
+      { companyId, module: "accounting", resource: "chart-of-accounts" },
+      accountId,
+    )
+    return new Set(
+      [
+        accountId,
+        String(account?.data.accountNumber ?? ""),
+        String(account?.data.systemKey ?? ""),
+      ].filter(Boolean),
+    )
+  }
+
   async trialBalance(companyId: string, from: string, to: string) {
     const totals = new Map<string, { debit: bigint; credit: bigint }>()
     for (const journal of this.posted.filter((entry) =>
       entry.record.companyId === companyId && entry.date >= from && entry.date <= to
     )) {
       for (const line of journal.lines) {
-        const accountId = String(line.accountId)
+        const accountId = postingAccountReference(line)
         const current = totals.get(accountId) ?? { debit: 0n, credit: 0n }
         current.debit += decimalToMinor(line.debit)
         current.credit += decimalToMinor(line.credit)

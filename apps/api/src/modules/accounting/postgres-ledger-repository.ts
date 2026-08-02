@@ -25,6 +25,16 @@ import {
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
+/**
+ * A reversal cancels an entry by adding its opposite, so both sides stay in the
+ * books and net to zero. Reading only `posted` rows would drop the original and
+ * leave the reversal standing alone, which shifts every balance after a void.
+ */
+const inTheBooks = or(
+  eq(accountingTransactions.status, "posted"),
+  eq(accountingTransactions.status, "reversed"),
+)
+
 export class PostgresLedgerRepository implements LedgerRepository {
   constructor(private readonly db: Database) {}
 
@@ -569,6 +579,50 @@ export class PostgresLedgerRepository implements LedgerRepository {
       )
   }
 
+  async accountLedger(companyId: string, accountId: string, limit: number) {
+    const rows = await this.db
+      .select({
+        transactionId: accountingTransactions.id,
+        transactionNumber: accountingTransactions.transactionNumber,
+        date: accountingTransactions.transactionDate,
+        memo: accountingTransactions.memo,
+        description: accountingLines.description,
+        debit: accountingLines.debit,
+        credit: accountingLines.credit,
+        sourceModule: accountingTransactions.sourceModule,
+        sourceType: accountingTransactions.sourceType,
+        sourceId: accountingTransactions.sourceId,
+      })
+      .from(accountingLines)
+      .innerJoin(
+        accountingTransactions,
+        eq(accountingLines.transactionId, accountingTransactions.id),
+      )
+      .where(
+        and(
+          eq(accountingTransactions.companyId, companyId),
+          inTheBooks,
+          eq(accountingLines.accountId, accountId),
+        ),
+      )
+      .orderBy(sql`${accountingTransactions.transactionDate} desc`)
+      .limit(limit)
+    return rows
+      .map((row) => ({
+        transactionId: row.transactionId,
+        transactionNumber: row.transactionNumber,
+        date: row.date.toISOString().slice(0, 10),
+        memo: row.memo ?? "",
+        description: row.description ?? "",
+        debit: row.debit,
+        credit: row.credit,
+        sourceModule: row.sourceModule,
+        sourceType: row.sourceType,
+        ...(row.sourceId ? { sourceId: row.sourceId } : {}),
+      }))
+      .reverse()
+  }
+
   async trialBalance(companyId: string, from: string, to: string) {
     const rows = await this.db
       .select({
@@ -589,7 +643,7 @@ export class PostgresLedgerRepository implements LedgerRepository {
       .where(
         and(
           eq(accountingTransactions.companyId, companyId),
-          eq(accountingTransactions.status, "posted"),
+          inTheBooks,
           gte(accountingTransactions.transactionDate, new Date(`${from}T00:00:00.000Z`)),
           lte(accountingTransactions.transactionDate, new Date(`${to}T23:59:59.999Z`)),
         ),

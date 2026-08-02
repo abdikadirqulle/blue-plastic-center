@@ -439,7 +439,7 @@ const salesResources: ResourceConfig[] = [
     primaryAction: "New customer",
     searchPlaceholder:
       "Search customer, company, phone, email, or account number",
-    columns: ["Customer", "Company", "Open balance", "Phone"],
+    columns: ["Customer", "Company", "Open balance", "Overdue", "Phone"],
     stats: [
       { label: "Active customers", value: "286", helper: "+14 this month" },
       { label: "Open balance", value: "$92,750", helper: "46 customers" },
@@ -1906,7 +1906,7 @@ const commonResourceSpecs: Array<{
     "bills",
     "Vendor bills",
     "New bill",
-    ["Bill", "Vendor", "Amount", "Due date"],
+    ["Bill", "Vendor", "Bill date", "Due date", "Amount"],
     [
       {
         name: "vendor",
@@ -1955,7 +1955,7 @@ const commonResourceSpecs: Array<{
     "vendors",
     "Vendors",
     "New vendor",
-    ["Vendor", "Company", "Open balance", "Phone"],
+    ["Vendor", "Company", "Open balance", "Overdue", "Phone"],
     [
       {
         name: "vendorName",
@@ -2324,7 +2324,7 @@ const commonResourceSpecs: Array<{
     "items",
     "Items & services",
     "New item",
-    ["SKU", "Item", "Type", "On hand", "Sales price", "Cost price"],
+    ["SKU", "Item", "Type", "On hand", "Value", "Sales price"],
     [
       {
         name: "type",
@@ -2555,7 +2555,7 @@ const commonResourceSpecs: Array<{
     "chart-of-accounts",
     "Chart of accounts",
     "New account",
-    ["Account", "Type", "Balance", "Currency"],
+    ["Account number", "Account name", "Type", "Balance", "Currency"],
     [
       {
         name: "accountNumber",
@@ -2609,7 +2609,7 @@ const commonResourceSpecs: Array<{
     "journal-entries",
     "Journal entries",
     "New journal entry",
-    ["Journal", "Description", "Amount", "Date"],
+    ["Journal", "Reference", "Amount", "Date"],
     [
       {
         name: "journalNumber",
@@ -3935,7 +3935,7 @@ const phaseTwoSpecs: typeof commonResourceSpecs = [
     slug: "bill-payments",
     title: "Pay bills",
     action: "Schedule payment",
-    columns: ["Payment", "Vendor / bank", "Amount", "Payment date"],
+    columns: ["Payment", "Vendor", "Bank account", "Amount", "Payment date"],
     fields: [
       {
         name: "bankAccount",

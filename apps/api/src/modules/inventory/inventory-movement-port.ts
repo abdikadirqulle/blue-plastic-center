@@ -37,6 +37,28 @@ export interface InventoryMovementRecord {
   costApplied: string
 }
 
+export interface InventoryStockLevel {
+  itemId: string
+  quantity: string
+  inventoryValue: string
+}
+
+/**
+ * Read side of the stock ledger, used by lists and item screens. Quantities are
+ * summed across warehouses because an item is one row wherever it is stored.
+ */
+export interface InventoryReadPort {
+  stockLevels(
+    context: RequestContext,
+    itemIds: string[],
+  ): Promise<InventoryStockLevel[]>
+  listByItem(
+    context: RequestContext,
+    itemId: string,
+    limit: number,
+  ): Promise<InventoryMovementRecord[]>
+}
+
 /**
  * Transaction-scoped stock ledger port. The implementation must apply the
  * movement, update the balance, and enforce the idempotency key inside the same

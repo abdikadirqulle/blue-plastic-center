@@ -5,6 +5,7 @@ import {
   type InvoiceUpdateData,
 } from "@blue-plastic/types"
 import { getResourceDefinition } from "../domain/modules.js"
+import type { RecordEnricher } from "../modules/read-models/record-read-model.js"
 import { conflict, notFound, validation } from "../platform/errors.js"
 import type {
   ListQuery,
@@ -131,6 +132,7 @@ export class ResourceService {
   constructor(
     private readonly repository: ResourceRepository,
     private readonly invoices?: InvoiceRepository,
+    private readonly enricher?: RecordEnricher,
   ) {}
 
   validateData(
@@ -156,17 +158,28 @@ export class ResourceService {
     query: ListQuery,
   ) {
     requireMvpResource(moduleName, resourceName)
-    if (this.invoices && isRelationalResource(moduleName, resourceName))
-      return this.invoices.list(context, query)
-    return this.repository.list(
-      {
-        companyId: context.companyId,
-        branchId: context.branchId,
-        module: moduleName,
-        resource: resourceName,
-      },
-      query,
-    )
+    const result =
+      this.invoices && isRelationalResource(moduleName, resourceName)
+        ? await this.invoices.list(context, query)
+        : await this.repository.list(
+            {
+              companyId: context.companyId,
+              branchId: context.branchId,
+              module: moduleName,
+              resource: resourceName,
+            },
+            query,
+          )
+    if (!this.enricher) return result
+    return {
+      ...result,
+      data: await this.enricher.enrich(
+        context,
+        moduleName,
+        resourceName,
+        result.data,
+      ),
+    }
   }
 
   async get(
@@ -188,7 +201,14 @@ export class ResourceService {
             id,
           )
     if (!record) throw notFound()
-    return record
+    if (!this.enricher) return record
+    const [enriched] = await this.enricher.enrich(
+      context,
+      moduleName,
+      resourceName,
+      [record],
+    )
+    return enriched ?? record
   }
 
   async create(

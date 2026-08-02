@@ -976,6 +976,71 @@ test.skip("Phase 3 payroll validates calculations and protects approval workflow
   })).json().data.status, "paid");
 });
 
+test("lists and registers carry server-calculated balances, not form figures", async () => {
+  const app = createApp();
+  const references = await seedSalesReferences(app);
+  const create = async (path, data, status = "draft") =>
+    (await request(app, path, {
+      method: "POST",
+      body: JSON.stringify({ status, data }),
+    })).json().data;
+
+  const invoice = await create("/v1/sales/invoices", {
+    customerId: references.customerId,
+    invoiceDate: "2026-03-01",
+    dueDate: "2026-03-31",
+    currency: "USD",
+    lines: [
+      {
+        itemId: references.itemId,
+        description: "Blue plastic crate",
+        quantity: "2",
+        unitPrice: "125.00",
+      },
+    ],
+  });
+  const posted = await request(app, `/v1/sales/invoices/${invoice.id}/post`, {
+    method: "POST",
+    headers: { "Idempotency-Key": `post-${invoice.id}` },
+  });
+  assert.equal(posted.status, 200, posted.body);
+  await create("/v1/sales/payments", {
+    customerId: references.customerId,
+    documentNumber: "PAY-9",
+    paymentDate: "2026-03-05",
+    amount: "100.00",
+    currency: "USD",
+    depositToAccountId: references.accountId,
+    paymentMethod: "Bank transfer",
+  });
+
+  const customer = (await request(app, "/v1/sales/customers")).json().data.find(
+    (record) => record.id === references.customerId,
+  );
+  assert.equal(customer.data.openBalance, "150.0000");
+  assert.equal(customer.data.openInvoices, 1);
+  assert.equal(customer.data.lastInvoiceDate, "2026-03-01");
+
+  const register = (await request(
+    app,
+    `/v1/sales/customers/${references.customerId}/activity`,
+  )).json().data;
+  assert.equal(register.kind, "customer");
+  assert.deepEqual(register.rows.map((row) => row.kind), ["payment", "invoice"]);
+  assert.equal(register.rows[0].running, "150.0000");
+  assert.ok(register.audit.length >= 1);
+
+  const [account] = (await request(
+    app,
+    "/v1/accounting/chart-of-accounts?search=4000",
+  )).json().data;
+  assert.equal(typeof account.data.balance, "string");
+
+  const invoiceRow = (await request(app, "/v1/sales/invoices")).json().data[0];
+  assert.equal(invoiceRow.data.customerName, "Banaadir Trading Co.");
+  assert.equal(invoiceRow.data.total, "250.0000");
+});
+
 test("every Phase 3 CRUD resource has a dedicated validation contract", async () => {
   const app = createApp();
   const moduleMetadata = (await request(app, "/v1/meta/modules")).json().data;

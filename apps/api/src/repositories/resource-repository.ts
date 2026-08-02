@@ -14,4 +14,6 @@ export interface ResourceRepository {
   restore(record: ResourceRecord): Promise<ResourceRecord>;
   appendAudit(event: AuditEvent): Promise<void>;
   listAudit(companyId: string, limit?: number): Promise<AuditEvent[]>;
+  /** Audit trail of a single record, newest first. */
+  listAuditFor(companyId: string, entityType: string, entityId: string, limit?: number): Promise<AuditEvent[]>;
 }

@@ -4,7 +4,9 @@ These rules are architectural invariants, not optional UI behavior.
 
 1. Every posted journal is balanced: total debit equals total credit.
 2. Posted financial transactions are immutable.
-3. Corrections use reversal, void-with-reversal, or adjusting entries.
+3. Corrections use reversal, void-with-reversal, or adjusting entries. A reversed
+   entry stays in the books beside its reversal; the pair nets to zero and
+   neither side is ever hidden from a balance, a register, or a report.
 4. Draft documents do not affect the general ledger.
 5. Posting records the company, branch, currency, exchange rate, fiscal period,
    source document, actor, and timestamp.

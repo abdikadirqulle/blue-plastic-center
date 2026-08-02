@@ -23,14 +23,18 @@ const identityRepository = database
 const ledgerRepository = database
   ? new PostgresLedgerRepository(database.db)
   : new MemoryLedgerRepository(repository);
-const invoiceRepository = database && ledgerRepository instanceof PostgresLedgerRepository
-  ? new PostgresInvoiceRepository(
-      database.db,
-      ledgerRepository,
-      new PostgresInventoryMovements(database.db),
-    )
+const inventoryMovements = database ? new PostgresInventoryMovements(database.db) : undefined;
+const invoiceRepository = database && ledgerRepository instanceof PostgresLedgerRepository && inventoryMovements
+  ? new PostgresInvoiceRepository(database.db, ledgerRepository, inventoryMovements)
   : undefined;
-const app = createApp(repository, env, identityRepository, ledgerRepository, invoiceRepository);
+const app = createApp(
+  repository,
+  env,
+  identityRepository,
+  ledgerRepository,
+  invoiceRepository,
+  inventoryMovements,
+);
 
 try {
   await app.listen({ host: env.HOST, port: env.PORT });

@@ -8,9 +8,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Copy,
-  Download,
   FileText,
-  Mail,
   Pencil,
   Printer,
   RefreshCcw,
@@ -26,13 +24,20 @@ import {
   type ToastMessage,
   type ToastVariant,
 } from "../../components/ui/toast";
+import type {
+  ActivityMetric,
+  ActivityRow,
+  RecordActivity,
+} from "@blue-plastic/types";
 import type { FormField, ResourceConfig, ResourceRow } from "./resource-config";
 import { InvoicePreviewDialog } from "../sales/components/invoice-preview-dialog";
+import { buildDocumentPreview } from "../sales/domain/document-preview";
 import type { SalesResource } from "../sales/domain/sales-record";
 import { salesService } from "../sales/services/sales-service";
 import {
   recordIdentifier,
   recordTitle,
+  useRecordActivity,
   useResourceDetail,
   useResourceMutations,
 } from "./resource-api";
@@ -51,26 +56,38 @@ const statusVariant = (status: string) => {
   return "neutral";
 };
 
-const summaryPriority = [
-  "documentNumber",
-  "displayName",
-  "name",
-  "accountName",
-  "projectName",
-  "customerId",
-  "vendorId",
-  "employeeId",
-  "itemId",
-  "amount",
+/**
+ * Figures worth putting at the top of a document. Anything not listed stays in
+ * its section below, so the header cannot fill up with incidental form fields.
+ */
+const documentHighlights = [
+  "customerName",
+  "vendorName",
+  "payee",
   "total",
-  "outstanding",
+  "amount",
   "balanceDue",
   "invoiceDate",
   "billDate",
   "paymentDate",
-  "orderDate",
+  "saleDate",
   "dueDate",
 ];
+
+const metricLabels: Record<string, string> = {
+  openBalance: "Open balance",
+  overdueBalance: "Overdue",
+  openInvoices: "Open invoices",
+  openBills: "Unpaid bills",
+  lastInvoiceDate: "Last invoice",
+  lastBillDate: "Last bill",
+  quantityOnHand: "On hand",
+  inventoryValue: "Stock value",
+  averageCost: "Average cost",
+  balance: "Balance",
+  debitTotal: "Total debits",
+  creditTotal: "Total credits",
+};
 
 function fieldLabel(name: string) {
   return name
@@ -80,22 +97,209 @@ function fieldLabel(name: string) {
 }
 
 function summaryFields(data: Record<string, unknown>) {
-  const scalarEntries = Object.entries(data).filter(
-    ([, value]) =>
-      value !== undefined &&
-      value !== null &&
-      value !== "" &&
-      typeof value !== "object",
+  return documentHighlights
+    .filter(
+      (key) =>
+        data[key] !== undefined &&
+        data[key] !== null &&
+        data[key] !== "" &&
+        typeof data[key] !== "object",
+    )
+    .slice(0, 4)
+    .map((key) => [key, data[key]] as const);
+}
+
+function metricValue(metric: ActivityMetric, currency: string) {
+  if (metric.value === "\u2014") return "\u2014";
+  if (metric.format === "money")
+    return `${currency} ${formatDecimal(metric.value)}`;
+  if (metric.format === "quantity") return formatDecimal(metric.value);
+  return metric.value;
+}
+
+interface RegisterColumn {
+  label: string;
+  numeric?: boolean;
+  /** Column that carries the link to the document behind the row. */
+  link?: boolean;
+}
+
+const registerColumns: Record<string, RegisterColumn[]> = {
+  customer: [
+    { label: "Date" },
+    { label: "Type" },
+    { label: "Reference", link: true },
+    { label: "Status" },
+    { label: "Amount", numeric: true },
+    { label: "Balance", numeric: true },
+  ],
+  vendor: [
+    { label: "Date" },
+    { label: "Type" },
+    { label: "Reference", link: true },
+    { label: "Status" },
+    { label: "Amount", numeric: true },
+    { label: "Balance", numeric: true },
+  ],
+  item: [
+    { label: "Date" },
+    { label: "Movement" },
+    { label: "Source", link: true },
+    { label: "Quantity", numeric: true },
+    { label: "Unit cost", numeric: true },
+    { label: "On hand", numeric: true },
+  ],
+  account: [
+    { label: "Date" },
+    { label: "Journal", link: true },
+    { label: "Description" },
+    { label: "Debit", numeric: true },
+    { label: "Credit", numeric: true },
+    { label: "Balance", numeric: true },
+  ],
+};
+
+const registerTitles: Record<string, string> = {
+  customer: "Customer transactions",
+  vendor: "Vendor transactions",
+  item: "Stock movements",
+  account: "Account register",
+};
+
+const money = (value: string | undefined) =>
+  value === undefined ? "\u2014" : formatDecimal(value);
+
+function registerCells(row: ActivityRow, kind: string) {
+  if (kind === "item")
+    return [
+      row.date,
+      row.description,
+      row.reference,
+      formatDecimal(row.quantity ?? "0"),
+      money(row.unitCost),
+      formatDecimal(row.running ?? "0"),
+    ];
+  if (kind === "account")
+    return [
+      row.date,
+      row.reference,
+      row.description,
+      money(row.debit),
+      money(row.credit),
+      money(row.running),
+    ];
+  return [
+    row.date,
+    row.kind,
+    row.reference,
+    row.status ?? "\u2014",
+    money(row.amount),
+    money(row.running),
+  ];
+}
+
+/**
+ * The documents behind a balance: invoices and payments for a customer, stock
+ * movements for an item, posted journal lines for an account. Every figure in
+ * here is calculated by the API from the ledger and the subledgers.
+ */
+function RegisterCard({
+  activity,
+  isLoading,
+}: {
+  activity?: RecordActivity;
+  isLoading: boolean;
+}) {
+  if (isLoading)
+    return (
+      <Card className="space-y-3 p-5">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-24 w-full" />
+      </Card>
+    );
+  if (!activity || activity.kind === "none") return null;
+  const columns = registerColumns[activity.kind] ?? [];
+  return (
+    <>
+      {activity.metrics.length ? (
+        <Card className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+          {activity.metrics.map((metric) => (
+            <div key={metric.key}>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-[#81929c]">
+                {metricLabels[metric.key] ?? fieldLabel(metric.key)}
+              </p>
+              <p className="mt-1.5 text-sm font-bold text-[#29424e]">
+                {metricValue(metric, activity.currency)}
+              </p>
+            </div>
+          ))}
+        </Card>
+      ) : null}
+      <Card className="overflow-hidden">
+        <div className="border-b border-[#e8eef2] px-5 py-4">
+          <h2 className="text-sm font-bold text-[#263f4b]">
+            {registerTitles[activity.kind] ?? "Transactions"}
+          </h2>
+          <p className="mt-1 text-xs text-[#7b8d97]">
+            Documents that moved this record, newest first.
+          </p>
+        </div>
+        {activity.rows.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left text-xs">
+              <thead className="bg-[#f8fafc] text-[10px] uppercase text-[#7b8e98]">
+                <tr>
+                  {columns.map((column) => (
+                    <th
+                      key={column.label}
+                      className={cn("px-5 py-3", column.numeric && "text-right")}
+                    >
+                      {column.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {activity.rows.map((row) => {
+                  const cells = registerCells(row, activity.kind);
+                  return (
+                    <tr key={row.id} className="border-t border-[#edf1f4]">
+                      {cells.map((cell, index) => (
+                        <td
+                          key={`${row.id}-${index}`}
+                          className={cn(
+                            "px-5 py-3",
+                            columns[index]?.numeric
+                              ? "text-right tabular-nums font-semibold text-[#29424e]"
+                              : "text-[#546b77]",
+                          )}
+                        >
+                          {columns[index]?.link && row.source ? (
+                            <Link
+                              href={`/${row.source.module}/${row.source.resource}/${encodeURIComponent(row.source.id)}`}
+                              className="font-bold text-[#007DCC]"
+                            >
+                              {cell}
+                            </Link>
+                          ) : (
+                            cell
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="px-5 py-10 text-center text-xs font-semibold text-[#71848f]">
+            No transactions yet.
+          </p>
+        )}
+      </Card>
+    </>
   );
-  return scalarEntries
-    .sort(([left], [right]) => {
-      const leftIndex = summaryPriority.indexOf(left);
-      const rightIndex = summaryPriority.indexOf(right);
-      return (
-        (leftIndex < 0 ? 999 : leftIndex) - (rightIndex < 0 ? 999 : rightIndex)
-      );
-    })
-    .slice(0, 4);
 }
 
 function displayValue(
@@ -287,6 +491,7 @@ export function ResourceDetailsPage({
   const router = useRouter();
   const queryClient = useQueryClient();
   const detail = useResourceDetail(config.module, config.slug, id);
+  const activity = useRecordActivity(config.module, config.slug, id);
   const mutations = useResourceMutations(config.module, config.slug);
   const references = useReferenceData();
   const record = detail.data?.data;
@@ -340,6 +545,7 @@ export function ResourceDetailsPage({
     try {
       await apiClient.action(path, body, "POST", idempotencyKey);
       await detail.refetch();
+      await activity.refetch();
       await queryClient.invalidateQueries({
         queryKey: queryKeys.resource(config.module, config.slug),
       });
@@ -435,18 +641,6 @@ export function ResourceDetailsPage({
               <Printer size={15} />{" "}
               {config.module === "sales" ? "Preview" : "Print"}
             </button>
-            <button
-              onClick={() =>
-                notify(
-                  "Export prepared",
-                  "success",
-                  `${displayId} is ready to download.`,
-                )
-              }
-              className="flex h-10 items-center gap-2 rounded-xl border border-[#dce6ed] bg-white px-3.5 text-xs font-bold text-[#425966]"
-            >
-              <Download size={15} /> Export
-            </button>
             <Link
               href={`${listHref}/new?edit=${encodeURIComponent(row.id)}`}
               className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"
@@ -460,6 +654,7 @@ export function ResourceDetailsPage({
 
         <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_340px]">
           <div className="space-y-4">
+            {summaryFields(record.data).length ? (
             <Card className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
               {summaryFields(record.data).map(([key, value]) => (
                 <div key={key}>
@@ -478,8 +673,14 @@ export function ResourceDetailsPage({
                 </div>
               ))}
             </Card>
+            ) : null}
 
-            {config.formSections.map((section) => (
+            {config.formSections.map((section) => {
+              const populated = section.fields.filter(
+                (field) => resourceFieldValue(field.name, record.data) !== undefined,
+              );
+              if (!populated.length) return null;
+              return (
               <Card key={section.title} className="overflow-hidden">
                 <div className="border-b border-[#e8eef2] px-5 py-4">
                   <h2 className="text-sm font-bold text-[#263f4b]">
@@ -492,7 +693,7 @@ export function ResourceDetailsPage({
                   ) : null}
                 </div>
                 <dl className="grid md:grid-cols-2">
-                  {section.fields.map((field) => (
+                  {populated.map((field) => (
                     <div
                       key={field.name}
                       className="border-b border-[#edf1f4] px-5 py-4 md:odd:border-r"
@@ -507,7 +708,8 @@ export function ResourceDetailsPage({
                   ))}
                 </dl>
               </Card>
-            ))}
+              );
+            })}
 
             {config.hasLineItems ? (
               <Card className="overflow-hidden">
@@ -526,8 +728,11 @@ export function ResourceDetailsPage({
                           "Qty",
                           "Rate",
                           "Amount",
-                        ].map((item) => (
-                          <th key={item} className="px-5 py-3">
+                        ].map((item, index) => (
+                          <th
+                            key={item}
+                            className={cn("px-5 py-3", index >= 2 && "text-right")}
+                          >
                             {item}
                           </th>
                         ))}
@@ -537,40 +742,32 @@ export function ResourceDetailsPage({
                       {(
                         (record.data.lines as
                           Array<Record<string, unknown>> | undefined) ?? []
-                      ).map((line, index) => {
-                        const quantity = Number(line.quantity ?? 1);
-                        const rate = Number(
-                          line.unitPrice ??
-                            line.rate ??
-                            line.debit ??
-                            line.credit ??
-                            0,
-                        );
-                        return (
-                          <tr key={index} className="border-t border-[#edf1f4]">
-                            <td className="px-5 py-4 font-bold">
-                              {references.resolve(
-                                line.itemId ?? line.accountId,
-                              )}
-                            </td>
-                            <td className="px-5 py-4">
-                              {String(line.description ?? "—")}
-                            </td>
-                            <td className="px-5 py-4">{quantity}</td>
-                            <td className="px-5 py-4">
-                              {rate.toLocaleString()}
-                            </td>
-                            <td className="px-5 py-4 font-bold">
-                              $
-                              {formatDecimal(
-                                line.lineTotal !== undefined
-                                  ? String(line.lineTotal)
-                                  : quantity * rate,
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      ).map((line, index) => (
+                        <tr key={index} className="border-t border-[#edf1f4]">
+                          <td className="px-5 py-4 font-bold">
+                            {references.resolve(line.itemId ?? line.accountId)}
+                          </td>
+                          <td className="px-5 py-4">
+                            {String(line.description ?? "—")}
+                          </td>
+                          <td className="px-5 py-4 text-right tabular-nums">
+                            {String(line.quantity ?? "1")}
+                          </td>
+                          <td className="px-5 py-4 text-right tabular-nums">
+                            {formatDecimal(
+                              String(
+                                line.unitPrice ?? line.rate ?? line.debit ??
+                                  line.credit ?? "0",
+                              ),
+                            )}
+                          </td>
+                          <td className="px-5 py-4 text-right font-bold tabular-nums">
+                            {line.lineTotal !== undefined
+                              ? formatDecimal(String(line.lineTotal))
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -579,7 +776,12 @@ export function ResourceDetailsPage({
 
             {isInvoice ? (
               <InvoiceAccountingPanels data={record.data} />
-            ) : null}
+            ) : (
+              <RegisterCard
+                activity={activity.data?.data}
+                isLoading={activity.isLoading}
+              />
+            )}
           </div>
 
           <div className="space-y-4">
@@ -781,21 +983,6 @@ export function ResourceDetailsPage({
                     <Copy size={15} /> Create budget revision
                   </Link>
                 ) : null}
-                {config.module === "accounting" &&
-                config.slug === "fixed-assets" ? (
-                  <button
-                    onClick={() =>
-                      notify(
-                        "Depreciation posted",
-                        "success",
-                        `${displayId} depreciation was added to a balanced journal entry.`,
-                      )
-                    }
-                    className="flex w-full items-center gap-3 rounded-xl bg-indigo-50 px-3 py-3 text-xs font-bold text-indigo-700"
-                  >
-                    <CheckCircle2 size={15} /> Post asset depreciation
-                  </button>
-                ) : null}
                 {config.module === "projects" &&
                 config.slug === "progress-billing" ? (
                   <Link
@@ -827,42 +1014,6 @@ export function ResourceDetailsPage({
                   <Pencil size={15} /> Edit this record
                 </Link>
                 <button
-                  onClick={() =>
-                    notify(
-                      "Copy created",
-                      "success",
-                      "A new draft was created from this record.",
-                    )
-                  }
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-[#425a66] hover:bg-[#f5f8fa]"
-                >
-                  <Copy size={15} /> Make a copy
-                </button>
-                <button
-                  onClick={() =>
-                    notify(
-                      "Email queued",
-                      "success",
-                      "The document was marked for email delivery.",
-                    )
-                  }
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-[#425a66] hover:bg-[#f5f8fa]"
-                >
-                  <Mail size={15} /> Send by email
-                </button>
-                <button
-                  onClick={() =>
-                    notify(
-                      "Attachment added",
-                      "success",
-                      "The supporting document was attached.",
-                    )
-                  }
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-[#425a66] hover:bg-[#f5f8fa]"
-                >
-                  <FileText size={15} /> Attach document
-                </button>
-                <button
                   onClick={() => setDeleteOpen(true)}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-red-600 hover:bg-red-50"
                 >
@@ -870,42 +1021,38 @@ export function ResourceDetailsPage({
                 </button>
               </div>
             </Card>
-            {isInvoice ? null : (
             <Card className="p-5">
-              <h2 className="text-sm font-bold text-[#263f4b]">Activity</h2>
+              <h2 className="text-sm font-bold text-[#263f4b]">Audit trail</h2>
+              <p className="mt-1 text-xs text-[#7b8d97]">
+                Every recorded change to this record.
+              </p>
               <div className="mt-4 space-y-4">
-                {[
-                  config.module === "sales"
-                    ? `${config.title.replace(/s$/, "")} created`
-                    : "Record created",
-                  config.module === "sales"
-                    ? "Customer delivery queued"
-                    : "Details verified",
-                  config.module === "sales"
-                    ? "Accounting impact recorded"
-                    : "Last updated",
-                  config.module === "sales"
-                    ? "Audit trail verified"
-                    : "Review completed",
-                ].map((item, index) => (
-                  <div key={item} className="flex gap-3">
-                    <CheckCircle2
-                      size={16}
-                      className="mt-0.5 text-emerald-500"
-                    />
-                    <div>
-                      <p className="text-xs font-bold text-[#405762]">{item}</p>
-                      <p className="mt-1 text-[10px] text-[#82949e]">
-                        {index === 0
-                          ? "25 Jul 2026 · Abdisalam"
-                          : "26 Jul 2026 · Finance team"}
-                      </p>
+                {activity.data?.data.audit.length ? (
+                  activity.data.data.audit.map((event, index) => (
+                    <div key={`${event.occurredAt}-${index}`} className="flex gap-3">
+                      <CheckCircle2
+                        size={16}
+                        className="mt-0.5 text-emerald-500"
+                      />
+                      <div>
+                        <p className="text-xs font-bold capitalize text-[#405762]">
+                          {event.action}
+                        </p>
+                        <p className="mt-1 text-[10px] text-[#82949e]">
+                          {event.occurredAt.slice(0, 19).replace("T", " ")}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-xs text-[#7b8d97]">
+                    {activity.isLoading
+                      ? "Loading the audit trail\u2026"
+                      : "No changes have been recorded yet."}
+                  </p>
+                )}
               </div>
             </Card>
-            )}
           </div>
         </div>
       </div>
@@ -923,17 +1070,12 @@ export function ResourceDetailsPage({
       {config.module === "sales" ? (
         <InvoicePreviewDialog
           open={previewOpen}
-          row={{ ...row, id: displayId }}
-          title={config.title}
+          document={buildDocumentPreview(record.data, {
+            documentNumber: displayId,
+            documentTitle: config.title.replace(/s$/, ""),
+            resolveReference: references.resolve,
+          })}
           onClose={() => setPreviewOpen(false)}
-          onEmail={() => {
-            setPreviewOpen(false);
-            notify(
-              "Email queued",
-              "success",
-              `${displayId} will be delivered to the customer.`,
-            );
-          }}
         />
       ) : null}
     </AppShell>

@@ -95,6 +95,26 @@ apps/api/
 - Deletes are soft deletes and generate audit events.
 - Every create, update, delete, and post operation records actor, request, company, branch, entity, and timestamp.
 
+## Read model
+
+Balances are never stored on the record they describe. A customer row holds what
+the customer form captured; what the customer owes is read from the invoice
+tables, an item's stock from the inventory subledger, and an account's balance
+from the general ledger. `modules/read-models/record-read-model.ts` adds those
+figures to every record on its way out of the API, and serves the transaction
+history behind them at `GET /v1/:module/:resource/:id/activity`. A screen can
+therefore never show a balance the books disagree with, and no screen adds up
+money itself.
+
+Two rules keep the derived figures honest:
+
+- A reversal cancels an entry by adding its opposite. Both stay in the books and
+  net to zero, so ledger reads include reversed transactions as well as posted
+  ones. Reading only posted rows would drop the original and leave its reversal
+  standing alone.
+- Money applied to a document is already off that document's outstanding amount,
+  so only the unapplied part of a payment reduces a party balance.
+
 ## Relational persistence decision
 
 Core business records use dedicated tables with typed columns and foreign keys.

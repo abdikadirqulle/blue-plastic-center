@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import type { RecordActivity } from "@blue-plastic/types"
 import { apiClient, type ApiRecord } from "@/lib/api-client"
 import { queryKeys } from "@/lib/query-client"
 import { formatDecimal } from "@/lib/utils"
@@ -40,6 +41,25 @@ export function useResourceDetail(
   return useQuery({
     queryKey: queryKeys.resourceDetail(module, resource, id),
     queryFn: () => apiClient.get(module, resource, id),
+    enabled: Boolean(id),
+  })
+}
+
+/**
+ * Balances, the register behind a record and its audit trail. All of it is
+ * calculated by the API from the ledger and the subledgers.
+ */
+export function useRecordActivity(
+  module: string,
+  resource: string,
+  id: string,
+) {
+  return useQuery({
+    queryKey: queryKeys.resourceActivity(module, resource, id),
+    queryFn: () =>
+      apiClient.getPath<RecordActivity>(
+        `/v1/${module}/${resource}/${encodeURIComponent(id)}/activity`,
+      ),
     enabled: Boolean(id),
   })
 }
@@ -132,6 +152,7 @@ export function recordAmount(record: ApiRecord) {
     record,
     [
       "amount",
+      "total",
       "originalAmount",
       "outstanding",
       "contractAmount",

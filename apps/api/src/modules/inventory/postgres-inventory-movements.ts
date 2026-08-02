@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 import type { Database, DatabaseTransaction } from "../../db/client.js"
 import { inventoryBalances, inventoryMovements } from "../../db/schema.js"
 import { conflict, validation } from "../../platform/errors.js"
@@ -11,6 +11,7 @@ import type {
   InventoryMovementPort,
   InventoryMovementRecord,
   InventoryMovementRequest,
+  InventoryReadPort,
 } from "./inventory-movement-port.js"
 
 type MovementRow = typeof inventoryMovements.$inferSelect
@@ -38,7 +39,7 @@ function toRecord(row: MovementRow): InventoryMovementRecord {
 }
 
 export class PostgresInventoryMovements
-  implements InventoryMovementPort<DatabaseTransaction>
+  implements InventoryMovementPort<DatabaseTransaction>, InventoryReadPort
 {
   private readonly costing = new WeightedAverageInventoryCostingService()
 
@@ -160,6 +161,40 @@ export class PostgresInventoryMovements
       .returning()
     if (!movement) throw conflict("The inventory movement was already recorded")
     return { ...toRecord(movement), costApplied: result.costApplied }
+  }
+
+  async stockLevels(context: RequestContext, itemIds: string[]) {
+    if (!itemIds.length) return []
+    const rows = await this.db
+      .select({
+        itemId: inventoryBalances.itemId,
+        quantity: sql<string>`coalesce(sum(${inventoryBalances.quantity}), 0)::text`,
+        inventoryValue: sql<string>`coalesce(sum(${inventoryBalances.inventoryValue}), 0)::text`,
+      })
+      .from(inventoryBalances)
+      .where(
+        and(
+          eq(inventoryBalances.companyId, context.companyId),
+          inArray(inventoryBalances.itemId, itemIds),
+        ),
+      )
+      .groupBy(inventoryBalances.itemId)
+    return rows
+  }
+
+  async listByItem(context: RequestContext, itemId: string, limit: number) {
+    const rows = await this.db
+      .select()
+      .from(inventoryMovements)
+      .where(
+        and(
+          eq(inventoryMovements.companyId, context.companyId),
+          eq(inventoryMovements.itemId, itemId),
+        ),
+      )
+      .orderBy(sql`${inventoryMovements.occurredAt} desc`)
+      .limit(limit)
+    return rows.map(toRecord).reverse()
   }
 
   async listBySource(

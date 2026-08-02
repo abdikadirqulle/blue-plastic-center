@@ -121,6 +121,29 @@ export class MemoryInvoiceRepository implements InvoiceRepository {
     return this.projectDetail(context, invoice)
   }
 
+  async listByCustomers(context: RequestContext, customerIds: string[]) {
+    const wanted = new Set(customerIds)
+    return this.invoices
+      .filter(
+        (invoice) =>
+          invoice.companyId === context.companyId &&
+          !invoice.isDeleted &&
+          wanted.has(invoice.customerId),
+      )
+      .sort((left, right) => right.invoiceDate.localeCompare(left.invoiceDate))
+      .map((invoice) => ({
+        id: invoice.id,
+        customerId: invoice.customerId,
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: invoice.invoiceDate,
+        dueDate: invoice.dueDate,
+        status: this.project(invoice).status,
+        total: invoice.total,
+        amountPaid: invoice.amountPaid,
+        balanceDue: invoice.balanceDue,
+      }))
+  }
+
   async create(
     context: RequestContext,
     input: InvoiceWrite,
