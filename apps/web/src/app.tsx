@@ -12,6 +12,7 @@ import { ReportsPage } from "../features/reports/reports-page"
 import { ReportViewerPage } from "../features/reports/report-viewer-page"
 import { JournalEntryDetailsPage } from "../features/accounting/components/journal-entry-details-page"
 import { JournalEntryFormPage } from "../features/accounting/components/journal-entry-form-page"
+import { ItemFormPage } from "../features/inventory/components/item-form-page"
 import { BillFormPage } from "../features/purchasing/components/bill-form-page"
 import { ExpenseFormPage } from "../features/purchasing/components/expense-form-page"
 import { PayBillsFormPage } from "../features/purchasing/components/pay-bills-form-page"
@@ -151,6 +152,9 @@ function ResourceFormRoute() {
   }
   if (section === "purchasing" && resource === "vendors") {
     return <VendorFormPage />
+  }
+  if (section === "inventory" && resource === "items") {
+    return <ItemFormPage />
   }
   const config = resourceConfigs[`${section}/${resource}`]
   return config ? <ResourceFormPage config={config} /> : <NotFoundPage />
