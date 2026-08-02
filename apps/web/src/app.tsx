@@ -12,6 +12,8 @@ import { ReportsPage } from "../features/reports/reports-page"
 import { ReportViewerPage } from "../features/reports/report-viewer-page"
 import { JournalEntryDetailsPage } from "../features/accounting/components/journal-entry-details-page"
 import { JournalEntryFormPage } from "../features/accounting/components/journal-entry-form-page"
+import { BillFormPage } from "../features/purchasing/components/bill-form-page"
+import { ReceivePaymentFormPage } from "../features/sales/components/receive-payment-form-page"
 import { ResourceDetailsPage } from "../features/resources/resource-details-page"
 import { ResourceFormPage } from "../features/resources/resource-form-page"
 import { ResourcePage } from "../features/resources/resource-page"
@@ -119,6 +121,12 @@ function ResourceFormRoute() {
   const { section = "", resource = "" } = useParams()
   if (section === "accounting" && resource === "journal-entries") {
     return <JournalEntryFormPage />
+  }
+  if (section === "sales" && resource === "payments") {
+    return <ReceivePaymentFormPage />
+  }
+  if (section === "purchasing" && resource === "bills") {
+    return <BillFormPage />
   }
   const config = resourceConfigs[`${section}/${resource}`]
   return config ? <ResourceFormPage config={config} /> : <NotFoundPage />
