@@ -415,7 +415,7 @@ export class RecordReadModel implements RecordEnricher {
         description: String(payment.data.paymentMethod ?? "Payment received"),
         status: payment.status,
         amount: `-${String(payment.data.amount ?? "0")}`,
-        affectsBalance: !voidedStatuses.has(payment.status.toLowerCase()),
+        affectsBalance: isPosted(payment.status),
         source: { module: "sales", resource: "payments", id: payment.id },
       })),
       ...receipts.map((receipt) => ({
@@ -478,7 +478,7 @@ export class RecordReadModel implements RecordEnricher {
         description: String(payment.data.paymentMethod ?? "Payment sent"),
         status: payment.status,
         amount: `-${String(payment.data.amount ?? "0")}`,
-        affectsBalance: !voidedStatuses.has(payment.status.toLowerCase()),
+        affectsBalance: isPosted(payment.status),
         source: {
           module: "purchasing",
           resource: "bill-payments",
@@ -662,10 +662,11 @@ function isPosted(status: string) {
 /**
  * What the payments still standing have not been applied to a document yet.
  * Applied money already shows in the document's outstanding amount.
+ * Draft payments never touch the subledger, so they are ignored here.
  */
 function activeAmounts(payments: ResourceRecord[]) {
   return payments
-    .filter((payment) => !voidedStatuses.has(payment.status.toLowerCase()))
+    .filter((payment) => isPosted(payment.status))
     .map((payment) =>
       unappliedAmount(payment.data.amount ?? "0", payment.data.allocations),
     )
@@ -735,7 +736,7 @@ function toPartyDocument(
 function allocationsByDocument(payments: ResourceRecord[]) {
   const totals = new Map<string, string>()
   for (const payment of payments) {
-    if (voidedStatuses.has(payment.status.toLowerCase())) continue
+    if (!isPosted(payment.status)) continue
     const allocations = payment.data.allocations
     if (!Array.isArray(allocations)) continue
     for (const allocation of allocations as Array<Record<string, unknown>>) {

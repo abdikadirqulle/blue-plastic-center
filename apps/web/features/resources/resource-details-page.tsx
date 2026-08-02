@@ -89,6 +89,16 @@ const metricLabels: Record<string, string> = {
   creditTotal: "Total credits",
 };
 
+/**
+ * Setup-only form figures that must not compete with the live balances the
+ * activity panel already shows (Open balance, On hand, …).
+ */
+const detailHiddenFields = new Set([
+  "openingBalance",
+  "asOf",
+  "openingQuantity",
+]);
+
 function fieldLabel(name: string) {
   return name
     .replace(/Id$/, "")
@@ -678,9 +688,12 @@ export function ResourceDetailsPage({
             ) : null}
 
             {config.formSections.map((section) => {
-              const populated = section.fields.filter(
-                (field) => resourceFieldValue(field.name, record.data) !== undefined,
-              );
+              const populated = section.fields.filter((field) => {
+                if (detailHiddenFields.has(field.name)) return false;
+                return (
+                  resourceFieldValue(field.name, record.data) !== undefined
+                );
+              });
               if (!populated.length) return null;
               return (
               <Card key={section.title} className="overflow-hidden">
