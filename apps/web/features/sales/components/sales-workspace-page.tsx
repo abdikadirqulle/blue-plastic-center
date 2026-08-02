@@ -146,6 +146,8 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
       helper: "Current filtered result",
     },
   ];
+  // Hidden between hero section and table — flip to true to restore.
+  const showWorkspaceSummaries = false;
   const salesCell = (record: SalesRecord, column: string) =>
     tableCellValue(column, record.data, {
       document: record.displayId,
@@ -218,51 +220,58 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
           </nav>
         </section>
 
-        <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {liveStats.map((stat, index) => (
-            <Card key={stat.label} className="relative overflow-hidden p-4">
-              <div
-                className={`absolute inset-y-0 left-0 w-1 ${["bg-[#007DCC]", "bg-emerald-500", "bg-amber-500", "bg-violet-500"][index]}`}
-              />
-              <p className="text-[10px] font-bold uppercase tracking-wide text-[#788b96]">
-                {stat.label}
-              </p>
-              {loading ? (
-                <ValueSkeleton className="mt-2 h-6" />
-              ) : (
-                <p className="mt-2 text-xl font-bold tracking-[-0.03em] text-[#1f3947]">
-                  {stat.value}
-                </p>
-              )}
-              <p className="mt-1 text-[10px] text-[#007DCC]">{stat.helper}</p>
-            </Card>
-          ))}
-        </section>
-
-        {resource === "invoices" ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-4">
-            {[
-              ["Draft", /draft/i, "Prepare & review"],
-              ["Sent", /sent/i, "Awaiting payment"],
-              ["Overdue", /overdue/i, "Collection required"],
-              ["Paid", /paid/i, "Closed invoices"],
-            ].map(([label, pattern, helper], index) => (
-              <Card key={String(label)} className="flex items-center gap-3 p-4">
-                <span
-                  className={`grid size-9 place-items-center rounded-full text-xs font-bold ${index === 2 ? "bg-red-50 text-red-600" : "bg-sky-50 text-[#007DCC]"}`}
-                >
-                  {statusCount(pattern as RegExp)}
-                </span>
-                <div>
-                  <p className="text-xs font-bold">{String(label)}</p>
-                  <p className="mt-0.5 text-[10px] text-[#82949e]">
-                    {String(helper)}
+        {showWorkspaceSummaries ? (
+          <>
+            <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {liveStats.map((stat, index) => (
+                <Card key={stat.label} className="relative overflow-hidden p-4">
+                  <div
+                    className={`absolute inset-y-0 left-0 w-1 ${["bg-[#007DCC]", "bg-emerald-500", "bg-amber-500", "bg-violet-500"][index]}`}
+                  />
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[#788b96]">
+                    {stat.label}
                   </p>
-                </div>
-                <ArrowRight size={14} className="ml-auto text-[#9aa8b0]" />
-              </Card>
-            ))}
-          </div>
+                  {loading ? (
+                    <ValueSkeleton className="mt-2 h-6" />
+                  ) : (
+                    <p className="mt-2 text-xl font-bold tracking-[-0.03em] text-[#1f3947]">
+                      {stat.value}
+                    </p>
+                  )}
+                  <p className="mt-1 text-[10px] text-[#007DCC]">{stat.helper}</p>
+                </Card>
+              ))}
+            </section>
+
+            {resource === "invoices" ? (
+              <div className="mt-4 grid gap-3 md:grid-cols-4">
+                {[
+                  ["Draft", /draft/i, "Prepare & review"],
+                  ["Sent", /sent/i, "Awaiting payment"],
+                  ["Overdue", /overdue/i, "Collection required"],
+                  ["Paid", /paid/i, "Closed invoices"],
+                ].map(([label, pattern, helper], index) => (
+                  <Card
+                    key={String(label)}
+                    className="flex items-center gap-3 p-4"
+                  >
+                    <span
+                      className={`grid size-9 place-items-center rounded-full text-xs font-bold ${index === 2 ? "bg-red-50 text-red-600" : "bg-sky-50 text-[#007DCC]"}`}
+                    >
+                      {statusCount(pattern as RegExp)}
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold">{String(label)}</p>
+                      <p className="mt-0.5 text-[10px] text-[#82949e]">
+                        {String(helper)}
+                      </p>
+                    </div>
+                    <ArrowRight size={14} className="ml-auto text-[#9aa8b0]" />
+                  </Card>
+                ))}
+              </div>
+            ) : null}
+          </>
         ) : null}
 
         <Card className="mt-4 overflow-hidden">

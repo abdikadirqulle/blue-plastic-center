@@ -195,6 +195,8 @@ export function EnterpriseWorkspacePage({
       helper: "Open, draft, or exception",
     },
   ];
+  // Hidden between hero section and table — flip to true to restore.
+  const showWorkspaceSummaries = false;
   const enterpriseCell = (record: EnterpriseRecord, column: string) =>
     tableCellValue(column, record.data, {
       document: record.id,
@@ -267,24 +269,26 @@ export function EnterpriseWorkspacePage({
               ))}
           </nav>
         </section>
-        <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {liveStats.map((stat, index) => (
-            <Card key={stat.label} className="relative overflow-hidden p-4">
-              <span
-                className={`absolute inset-y-0 left-0 w-1 ${["bg-[#007DCC]", "bg-emerald-500", "bg-amber-500", "bg-violet-500"][index]}`}
-              />
-              <p className="text-[10px] font-medium uppercase text-[#788b96]">
-                {stat.label}
-              </p>
-              {loading ? (
-                <ValueSkeleton className="mt-2 h-6" />
-              ) : (
-                <p className="mt-2 text-xl font-semibold">{stat.value}</p>
-              )}
-              <p className="mt-1 text-[10px] text-[#607681]">{stat.helper}</p>
-            </Card>
-          ))}
-        </section>
+        {showWorkspaceSummaries ? (
+          <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {liveStats.map((stat, index) => (
+              <Card key={stat.label} className="relative overflow-hidden p-4">
+                <span
+                  className={`absolute inset-y-0 left-0 w-1 ${["bg-[#007DCC]", "bg-emerald-500", "bg-amber-500", "bg-violet-500"][index]}`}
+                />
+                <p className="text-[10px] font-medium uppercase text-[#788b96]">
+                  {stat.label}
+                </p>
+                {loading ? (
+                  <ValueSkeleton className="mt-2 h-6" />
+                ) : (
+                  <p className="mt-2 text-xl font-semibold">{stat.value}</p>
+                )}
+                <p className="mt-1 text-[10px] text-[#607681]">{stat.helper}</p>
+              </Card>
+            ))}
+          </section>
+        ) : null}
         <Card className="mt-4 overflow-hidden">
           <TableToolbar
             search={search}

@@ -167,6 +167,9 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
     window.setTimeout(() => setToast(null), 3200);
   };
 
+  // Hidden between header and table — flip to true to restore.
+  const showWorkspaceSummaries = false;
+
   return (
     <AppShell>
       <div className="mx-auto max-w-[1500px]">
@@ -200,57 +203,59 @@ export function ResourcePage({ config }: { config: ResourceConfig }) {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          {[
-            {
-              label: `Total ${config.title.toLowerCase()}`,
-              value: String(apiRows.data?.meta?.total ?? rows.length),
-              helper: "All records",
-            },
-            {
-              label: "Active",
-              value: String(
-                rows.filter((row) =>
-                  [
-                    "active",
-                    "paid",
-                    "posted",
-                    "approved",
-                    "completed",
-                  ].includes(row.status.toLowerCase()),
-                ).length,
-              ),
-              helper: "On this page",
-            },
-            {
-              label: "Pending",
-              value: String(
-                rows.filter((row) =>
-                  ["draft", "pending", "open"].includes(
-                    row.status.toLowerCase(),
-                  ),
-                ).length,
-              ),
-              helper: "On this page",
-            },
-          ].map((stat) => (
-            <Card key={stat.label} className="p-4">
-              <p className="text-xs font-semibold text-[#71848f]">
-                {stat.label}
-              </p>
-              {apiRows.isLoading ? (
-                <ValueSkeleton className="mt-2" />
-              ) : (
-                <p className="mt-2 text-2xl font-bold tracking-[-0.04em] text-[#17303d]">
-                  {stat.value}
+        {showWorkspaceSummaries ? (
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            {[
+              {
+                label: `Total ${config.title.toLowerCase()}`,
+                value: String(apiRows.data?.meta?.total ?? rows.length),
+                helper: "All records",
+              },
+              {
+                label: "Active",
+                value: String(
+                  rows.filter((row) =>
+                    [
+                      "active",
+                      "paid",
+                      "posted",
+                      "approved",
+                      "completed",
+                    ].includes(row.status.toLowerCase()),
+                  ).length,
+                ),
+                helper: "On this page",
+              },
+              {
+                label: "Pending",
+                value: String(
+                  rows.filter((row) =>
+                    ["draft", "pending", "open"].includes(
+                      row.status.toLowerCase(),
+                    ),
+                  ).length,
+                ),
+                helper: "On this page",
+              },
+            ].map((stat) => (
+              <Card key={stat.label} className="p-4">
+                <p className="text-xs font-semibold text-[#71848f]">
+                  {stat.label}
                 </p>
-              )}
-              <p className="mt-1 text-[11px] font-medium text-[#007DCC]">
-                {stat.helper}
-              </p>
-            </Card>
-          ))}
-        </div>
+                {apiRows.isLoading ? (
+                  <ValueSkeleton className="mt-2" />
+                ) : (
+                  <p className="mt-2 text-2xl font-bold tracking-[-0.04em] text-[#17303d]">
+                    {stat.value}
+                  </p>
+                )}
+                <p className="mt-1 text-[11px] font-medium text-[#007DCC]">
+                  {stat.helper}
+                </p>
+              </Card>
+            ))}
+          </div>
+        ) : null}
 
         <Card className="mt-4 overflow-visible">
           <nav className="overflow-x-auto border-b border-[#e5ecf1] px-4">
