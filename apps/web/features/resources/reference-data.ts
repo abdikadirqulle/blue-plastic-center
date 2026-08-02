@@ -62,25 +62,16 @@ export function useReferenceData() {
 
     const accountRecords = accounts.data?.data ?? []
     const itemRecords = items.data?.data ?? []
-    const accountOptionsFor = (fieldName: string) => {
-      const expectedType =
-        /cogs|costOfGoods/i.test(fieldName)
-          ? "cost-of-goods-sold"
-          : /income/i.test(fieldName)
-            ? "income"
-            : /expense/i.test(fieldName)
-              ? "expense"
-              : /asset|inventory/i.test(fieldName)
-                ? "asset"
-                : undefined
-      const records = expectedType
-        ? accountRecords.filter((record) => record.data.accountType === expectedType)
-        : accountRecords
-      return records.map((record) => ({
+    /**
+     * Every account select shows the full chart. The user picks the right
+     * account for the field — the form must not hide income from a COGS
+     * picker, or expenses from an income picker.
+     */
+    const accountOptionsFor = (_fieldName: string) =>
+      accountRecords.map((record) => ({
         value: record.id,
         label: `${recordIdentifier(record)} — ${recordTitle(record)}`,
       }))
-    }
 
     return {
       baseCurrency: String(
