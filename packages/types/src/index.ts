@@ -20,6 +20,7 @@ export type DocumentStatus =
   | "overdue"
   | "void";
 
+export * from "./contracts/account-types.js";
 export * from "./contracts/operational.js";
 export * from "./contracts/sales.js";
 export * from "./contracts/purchasing.js";

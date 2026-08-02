@@ -453,7 +453,6 @@ export function InvoiceFormPage() {
                   <th className="px-3 py-2.5">Item</th>
                   <th className="px-3 py-2.5">Description</th>
                   <th className="w-24 px-3 py-2.5 text-right">Qty</th>
-                  <th className="w-20 px-3 py-2.5">U/M</th>
                   <th className="w-28 px-3 py-2.5 text-right">Rate</th>
                   <th className="w-28 px-3 py-2.5 text-right">Amount</th>
                   <th className="w-10 px-2 py-2.5" />
@@ -508,15 +507,6 @@ export function InvoiceFormPage() {
                     </td>
                     <td className="p-1.5">
                       <input
-                        value={line.unit}
-                        onChange={(event) =>
-                          updateLine(line.id, { unit: event.target.value })
-                        }
-                        className="h-9 w-full rounded-md border border-[#b7c8d3] bg-white px-2 text-xs outline-none"
-                      />
-                    </td>
-                    <td className="p-1.5">
-                      <input
                         value={line.rate}
                         onChange={(event) =>
                           updateLine(line.id, {
@@ -552,7 +542,7 @@ export function InvoiceFormPage() {
               </tbody>
               <tfoot>
                 <tr className="border-t border-[#cfdce5] bg-[#f7fafc] text-xs font-bold text-[#243f4c]">
-                  <td colSpan={5} className="px-3 py-3">
+                  <td colSpan={4} className="px-3 py-3">
                     <button
                       type="button"
                       onClick={() =>

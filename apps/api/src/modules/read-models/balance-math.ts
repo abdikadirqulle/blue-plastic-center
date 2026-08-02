@@ -1,4 +1,5 @@
 import { decimalToMinor, minorToDecimal } from "../accounting/ledger-math.js"
+import { ledgerFamily } from "@blue-plastic/types"
 
 /**
  * Pure arithmetic behind the balances shown in lists and on detail screens.
@@ -18,9 +19,8 @@ export function naturalBalance(
   credit: unknown,
 ) {
   const difference = decimalToMinor(debit) - decimalToMinor(credit)
-  const normalized = debitNormal.has(String(accountType ?? "").toLowerCase())
-    ? difference
-    : -difference
+  const family = ledgerFamily(accountType)
+  const normalized = debitNormal.has(family) ? difference : -difference
   return minorToDecimal(normalized)
 }
 
@@ -164,7 +164,7 @@ export function runningLedgerBalance(
   accountType: string | undefined,
   lines: Array<{ debit: unknown; credit: unknown }>,
 ) {
-  const sign = debitNormal.has(String(accountType ?? "").toLowerCase()) ? 1n : -1n
+  const sign = debitNormal.has(ledgerFamily(accountType)) ? 1n : -1n
   let carried = 0n
   return lines.map((line) => {
     carried += sign * (decimalToMinor(line.debit) - decimalToMinor(line.credit))

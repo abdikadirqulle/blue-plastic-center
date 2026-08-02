@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { accountDetailTypes } from "./account-types.js"
 import { decimalString, identifier, isoDate, type OperationalSchema } from "./operational.js"
 
 const journalAmount = decimalString.refine(
@@ -30,7 +31,7 @@ export const accountingSchemas: Record<string, OperationalSchema> = {
   "chart-of-accounts": z.object({
     accountNumber: z.string().min(1),
     accountName: z.string().min(1),
-    accountType: z.enum(["asset", "liability", "equity", "income", "expense", "cost-of-goods-sold"]),
+    accountType: z.enum(accountDetailTypes),
     parentId: identifier.optional(),
     currency: z.string().length(3).default("USD"),
   }).passthrough(),

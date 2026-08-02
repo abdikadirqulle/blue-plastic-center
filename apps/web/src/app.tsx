@@ -13,6 +13,10 @@ import { ReportViewerPage } from "../features/reports/report-viewer-page"
 import { JournalEntryDetailsPage } from "../features/accounting/components/journal-entry-details-page"
 import { JournalEntryFormPage } from "../features/accounting/components/journal-entry-form-page"
 import { BillFormPage } from "../features/purchasing/components/bill-form-page"
+import { ExpenseFormPage } from "../features/purchasing/components/expense-form-page"
+import { PayBillsFormPage } from "../features/purchasing/components/pay-bills-form-page"
+import { VendorFormPage } from "../features/purchasing/components/vendor-form-page"
+import { CustomerFormPage } from "../features/sales/components/customer-form-page"
 import { InvoiceFormPage } from "../features/sales/components/invoice-form-page"
 import { ReceivePaymentFormPage } from "../features/sales/components/receive-payment-form-page"
 import { SalesReceiptFormPage } from "../features/sales/components/sales-receipt-form-page"
@@ -133,8 +137,20 @@ function ResourceFormRoute() {
   if (section === "sales" && resource === "sales-receipts") {
     return <SalesReceiptFormPage />
   }
+  if (section === "sales" && resource === "customers") {
+    return <CustomerFormPage />
+  }
   if (section === "purchasing" && resource === "bills") {
     return <BillFormPage />
+  }
+  if (section === "purchasing" && resource === "bill-payments") {
+    return <PayBillsFormPage />
+  }
+  if (section === "purchasing" && resource === "expenses") {
+    return <ExpenseFormPage />
+  }
+  if (section === "purchasing" && resource === "vendors") {
+    return <VendorFormPage />
   }
   const config = resourceConfigs[`${section}/${resource}`]
   return config ? <ResourceFormPage config={config} /> : <NotFoundPage />

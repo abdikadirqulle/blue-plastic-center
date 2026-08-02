@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import {
   invoiceCreateDataSchema,
+  ledgerFamily,
   type InvoiceVoidInput,
 } from "@blue-plastic/types"
 import type { Database, DatabaseTransaction } from "../../db/client.js"
@@ -883,7 +884,7 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
         ),
       )
       .limit(1)
-    if (!account || account.type !== "asset")
+    if (!account || ledgerFamily(account.type) !== "asset")
       throw validation("Accounts receivable must be an active asset account")
     await transaction
       .update(customers)

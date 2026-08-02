@@ -1,8 +1,8 @@
-"use client";
+"use client"
 
-import { Link } from "@/components/routing";
-import { usePathname } from "@/components/routing";
-import type { ReactNode } from "react";
+import { Link } from "@/components/routing"
+import { usePathname } from "@/components/routing"
+import type { ReactNode } from "react"
 import {
   BarChart3,
   Boxes,
@@ -20,10 +20,10 @@ import {
   Trash2,
   WalletCards,
   X,
-} from "lucide-react";
-import { isNavigableResource } from "@blue-plastic/types";
-import { cn } from "../../lib/utils";
-import { resolveReportDefinition } from "../../features/reports/report-registry";
+} from "lucide-react"
+import { isNavigableResource } from "@blue-plastic/types"
+import { cn } from "../../lib/utils"
+import { resolveReportDefinition } from "../../features/reports/report-registry"
 
 const catalog = [
   {
@@ -39,7 +39,6 @@ const catalog = [
     href: "/sales/invoices",
     sections: ["sales"],
     links: [
-      ["Sales center", "/sales/invoices"],
       ["Invoices", "/sales/invoices"],
       ["Sales receipts", "/sales/sales-receipts"],
       ["Customers", "/sales/customers"],
@@ -176,7 +175,7 @@ const catalog = [
     sections: ["trash"],
     links: [],
   },
-];
+]
 
 /**
  * Navigation is derived from the MVP scope: a link survives only if its
@@ -185,13 +184,13 @@ const catalog = [
  * one-line change in `mvpScope`.
  */
 const navigation = catalog.flatMap((group) => {
-  if (!group.links.length) return [group];
+  if (!group.links.length) return [group]
   const links = group.links.filter(([, href]) => {
-    const [, moduleName, resource] = href.split("/");
-    return isNavigableResource(moduleName, resource);
-  });
-  return links.length ? [{ ...group, links, href: links[0][1] }] : [];
-});
+    const [, moduleName, resource] = href.split("/")
+    return isNavigableResource(moduleName, resource)
+  })
+  return links.length ? [{ ...group, links, href: links[0][1] }] : []
+})
 
 const reportCatalog = [
   {
@@ -341,24 +340,24 @@ const reportCatalog = [
       ["Audit Trail", "Audit Trail", "audit-trail"],
     ],
   },
-] as const;
+] as const
 
 /** Deposit, check and reconciliation reports belong to deferred banking. */
-const deferredReportCategories = new Set(["Banking"]);
+const deferredReportCategories = new Set(["Banking"])
 
 const reportNavigation = reportCatalog.filter((category) => {
-  const [, moduleName, resource] = category.href.split("/");
+  const [, moduleName, resource] = category.href.split("/")
   return (
     isNavigableResource(moduleName, resource) &&
     !deferredReportCategories.has(category.label)
-  );
-});
+  )
+})
 
 function reportHref(name: string, kind: string) {
-  const today = new Date();
-  const to = today.toISOString().slice(0, 10);
-  const from = `${to.slice(0, 8)}01`;
-  return `/reports/view?${new URLSearchParams({ name, kind, from, to, basis: "accrual" })}`;
+  const today = new Date()
+  const to = today.toISOString().slice(0, 10)
+  const from = `${to.slice(0, 8)}01`
+  return `/reports/view?${new URLSearchParams({ name, kind, from, to, basis: "accrual" })}`
 }
 
 export function Sidebar({
@@ -366,11 +365,11 @@ export function Sidebar({
   onClose,
   actions,
 }: {
-  open: boolean;
-  onClose: () => void;
-  actions?: ReactNode;
+  open: boolean
+  onClose: () => void
+  actions?: ReactNode
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname()
   return (
     <>
       <div className="sticky top-0 z-30 hidden border-b border-white/10 bg-[#071f33] text-white lg:block">
@@ -393,7 +392,7 @@ export function Sidebar({
                   ? pathname === "/"
                   : sections.some((section) =>
                       pathname.startsWith(`/${section}`),
-                    );
+                    )
               return (
                 <div key={label} className="group relative">
                   <Link
@@ -438,7 +437,7 @@ export function Sidebar({
                                 {category.reports.map(
                                   ([reportLabel, reportName]) => {
                                     const definition =
-                                      resolveReportDefinition(reportName);
+                                      resolveReportDefinition(reportName)
                                     return definition.status === "available" ? (
                                       <Link
                                         key={reportLabel}
@@ -461,7 +460,7 @@ export function Sidebar({
                                           Soon
                                         </span>
                                       </div>
-                                    );
+                                    )
                                   },
                                 )}
                               </div>
@@ -479,7 +478,7 @@ export function Sidebar({
                     </div>
                   ) : null}
                 </div>
-              );
+              )
             })}
           </nav>
           <div className="flex shrink-0 items-center gap-2">{actions}</div>
@@ -515,9 +514,7 @@ export function Sidebar({
             const active =
               href === "/"
                 ? pathname === "/"
-                : sections.some((section) =>
-                    pathname.startsWith(`/${section}`),
-                  );
+                : sections.some((section) => pathname.startsWith(`/${section}`))
             return (
               <div key={label} className="mb-1">
                 <Link
@@ -553,7 +550,7 @@ export function Sidebar({
                   </div>
                 ) : null}
               </div>
-            );
+            )
           })}
         </nav>
         <div className="border-t border-white/10 p-3">
@@ -576,5 +573,5 @@ export function Sidebar({
         </div>
       </aside>
     </>
-  );
+  )
 }

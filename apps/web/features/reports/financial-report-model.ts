@@ -1,4 +1,5 @@
 import { formatCurrency } from "../../lib/utils"
+import { ledgerFamily } from "@blue-plastic/types"
 
 export interface TrialBalanceRow {
   accountId?: string
@@ -20,9 +21,9 @@ const number = (value: unknown) => Number(value ?? 0)
 const debitBalance = (row: TrialBalanceRow) => number(row.debit) - number(row.credit)
 const creditBalance = (row: TrialBalanceRow) => number(row.credit) - number(row.debit)
 
-function accounts(rows: TrialBalanceRow[], types: string[], normal: "debit" | "credit"): FinancialLine[] {
+function accounts(rows: TrialBalanceRow[], families: string[], normal: "debit" | "credit"): FinancialLine[] {
   return rows
-    .filter((row) => types.includes(row.accountType ?? ""))
+    .filter((row) => families.includes(ledgerFamily(row.accountType)))
     .map((row) => ({
       label: `${row.accountNumber ?? ""} ${row.accountName ?? "Account"}`.trim(),
       amount: normal === "debit" ? debitBalance(row) : creditBalance(row),
