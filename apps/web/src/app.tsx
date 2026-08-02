@@ -10,6 +10,7 @@ import { OperationsWorkspacePage } from "../features/operations/components/opera
 import ProfilePage from "../features/profile/profile-page"
 import { ReportsPage } from "../features/reports/reports-page"
 import { ReportViewerPage } from "../features/reports/report-viewer-page"
+import { AccountFormPage } from "../features/accounting/components/account-form-page"
 import { JournalEntryDetailsPage } from "../features/accounting/components/journal-entry-details-page"
 import { JournalEntryFormPage } from "../features/accounting/components/journal-entry-form-page"
 import { ItemFormPage } from "../features/inventory/components/item-form-page"
@@ -128,6 +129,9 @@ function ResourceFormRoute() {
   const { section = "", resource = "" } = useParams()
   if (section === "accounting" && resource === "journal-entries") {
     return <JournalEntryFormPage />
+  }
+  if (section === "accounting" && resource === "chart-of-accounts") {
+    return <AccountFormPage />
   }
   if (section === "sales" && resource === "payments") {
     return <ReceivePaymentFormPage />
