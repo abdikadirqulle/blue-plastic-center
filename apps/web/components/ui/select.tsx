@@ -149,7 +149,7 @@ export function Select({
         <SelectPrimitive.Icon><ChevronDown size={15} className="text-[#7d909c]"/></SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
-        <SelectPrimitive.Content position="popper" sideOffset={5} collisionPadding={16} className="z-[220] max-h-80 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-[#dce6ed] bg-white p-1.5 shadow-xl">
+        <SelectPrimitive.Content position="popper" sideOffset={5} collisionPadding={16} className="z-[250] max-h-80 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-[#dce6ed] bg-white p-1.5 shadow-xl">
           {searchable ? (
             <div className="relative mb-1.5 border-b border-[#e6edf1] pb-1.5">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-[65%] text-[#80929d]" size={14}/>
@@ -188,7 +188,7 @@ export function Select({
       </SelectPrimitive.Portal>
     </SelectPrimitive.Root>
     {addModalOpen ? (
-      <div onMouseDown={() => setAddModalOpen(false)} className="fixed inset-0 z-[130] grid place-items-center bg-[#071f33]/45 p-4 backdrop-blur-sm">
+      <div onMouseDown={() => setAddModalOpen(false)} className="fixed inset-0 z-[260] grid place-items-center bg-[#071f33]/45 p-4 backdrop-blur-sm">
         <div role="dialog" aria-modal="true" aria-label={`Add new ${addNewLabel}`} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-lg rounded-2xl border border-[#dce6ed] bg-white shadow-[0_24px_80px_rgba(7,31,51,0.28)]">
           <div className="flex items-start justify-between border-b border-[#e7edf1] px-5 py-4">
             <div><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#007DCC]">Quick add</p><h2 className="mt-1 text-lg font-bold text-[#213946]">Add new {addNewLabel}</h2><p className="mt-1 text-xs text-[#758894]">The current transaction stays open behind this window.</p></div>

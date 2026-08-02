@@ -99,6 +99,7 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [deleteTarget, setDeleteTarget] = useState<SalesRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const query = useMemo(
     () => ({ search, status, from, to }),
@@ -459,18 +460,37 @@ export function SalesWorkspacePage({ config }: { config: ResourceConfig }) {
       <Toast message={toast} onClose={() => setToast(null)} />
       <ConfirmDeleteDialog
         open={Boolean(deleteTarget)}
-        title={`Move ${deleteTarget?.id} to Trash?`}
+        title={`Move ${deleteTarget?.displayId || deleteTarget?.customer || "record"} to Trash?`}
         recordName={
           deleteTarget
-            ? `${deleteTarget.id} · ${deleteTarget.customer}`
+            ? `${deleteTarget.displayId || deleteTarget.id} · ${deleteTarget.customer}`
             : undefined
         }
         description="The record will be hidden from Sales and can be restored from Trash."
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={() => {
-          if (deleteTarget) void remove(deleteTarget.id);
-          setDeleteTarget(null);
-          notify("Moved to Trash", "The sales workspace has been updated.");
+        confirming={deleting}
+        onClose={() => {
+          if (!deleting) setDeleteTarget(null);
+        }}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          setDeleting(true);
+          try {
+            await remove(deleteTarget.id);
+            setDeleteTarget(null);
+            notify("Moved to Trash", "The sales workspace has been updated.");
+          } catch (caught) {
+            setToast({
+              title: "Could not delete",
+              description:
+                caught instanceof Error
+                  ? caught.message
+                  : "The API rejected this delete.",
+              variant: "error",
+            });
+            window.setTimeout(() => setToast(null), 3200);
+          } finally {
+            setDeleting(false);
+          }
         }}
       />
     </AppShell>

@@ -62,6 +62,15 @@ export class AuthService {
     }
   }
 
+  /** Issue a fresh CSRF token for the current session (needed after browser reload). */
+  async refreshCsrf(token?: string) {
+    if (!token) throw new ApiError(401, "UNAUTHORIZED", "A valid session is required")
+    const csrfToken = randomBytes(24).toString("base64url")
+    const updated = await this.repository.updateSessionCsrf(digest(token), digest(csrfToken))
+    if (!updated) throw new ApiError(401, "UNAUTHORIZED", "Session is invalid or expired")
+    return csrfToken
+  }
+
   async logout(token?: string) {
     if (token) await this.repository.deleteSession(digest(token))
   }

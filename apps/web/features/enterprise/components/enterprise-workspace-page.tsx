@@ -136,6 +136,7 @@ export function EnterpriseWorkspacePage({
   const [deleteTarget, setDeleteTarget] = useState<EnterpriseRecord | null>(
     null,
   );
+  const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const { records, loading, error, updateStatus, remove } =
     useEnterpriseRecords(enterpriseModule, resource, search, status);
@@ -200,13 +201,13 @@ export function EnterpriseWorkspacePage({
   const enterpriseCell = (record: EnterpriseRecord, column: string) =>
     tableCellValue(column, record.data, {
       document: String(
-        record.data.documentNumber ??
-          record.data.journalNumber ??
+        record.data?.documentNumber ??
+          record.data?.journalNumber ??
           record.id.slice(0, 8),
       ),
       journal: String(
-        record.data.journalNumber ??
-          record.data.documentNumber ??
+        record.data?.journalNumber ??
+          record.data?.documentNumber ??
           record.id.slice(0, 8),
       ),
       name: record.name,
@@ -422,14 +423,33 @@ export function EnterpriseWorkspacePage({
       <Toast message={message} onClose={() => setMessage(null)} />
       <ConfirmDeleteDialog
         open={Boolean(deleteTarget)}
-        title={`Move ${deleteTarget?.id} to Trash?`}
+        title={`Move ${deleteTarget?.name || "record"} to Trash?`}
         recordName={deleteTarget?.name}
         description="The record remains stored and can be restored from Trash."
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={() => {
-          if (deleteTarget) void remove(deleteTarget.id);
-          setDeleteTarget(null);
-          notify("Moved to Trash", "The workspace was updated.");
+        confirming={deleting}
+        onClose={() => {
+          if (!deleting) setDeleteTarget(null);
+        }}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          setDeleting(true);
+          try {
+            await remove(deleteTarget.id);
+            setDeleteTarget(null);
+            notify("Moved to Trash", "The workspace was updated.");
+          } catch (caught) {
+            setMessage({
+              title: "Could not delete",
+              description:
+                caught instanceof Error
+                  ? caught.message
+                  : "The API rejected this delete.",
+              variant: "error",
+            });
+            window.setTimeout(() => setMessage(null), 3200);
+          } finally {
+            setDeleting(false);
+          }
         }}
       />
     </AppShell>

@@ -34,13 +34,23 @@ export const authService = {
       throw new Error(`Cannot connect to the API at ${webEnv.apiUrl}`)
     }
     if (!response.ok) throw new Error("Session expired")
-    return response.json() as Promise<{
+    const payload = (await response.json()) as {
       data: {
-        user: { id: string; displayName: string; username: string; email: string; role: string }
-        company: { id: string; legalName: string }
-        branch: { id: string; name: string }
+        user: {
+          id: string
+          displayName: string
+          username: string
+          email: string
+          role: string
+        }
+        company?: { id: string; legalName: string }
+        branch?: { id: string; name: string }
+        csrfToken?: string
       }
-    }>
+    }
+    if (payload.data.csrfToken)
+      sessionStorage.setItem(csrfKey, payload.data.csrfToken)
+    return payload
   },
   async logout() {
     await fetch(`${webEnv.apiUrl}/v1/auth/logout`, {

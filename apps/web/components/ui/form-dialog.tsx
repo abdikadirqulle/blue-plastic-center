@@ -144,7 +144,17 @@ export function FormDialog({
   return createPortal(
     <>
       <div
-        onMouseDown={requestClose}
+        onMouseDown={(event) => {
+          // Only the dimmed backdrop closes the form — not portaled selects/date pickers.
+          if (event.target !== event.currentTarget) return;
+          if (
+            document.querySelector(
+              '[data-radix-popper-content-wrapper], [data-radix-select-content]',
+            )
+          )
+            return;
+          requestClose();
+        }}
         className="fixed inset-0 z-[200] grid place-items-start justify-center overflow-y-auto bg-[#071f33]/45 p-4 py-8 backdrop-blur-sm sm:py-12"
       >
         <div

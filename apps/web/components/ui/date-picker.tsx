@@ -35,7 +35,7 @@ export function DatePicker({
         <CalendarDays size={16} className="text-[#007DCC]"/>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content align="start" sideOffset={8} collisionPadding={16} className="z-[180] w-[316px] rounded-2xl border border-[#dce6ed] bg-white p-4 shadow-[0_20px_60px_rgba(20,45,60,0.18)]">
+        <Popover.Content align="start" sideOffset={8} collisionPadding={16} className="z-[250] w-[316px] rounded-2xl border border-[#dce6ed] bg-white p-4 shadow-[0_20px_60px_rgba(20,45,60,0.18)]">
           <DayPicker
             mode="single"
             selected={selected}

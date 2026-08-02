@@ -32,6 +32,8 @@ export interface IdentityRepository {
   createSession(session: IdentitySession & { userAgent?: string; ipAddress?: string }): Promise<void>
   deleteSession(tokenHash: string): Promise<void>
   sessionMatchesCsrf(tokenHash: string, csrfTokenHash: string): Promise<boolean>
+  /** Replace the CSRF secret for an active session (used after page reload). */
+  updateSessionCsrf(tokenHash: string, csrfTokenHash: string): Promise<boolean>
   listUsers(companyId: string): Promise<IdentityUser[]>
   createUser(user: IdentityUser): Promise<void>
   updateUser(

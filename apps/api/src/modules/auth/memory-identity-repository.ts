@@ -75,6 +75,13 @@ export class MemoryIdentityRepository implements IdentityRepository {
     return Boolean(session && session.expiresAt > new Date() && session.csrfTokenHash === csrfTokenHash)
   }
 
+  async updateSessionCsrf(tokenHash: string, csrfTokenHash: string) {
+    const session = this.sessions.get(tokenHash)
+    if (!session || session.expiresAt <= new Date()) return false
+    session.csrfTokenHash = csrfTokenHash
+    return true
+  }
+
   async listUsers(companyId: string) {
     return this.users.filter((user) => user.companyId === companyId)
   }

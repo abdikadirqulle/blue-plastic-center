@@ -127,6 +127,17 @@ export class PostgresIdentityRepository implements IdentityRepository {
     return Boolean(session)
   }
 
+  async updateSessionCsrf(tokenHash: string, csrfTokenHash: string) {
+    const updated = await this.db
+      .update(sessions)
+      .set({ csrfTokenHash })
+      .where(
+        and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, new Date())),
+      )
+      .returning({ id: sessions.id })
+    return Boolean(updated[0])
+  }
+
   async listUsers(companyId: string) {
     const rows = await this.db
       .select()

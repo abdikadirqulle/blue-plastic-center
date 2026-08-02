@@ -92,11 +92,6 @@ export function ExpenseFormPage({
   const [saveMode, setSaveMode] = useState<SaveMode>("close");
 
   useEffect(() => {
-    if (!paymentAccountId && paymentAccounts[0])
-      setPaymentAccountId(paymentAccounts[0].value);
-  }, [paymentAccounts, paymentAccountId]);
-
-  useEffect(() => {
     const record = detail.data?.data;
     const key = `${editId}|${record?.id ?? ""}`;
     if (!record || loadedKey.current === key) return;
@@ -121,7 +116,7 @@ export function ExpenseFormPage({
     setPaymentDate(todayIso());
     setPaymentMethod("Cash");
     setReference("");
-    setPaymentAccountId(paymentAccounts[0]?.value ?? "");
+    setPaymentAccountId("");
     setAccountId("");
     setAmount("");
     setMemo("");
@@ -147,10 +142,26 @@ export function ExpenseFormPage({
       });
       return;
     }
-    if (!paymentAccountId || !accountId || !amount || Number(amount) <= 0) {
+    if (!paymentAccountId) {
       setMessage({
-        title: "Missing fields",
-        description: "Payment account, expense account, and amount are required.",
+        title: "Payment account required",
+        description: "Choose the bank or cash account this expense is paid from.",
+        variant: "error",
+      });
+      return;
+    }
+    if (!accountId) {
+      setMessage({
+        title: "Expense account required",
+        description: "Choose the expense account to categorize this payment.",
+        variant: "error",
+      });
+      return;
+    }
+    if (!amount.trim() || Number(amount) <= 0) {
+      setMessage({
+        title: "Amount required",
+        description: "Enter a payment amount greater than zero.",
         variant: "error",
       });
       return;
@@ -327,7 +338,7 @@ export function ExpenseFormPage({
                 setPaymentAccountId(value);
               }}
               options={paymentAccounts}
-              placeholder="Select account"
+              placeholder="Select bank / cash account"
               className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
             />
           </label>

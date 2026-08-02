@@ -132,6 +132,7 @@ export function OperationsWorkspacePage({
   const [deleteTarget, setDeleteTarget] = useState<OperationRecord | null>(
     null,
   );
+  const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const query = useMemo(
     () => ({ search, status, from, to }),
@@ -209,9 +210,9 @@ export function OperationsWorkspacePage({
       vendor: resource === "vendors" ? record.name : record.secondary,
       account: record.name,
       "bank account": String(
-        record.data.bankAccountName ??
-          record.data.paymentAccountName ??
-          record.data.depositToAccountName ??
+        record.data?.bankAccountName ??
+          record.data?.paymentAccountName ??
+          record.data?.depositToAccountName ??
           "",
       ),
       amount: record.amount,
@@ -459,19 +460,36 @@ export function OperationsWorkspacePage({
       <Toast message={toast} onClose={() => setToast(null)} />
       <ConfirmDeleteDialog
         open={Boolean(deleteTarget)}
-        title={`Move ${deleteTarget?.id} to Trash?`}
+        title={`Move ${deleteTarget?.reference || deleteTarget?.name || "record"} to Trash?`}
         recordName={
-          deleteTarget ? `${deleteTarget.id} · ${deleteTarget.name}` : undefined
+          deleteTarget ? `${deleteTarget.reference || deleteTarget.id} · ${deleteTarget.name}` : undefined
         }
         description="The record remains in the database and can be restored from Trash."
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={() => {
-          if (deleteTarget) void remove(deleteTarget.id);
-          setDeleteTarget(null);
-          notify(
-            "Moved to Trash",
-            "The operations workspace has been updated.",
-          );
+        confirming={deleting}
+        onClose={() => {
+          if (!deleting) setDeleteTarget(null);
+        }}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          setDeleting(true);
+          try {
+            await remove(deleteTarget.id);
+            setDeleteTarget(null);
+            notify(
+              "Moved to Trash",
+              "The operations workspace has been updated.",
+            );
+          } catch (caught) {
+            notify(
+              "Could not delete",
+              caught instanceof Error
+                ? caught.message
+                : "The API rejected this delete.",
+              "error",
+            );
+          } finally {
+            setDeleting(false);
+          }
         }}
       />
     </AppShell>

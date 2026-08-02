@@ -68,14 +68,20 @@ export async function authRoutes(app: FastifyInstance, authService: AuthService,
     return { data: { user: result.user, csrfToken: result.csrfToken } }
   })
 
-  app.get("/me", async (request) => ({
-    data: {
-      user: await authService.getUser(
-        request.requestContext.principal.userId,
-        request.requestContext.companyId,
-      ),
-    },
-  }))
+  app.get("/me", async (request) => {
+    const csrfToken = await authService.refreshCsrf(
+      request.cookies.blue_session,
+    )
+    return {
+      data: {
+        user: await authService.getUser(
+          request.requestContext.principal.userId,
+          request.requestContext.companyId,
+        ),
+        csrfToken,
+      },
+    }
+  })
 
   app.patch("/me", async (request) => {
     const input = updateProfileSchema.parse(request.body)
