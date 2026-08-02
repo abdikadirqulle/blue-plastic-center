@@ -74,7 +74,7 @@ export function Select({
       .filter((added) => !normalizedOptions.some((option) => option.value === added.value)),
   ];
   const visibleOptions = localOptions.filter((option) =>
-    `${option.label} ${option.value}`.toLowerCase().includes(search.trim().toLowerCase()),
+    option.label.toLowerCase().includes(search.trim().toLowerCase()),
   );
 
   const selectValue = (nextValue: string) => {

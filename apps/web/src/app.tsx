@@ -10,6 +10,8 @@ import { OperationsWorkspacePage } from "../features/operations/components/opera
 import ProfilePage from "../features/profile/profile-page"
 import { ReportsPage } from "../features/reports/reports-page"
 import { ReportViewerPage } from "../features/reports/report-viewer-page"
+import { JournalEntryDetailsPage } from "../features/accounting/components/journal-entry-details-page"
+import { JournalEntryFormPage } from "../features/accounting/components/journal-entry-form-page"
 import { ResourceDetailsPage } from "../features/resources/resource-details-page"
 import { ResourceFormPage } from "../features/resources/resource-form-page"
 import { ResourcePage } from "../features/resources/resource-page"
@@ -102,6 +104,9 @@ function ResourceRoute() {
 
 function ResourceDetailsRoute() {
   const { section = "", resource = "", id = "" } = useParams()
+  if (section === "accounting" && resource === "journal-entries") {
+    return <JournalEntryDetailsPage id={decodeURIComponent(id)} />
+  }
   const config = resourceConfigs[`${section}/${resource}`]
   return config ? (
     <ResourceDetailsPage config={config} id={decodeURIComponent(id)} />
@@ -112,6 +117,9 @@ function ResourceDetailsRoute() {
 
 function ResourceFormRoute() {
   const { section = "", resource = "" } = useParams()
+  if (section === "accounting" && resource === "journal-entries") {
+    return <JournalEntryFormPage />
+  }
   const config = resourceConfigs[`${section}/${resource}`]
   return config ? <ResourceFormPage config={config} /> : <NotFoundPage />
 }

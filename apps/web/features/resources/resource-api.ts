@@ -119,9 +119,11 @@ export function recordTitle(record: ApiRecord) {
       "name",
       "accountName",
       "projectName",
+      "journalNumber",
       "documentNumber",
       "description",
       "firstName",
+      "memo",
     ],
     "Untitled record",
   )
@@ -132,6 +134,7 @@ export function recordIdentifier(record: ApiRecord) {
     record,
     [
       "documentNumber",
+      "journalNumber",
       "accountNumber",
       "sku",
       "code",
