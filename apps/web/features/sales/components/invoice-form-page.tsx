@@ -14,18 +14,16 @@ import {
   useResourceMutations,
 } from "../../resources/resource-api";
 
-type LineKind = "account" | "item";
-
-interface BillLine {
+interface InvoiceLine {
   id: number;
-  kind: LineKind;
-  accountId: string;
   itemId: string;
   description: string;
   quantity: string;
   rate: string;
-  memo: string;
+  unit: string;
 }
+
+type SaveMode = "stay" | "new" | "close";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -37,16 +35,14 @@ function dueInThirtyDays() {
   return date.toISOString().slice(0, 10);
 }
 
-function blankLine(): BillLine {
+function blankLine(): InvoiceLine {
   return {
     id: Date.now() + Math.random(),
-    kind: "account",
-    accountId: "",
     itemId: "",
     description: "",
     quantity: "1",
     rate: "",
-    memo: "",
+    unit: "Each",
   };
 }
 
@@ -57,61 +53,88 @@ function moneyInput(value: string) {
   return cleaned;
 }
 
-function lineAmount(line: BillLine) {
+function lineAmount(line: InvoiceLine) {
   const qty = line.quantity || "0";
   const rate = line.rate || "0";
   if (!Number(qty) || !Number(rate)) return "0";
-  // Use decimal-safe multiply via scaled integers for the display total.
   const scale = 10_000n;
   const toMinor = (text: string) => {
     const [whole = "0", fraction = ""] = text.split(".");
-    return BigInt(whole || "0") * scale + BigInt(fraction.padEnd(4, "0").slice(0, 4));
+    return (
+      BigInt(whole || "0") * scale + BigInt(fraction.padEnd(4, "0").slice(0, 4))
+    );
   };
   const product = (toMinor(qty) * toMinor(rate)) / scale;
   return `${product / scale}.${String(product % scale).padStart(4, "0")}`;
 }
 
 /**
- * QuickBooks Desktop-style Enter Bills: vendor header, then expense/item
- * lines with account or item, qty, rate, and amount.
+ * QuickBooks Desktop-style Create Invoices: customer header, item grid,
+ * and Save / Save & new / Save & close.
  */
-export function BillFormPage() {
+export function InvoiceFormPage() {
   const router = useRouter();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit") ?? "";
-  const detail = useResourceDetail("purchasing", "bills", editId);
-  const mutations = useResourceMutations("purchasing", "bills");
+  const detail = useResourceDetail("sales", "invoices", editId);
+  const mutations = useResourceMutations("sales", "invoices");
   const references = useReferenceData();
   const idempotencyKey = useRef(crypto.randomUUID());
   const loadedKey = useRef("");
 
-  const vendorOptions = useMemo(
+  const customerOptions = useMemo(
     () =>
       references.optionsFor({
-        name: "vendorId",
-        label: "Vendor",
+        name: "customerId",
+        label: "Customer",
         type: "select",
       }) ?? [],
     [references],
   );
-  const accountOptions = useMemo(
-    () => references.accountOptionsFor("accountId"),
+  const warehouseOptions = useMemo(
+    () =>
+      references.optionsFor({
+        name: "warehouseId",
+        label: "Warehouse",
+        type: "select",
+      }) ?? [],
     [references],
   );
-  const itemOptions = references.itemOptions;
+  const receivableOptions = useMemo(
+    () => references.accountOptionsFor("receivableAccountId"),
+    [references],
+  );
 
-  const [vendorId, setVendorId] = useState("");
-  const [billDate, setBillDate] = useState(todayIso());
+  const [customerId, setCustomerId] = useState("");
+  const [documentNumber, setDocumentNumber] = useState("");
+  const [poNumber, setPoNumber] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState(todayIso());
   const [dueDate, setDueDate] = useState(dueInThirtyDays());
-  const [vendorReference, setVendorReference] = useState("");
-  const [terms, setTerms] = useState("Net 30");
+  const [warehouseId, setWarehouseId] = useState("");
+  const [receivableAccountId, setReceivableAccountId] = useState("");
   const [memo, setMemo] = useState("");
-  const [lines, setLines] = useState<BillLine[]>(() =>
+  const [lines, setLines] = useState<InvoiceLine[]>(() =>
     Array.from({ length: 6 }, () => blankLine()),
   );
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saveAndClose, setSaveAndClose] = useState(false);
+  const [saveMode, setSaveMode] = useState<SaveMode>("close");
+
+  useEffect(() => {
+    if (!warehouseId && warehouseOptions[0]) {
+      setWarehouseId(
+        typeof warehouseOptions[0] === "string"
+          ? warehouseOptions[0]
+          : warehouseOptions[0].value,
+      );
+    }
+  }, [warehouseOptions, warehouseId]);
+
+  useEffect(() => {
+    if (!receivableAccountId && receivableOptions[0]) {
+      setReceivableAccountId(receivableOptions[0].value);
+    }
+  }, [receivableOptions, receivableAccountId]);
 
   useEffect(() => {
     const record = detail.data?.data;
@@ -119,57 +142,51 @@ export function BillFormPage() {
     if (!record || loadedKey.current === key) return;
     loadedKey.current = key;
     const data = record.data;
-    setVendorId(String(data.vendorId ?? data.vendor ?? ""));
-    setBillDate(String(data.billDate ?? todayIso()));
-    setDueDate(String(data.dueDate ?? dueInThirtyDays()));
-    setVendorReference(
-      String(data.vendorReference ?? data.billNumber ?? data.reference ?? ""),
+    setCustomerId(String(data.customerId ?? data.customer ?? ""));
+    setDocumentNumber(String(data.documentNumber ?? ""));
+    setPoNumber(
+      String(data.customerPurchaseOrder ?? data.poNumber ?? ""),
     );
-    setTerms(String(data.terms ?? "Net 30"));
+    setInvoiceDate(String(data.invoiceDate ?? todayIso()));
+    setDueDate(String(data.dueDate ?? dueInThirtyDays()));
     setMemo(String(data.memo ?? ""));
+    setReceivableAccountId(String(data.receivableAccountId ?? ""));
     if (Array.isArray(data.lines) && data.lines.length) {
+      const mapped = data.lines as Array<Record<string, unknown>>;
+      const firstWarehouse = mapped.find((line) => line.warehouseId);
+      if (firstWarehouse?.warehouseId)
+        setWarehouseId(String(firstWarehouse.warehouseId));
       setLines(
-        (data.lines as Array<Record<string, unknown>>).map((line, index) => {
-          const itemId = String(line.itemId ?? "");
-          const accountId = String(line.accountId ?? "");
-          return {
-            id: Date.now() + index,
-            kind: itemId ? ("item" as const) : ("account" as const),
-            accountId,
-            itemId,
-            description: String(line.description ?? ""),
-            quantity: String(line.quantity ?? "1"),
-            rate: String(line.unitPrice ?? line.rate ?? ""),
-            memo: String(line.memo ?? ""),
-          };
-        }),
+        mapped.map((line, index) => ({
+          id: Date.now() + index,
+          itemId: String(line.itemId ?? line.accountId ?? ""),
+          description: String(line.description ?? ""),
+          quantity: String(line.quantity ?? "1"),
+          rate: String(line.unitPrice ?? line.rate ?? ""),
+          unit: String(line.unit ?? "Each"),
+        })),
       );
     }
   }, [detail.data, editId]);
 
-  const amountDue = sumDecimals(lines.map((line) => lineAmount(line)));
+  const total = sumDecimals(lines.map((line) => lineAmount(line)));
 
-  const updateLine = (id: number, patch: Partial<BillLine>) => {
+  const updateLine = (id: number, patch: Partial<InvoiceLine>) => {
     setLines((current) =>
       current.map((line) => {
         if (line.id !== id) return line;
         const next = { ...line, ...patch };
-        if (patch.kind === "account") {
-          next.itemId = "";
-        }
-        if (patch.kind === "item") {
-          next.accountId = "";
-        }
-        if (patch.itemId !== undefined && patch.itemId) {
+        if (patch.itemId) {
           const item = references.itemById.get(patch.itemId);
           if (item) {
-            next.description =
-              next.description || String(item.data.name ?? item.data.description ?? "");
-            next.rate =
-              next.rate ||
-              String(item.data.purchaseCost ?? item.data.salesPrice ?? "");
-            next.kind = "item";
-            next.accountId = "";
+            next.description = String(
+              item.data.salesDescription ??
+                item.data.description ??
+                item.data.name ??
+                next.description,
+            );
+            next.unit = String(item.data.unit ?? next.unit ?? "Each");
+            next.rate = String(item.data.salesPrice ?? next.rate);
           }
         }
         return next;
@@ -178,96 +195,106 @@ export function BillFormPage() {
   };
 
   const resetForm = () => {
-    setVendorId("");
-    setBillDate(todayIso());
+    setCustomerId("");
+    setDocumentNumber("");
+    setPoNumber("");
+    setInvoiceDate(todayIso());
     setDueDate(dueInThirtyDays());
-    setVendorReference("");
-    setTerms("Net 30");
     setMemo("");
     setLines(Array.from({ length: 6 }, () => blankLine()));
     idempotencyKey.current = crypto.randomUUID();
     loadedKey.current = "";
+    if (!editId) return;
+    router.push("/sales/invoices/new");
   };
 
-  const save = async (closeAfter: boolean) => {
-    if (!vendorId) {
+  const save = async (mode: SaveMode) => {
+    if (!customerId) {
       setMessage({
-        title: "Vendor required",
-        description: "Select the vendor this bill is from.",
+        title: "Customer required",
+        description: "Select the customer for this invoice.",
         variant: "error",
       });
       return;
     }
-
-    const filled = lines.filter((line) => {
-      const hasTarget =
-        (line.kind === "account" && line.accountId) ||
-        (line.kind === "item" && line.itemId);
-      return hasTarget && Number(line.rate) >= 0 && Number(line.quantity) > 0;
-    });
-
+    const filled = lines.filter(
+      (line) => line.itemId && Number(line.quantity) > 0,
+    );
     if (!filled.length) {
       setMessage({
-        title: "Lines required",
-        description: "Add at least one account or item line.",
+        title: "Items required",
+        description: "Add at least one item line.",
         variant: "error",
       });
       return;
     }
 
     const data = {
-      vendorId,
-      billDate,
+      customerId,
+      invoiceDate,
       dueDate,
       currency: references.baseCurrency || "USD",
       exchangeRate: "1",
-      vendorReference: vendorReference || undefined,
-      terms: terms || undefined,
+      documentNumber: documentNumber || undefined,
+      customerPurchaseOrder: poNumber || undefined,
       memo: memo || undefined,
+      receivableAccountId: receivableAccountId || undefined,
+      discountType: "none" as const,
+      discountValue: "0",
       lines: filled.map((line) => ({
-        ...(line.kind === "item"
-          ? { itemId: line.itemId }
-          : { accountId: line.accountId }),
-        description:
-          line.description ||
-          line.memo ||
-          (line.kind === "item" ? "Item" : "Expense"),
+        itemId: line.itemId,
+        description: line.description || "Item",
         quantity: line.quantity || "1",
         unitPrice: line.rate || "0",
+        discountAmount: "0",
+        taxRate: "0",
+        unit: line.unit || undefined,
+        ...(warehouseId ? { warehouseId } : {}),
       })),
     };
 
     setSaving(true);
-    setSaveAndClose(closeAfter);
+    setSaveMode(mode);
     try {
+      let id = editId;
       if (editId) {
         const version = detail.data?.data.version;
         if (version === undefined) {
-          throw new Error("Bill version is missing. Reload and try again.");
+          throw new Error("Invoice version is missing. Reload and try again.");
         }
         await mutations.update.mutateAsync({ id: editId, data, version });
       } else {
-        await mutations.create.mutateAsync({
+        const created = await mutations.create.mutateAsync({
           data,
-          status: "incomplete",
+          status: "draft",
           idempotencyKey: idempotencyKey.current,
         });
+        id = created.data.id;
       }
 
       setMessage({
-        title: "Bill saved",
-        description: closeAfter
-          ? "Returning to the bills list."
-          : "Saved. You can enter another bill.",
+        title: "Invoice saved",
+        description:
+          mode === "close"
+            ? "Returning to the invoices list."
+            : mode === "new"
+              ? "Saved. Ready for another invoice."
+              : "Draft saved.",
         variant: "success",
       });
 
-      if (closeAfter) {
+      if (mode === "close") {
         window.setTimeout(() => {
-          router.push("/purchasing/bills");
+          router.push(
+            id
+              ? `/sales/invoices/${encodeURIComponent(id)}`
+              : "/sales/invoices",
+          );
         }, 500);
-      } else {
+      } else if (mode === "new") {
         resetForm();
+      } else if (!editId && id) {
+        router.replace(`/sales/invoices/new?edit=${encodeURIComponent(id)}`);
       }
     } catch (caught) {
       setMessage({
@@ -275,12 +302,11 @@ export function BillFormPage() {
         description:
           caught instanceof Error
             ? caught.message
-            : "The API rejected this bill.",
+            : "The API rejected this invoice.",
         variant: "error",
       });
     } finally {
       setSaving(false);
-      setSaveAndClose(false);
     }
   };
 
@@ -290,19 +316,19 @@ export function BillFormPage() {
         className="mx-auto max-w-[1100px]"
         onSubmit={(event) => {
           event.preventDefault();
-          void save(false);
+          void save("stay");
         }}
       >
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <Link
-              href="/purchasing/bills"
+              href="/sales/invoices"
               className="mb-2 inline-flex items-center gap-2 text-xs font-bold text-[#007DCC]"
             >
-              <ArrowLeft size={14} /> Back to bills
+              <ArrowLeft size={14} /> Back to invoices
             </Link>
             <h1 className="text-2xl font-bold tracking-[-0.03em] text-[#142735]">
-              {editId ? "Edit bill" : "Enter bill"}
+              {editId ? "Edit invoice" : "Create invoice"}
             </h1>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -311,20 +337,31 @@ export function BillFormPage() {
               disabled={saving}
               className="flex h-10 items-center gap-2 rounded-xl border border-[#d5e0e7] bg-white px-4 text-xs font-bold text-[#334b57]"
             >
-              {saving && !saveAndClose ? (
+              {saving && saveMode === "stay" ? (
                 <LoaderCircle size={14} className="animate-spin" />
               ) : (
                 <Save size={14} />
               )}
+              Save
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void save("new")}
+              className="flex h-10 items-center gap-2 rounded-xl border border-[#007DCC] bg-white px-4 text-xs font-bold text-[#007DCC]"
+            >
+              {saving && saveMode === "new" ? (
+                <LoaderCircle size={14} className="animate-spin" />
+              ) : null}
               Save & new
             </button>
             <button
               type="button"
               disabled={saving}
-              onClick={() => void save(true)}
+              onClick={() => void save("close")}
               className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"
             >
-              {saving && saveAndClose ? (
+              {saving && saveMode === "close" ? (
                 <LoaderCircle size={14} className="animate-spin" />
               ) : null}
               Save & close
@@ -335,17 +372,17 @@ export function BillFormPage() {
         <Toast message={message} onClose={() => setMessage(null)} />
 
         <Card className="mt-5 overflow-hidden p-0">
-          <div className="grid gap-3 border-b border-[#e5ecf1] bg-[#f7fafc] px-4 py-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 border-b border-[#e5ecf1] bg-[#f7fafc] px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
             <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] lg:col-span-2">
-              Vendor
+              Customer:Job
               <Select
-                value={vendorId || undefined}
-                onValueChange={setVendorId}
-                options={vendorOptions}
-                placeholder="Select vendor"
+                value={customerId || undefined}
+                onValueChange={setCustomerId}
+                options={customerOptions}
+                placeholder="Select customer"
                 allowAddNew
-                addNewLabel="vendor"
-                quickAddKind="vendor"
+                addNewLabel="customer"
+                quickAddKind="customer"
                 onCreateOption={references.createOption}
                 className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
               />
@@ -354,11 +391,20 @@ export function BillFormPage() {
               Date
               <div className="mt-1.5">
                 <DatePicker
-                  value={billDate}
-                  onChange={setBillDate}
+                  value={invoiceDate}
+                  onChange={setInvoiceDate}
                   className="h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
                 />
               </div>
+            </label>
+            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+              Invoice no.
+              <input
+                value={documentNumber}
+                onChange={(event) => setDocumentNumber(event.target.value)}
+                placeholder="Auto if blank"
+                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
+              />
             </label>
             <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
               Bill due
@@ -371,42 +417,43 @@ export function BillFormPage() {
               </div>
             </label>
             <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Ref. no.
+              P.O. no.
               <input
-                value={vendorReference}
-                onChange={(event) => setVendorReference(event.target.value)}
-                placeholder="Vendor invoice #"
+                value={poNumber}
+                onChange={(event) => setPoNumber(event.target.value)}
                 className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
               />
             </label>
             <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Terms
+              Warehouse
               <Select
-                value={terms}
-                onValueChange={setTerms}
-                options={["Due on receipt", "Net 15", "Net 30", "Net 60"]}
-                searchable={false}
+                value={warehouseId || undefined}
+                onValueChange={setWarehouseId}
+                options={warehouseOptions}
+                placeholder="Select warehouse"
                 className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
               />
             </label>
-            <div className="flex flex-col justify-end lg:col-span-4">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-                Amount due
-              </p>
-              <p className="mt-1.5 text-xl font-bold tabular-nums text-[#142735]">
-                {formatDecimal(amountDue)}
-              </p>
-            </div>
+            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+              Accounts receivable
+              <Select
+                value={receivableAccountId || undefined}
+                onValueChange={setReceivableAccountId}
+                options={receivableOptions}
+                placeholder="AR account"
+                className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+              />
+            </label>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left">
+            <table className="w-full min-w-[820px] text-left">
               <thead className="bg-[#eef4f8] text-[10px] font-bold uppercase tracking-wide text-[#6f8390]">
                 <tr>
-                  <th className="w-28 px-3 py-2.5">Type</th>
-                  <th className="px-3 py-2.5">Account / Item</th>
+                  <th className="px-3 py-2.5">Item</th>
                   <th className="px-3 py-2.5">Description</th>
                   <th className="w-24 px-3 py-2.5 text-right">Qty</th>
+                  <th className="w-20 px-3 py-2.5">U/M</th>
                   <th className="w-28 px-3 py-2.5 text-right">Rate</th>
                   <th className="w-28 px-3 py-2.5 text-right">Amount</th>
                   <th className="w-10 px-2 py-2.5" />
@@ -423,50 +470,18 @@ export function BillFormPage() {
                   >
                     <td className="p-1.5">
                       <Select
-                        value={line.kind}
+                        value={line.itemId || undefined}
                         onValueChange={(value) =>
-                          updateLine(line.id, {
-                            kind: value as LineKind,
-                          })
+                          updateLine(line.id, { itemId: value })
                         }
-                        options={[
-                          { label: "Expense", value: "account" },
-                          { label: "Item", value: "item" },
-                        ]}
-                        searchable={false}
+                        options={references.itemOptions}
+                        placeholder="Select item"
+                        allowAddNew
+                        addNewLabel="item"
+                        quickAddKind="item"
+                        onCreateOption={references.createOption}
                         className="h-9 rounded-md border-[#b7c8d3] bg-white px-2 text-xs"
                       />
-                    </td>
-                    <td className="p-1.5">
-                      {line.kind === "item" ? (
-                        <Select
-                          value={line.itemId || undefined}
-                          onValueChange={(value) =>
-                            updateLine(line.id, { itemId: value })
-                          }
-                          options={itemOptions}
-                          placeholder="Select item"
-                          allowAddNew
-                          addNewLabel="item"
-                          quickAddKind="item"
-                          onCreateOption={references.createOption}
-                          className="h-9 rounded-md border-[#b7c8d3] bg-white px-2 text-xs"
-                        />
-                      ) : (
-                        <Select
-                          value={line.accountId || undefined}
-                          onValueChange={(value) =>
-                            updateLine(line.id, { accountId: value })
-                          }
-                          options={accountOptions}
-                          placeholder="Select account"
-                          allowAddNew
-                          addNewLabel="account"
-                          quickAddKind="account"
-                          onCreateOption={references.createOption}
-                          className="h-9 rounded-md border-[#b7c8d3] bg-white px-2 text-xs"
-                        />
-                      )}
                     </td>
                     <td className="p-1.5">
                       <input
@@ -476,7 +491,6 @@ export function BillFormPage() {
                             description: event.target.value,
                           })
                         }
-                        placeholder="Description"
                         className="h-9 w-full rounded-md border border-[#b7c8d3] bg-white px-2 text-xs outline-none"
                       />
                     </td>
@@ -490,6 +504,15 @@ export function BillFormPage() {
                         }
                         inputMode="decimal"
                         className="h-9 w-full rounded-md border border-[#b7c8d3] bg-white px-2 text-right text-xs tabular-nums outline-none"
+                      />
+                    </td>
+                    <td className="p-1.5">
+                      <input
+                        value={line.unit}
+                        onChange={(event) =>
+                          updateLine(line.id, { unit: event.target.value })
+                        }
+                        className="h-9 w-full rounded-md border border-[#b7c8d3] bg-white px-2 text-xs outline-none"
                       />
                     </td>
                     <td className="p-1.5">
@@ -540,11 +563,11 @@ export function BillFormPage() {
                       <Plus size={14} /> Add lines
                     </button>
                     <span className="ml-4 text-[11px] font-semibold text-[#6f8390]">
-                      Amount due
+                      Total
                     </span>
                   </td>
                   <td className="px-3 py-3 text-right tabular-nums">
-                    {formatDecimal(amountDue)}
+                    {formatDecimal(total)}
                   </td>
                   <td />
                 </tr>
@@ -558,7 +581,7 @@ export function BillFormPage() {
               <input
                 value={memo}
                 onChange={(event) => setMemo(event.target.value)}
-                placeholder="Optional note for this bill"
+                placeholder="Customer-facing or internal note"
                 className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
               />
             </label>

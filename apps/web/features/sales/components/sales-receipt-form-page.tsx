@@ -14,39 +14,29 @@ import {
   useResourceMutations,
 } from "../../resources/resource-api";
 
-type LineKind = "account" | "item";
-
-interface BillLine {
+interface ReceiptLine {
   id: number;
-  kind: LineKind;
-  accountId: string;
   itemId: string;
   description: string;
   quantity: string;
   rate: string;
-  memo: string;
+  unit: string;
 }
+
+type SaveMode = "stay" | "new" | "close";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function dueInThirtyDays() {
-  const date = new Date();
-  date.setDate(date.getDate() + 30);
-  return date.toISOString().slice(0, 10);
-}
-
-function blankLine(): BillLine {
+function blankLine(): ReceiptLine {
   return {
     id: Date.now() + Math.random(),
-    kind: "account",
-    accountId: "",
     itemId: "",
     description: "",
     quantity: "1",
     rate: "",
-    memo: "",
+    unit: "Each",
   };
 }
 
@@ -57,61 +47,96 @@ function moneyInput(value: string) {
   return cleaned;
 }
 
-function lineAmount(line: BillLine) {
+function lineAmount(line: ReceiptLine) {
   const qty = line.quantity || "0";
   const rate = line.rate || "0";
   if (!Number(qty) || !Number(rate)) return "0";
-  // Use decimal-safe multiply via scaled integers for the display total.
   const scale = 10_000n;
   const toMinor = (text: string) => {
     const [whole = "0", fraction = ""] = text.split(".");
-    return BigInt(whole || "0") * scale + BigInt(fraction.padEnd(4, "0").slice(0, 4));
+    return (
+      BigInt(whole || "0") * scale + BigInt(fraction.padEnd(4, "0").slice(0, 4))
+    );
   };
   const product = (toMinor(qty) * toMinor(rate)) / scale;
   return `${product / scale}.${String(product % scale).padStart(4, "0")}`;
 }
 
+const PAYMENT_METHODS = [
+  "Cash",
+  "Cheque",
+  "Card",
+  "Bank transfer",
+  "Mobile money",
+];
+
 /**
- * QuickBooks Desktop-style Enter Bills: vendor header, then expense/item
- * lines with account or item, qty, rate, and amount.
+ * QuickBooks Desktop-style Enter Sales Receipts: cash sale with deposit
+ * account, item grid, and Save / Save & new / Save & close.
  */
-export function BillFormPage() {
+export function SalesReceiptFormPage() {
   const router = useRouter();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit") ?? "";
-  const detail = useResourceDetail("purchasing", "bills", editId);
-  const mutations = useResourceMutations("purchasing", "bills");
+  const detail = useResourceDetail("sales", "sales-receipts", editId);
+  const mutations = useResourceMutations("sales", "sales-receipts");
   const references = useReferenceData();
   const idempotencyKey = useRef(crypto.randomUUID());
   const loadedKey = useRef("");
 
-  const vendorOptions = useMemo(
+  const customerOptions = useMemo(
     () =>
       references.optionsFor({
-        name: "vendorId",
-        label: "Vendor",
+        name: "customerId",
+        label: "Customer",
         type: "select",
       }) ?? [],
     [references],
   );
-  const accountOptions = useMemo(
-    () => references.accountOptionsFor("accountId"),
+  const depositOptions = useMemo(
+    () => references.accountOptionsFor("depositToAccountId"),
     [references],
   );
-  const itemOptions = references.itemOptions;
+  const warehouseOptions = useMemo(
+    () =>
+      references.optionsFor({
+        name: "warehouseId",
+        label: "Warehouse",
+        type: "select",
+      }) ?? [],
+    [references],
+  );
 
-  const [vendorId, setVendorId] = useState("");
-  const [billDate, setBillDate] = useState(todayIso());
-  const [dueDate, setDueDate] = useState(dueInThirtyDays());
-  const [vendorReference, setVendorReference] = useState("");
-  const [terms, setTerms] = useState("Net 30");
+  const [customerId, setCustomerId] = useState("");
+  const [documentNumber, setDocumentNumber] = useState("");
+  const [saleDate, setSaleDate] = useState(todayIso());
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [reference, setReference] = useState("");
+  const [depositToAccountId, setDepositToAccountId] = useState("");
+  const [warehouseId, setWarehouseId] = useState("");
   const [memo, setMemo] = useState("");
-  const [lines, setLines] = useState<BillLine[]>(() =>
+  const [lines, setLines] = useState<ReceiptLine[]>(() =>
     Array.from({ length: 6 }, () => blankLine()),
   );
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saveAndClose, setSaveAndClose] = useState(false);
+  const [saveMode, setSaveMode] = useState<SaveMode>("close");
+
+  useEffect(() => {
+    if (!depositToAccountId && depositOptions[0]) {
+      setDepositToAccountId(depositOptions[0].value);
+    }
+  }, [depositOptions, depositToAccountId]);
+
+  useEffect(() => {
+    if (!warehouseId && warehouseOptions[0]) {
+      setWarehouseId(
+        typeof warehouseOptions[0] === "string"
+          ? warehouseOptions[0]
+          : warehouseOptions[0].value,
+      );
+    }
+  }, [warehouseOptions, warehouseId]);
 
   useEffect(() => {
     const record = detail.data?.data;
@@ -119,57 +144,53 @@ export function BillFormPage() {
     if (!record || loadedKey.current === key) return;
     loadedKey.current = key;
     const data = record.data;
-    setVendorId(String(data.vendorId ?? data.vendor ?? ""));
-    setBillDate(String(data.billDate ?? todayIso()));
-    setDueDate(String(data.dueDate ?? dueInThirtyDays()));
-    setVendorReference(
-      String(data.vendorReference ?? data.billNumber ?? data.reference ?? ""),
+    setCustomerId(String(data.customerId ?? data.customer ?? ""));
+    setDocumentNumber(
+      String(data.documentNumber ?? data.receiptNumber ?? ""),
     );
-    setTerms(String(data.terms ?? "Net 30"));
+    setSaleDate(String(data.saleDate ?? todayIso()));
+    setPaymentMethod(String(data.paymentMethod ?? "Cash"));
+    setReference(String(data.reference ?? ""));
+    setDepositToAccountId(
+      String(data.depositToAccountId ?? data.depositTo ?? ""),
+    );
     setMemo(String(data.memo ?? ""));
     if (Array.isArray(data.lines) && data.lines.length) {
+      const mapped = data.lines as Array<Record<string, unknown>>;
+      const firstWarehouse = mapped.find((line) => line.warehouseId);
+      if (firstWarehouse?.warehouseId)
+        setWarehouseId(String(firstWarehouse.warehouseId));
       setLines(
-        (data.lines as Array<Record<string, unknown>>).map((line, index) => {
-          const itemId = String(line.itemId ?? "");
-          const accountId = String(line.accountId ?? "");
-          return {
-            id: Date.now() + index,
-            kind: itemId ? ("item" as const) : ("account" as const),
-            accountId,
-            itemId,
-            description: String(line.description ?? ""),
-            quantity: String(line.quantity ?? "1"),
-            rate: String(line.unitPrice ?? line.rate ?? ""),
-            memo: String(line.memo ?? ""),
-          };
-        }),
+        mapped.map((line, index) => ({
+          id: Date.now() + index,
+          itemId: String(line.itemId ?? line.accountId ?? ""),
+          description: String(line.description ?? ""),
+          quantity: String(line.quantity ?? "1"),
+          rate: String(line.unitPrice ?? line.rate ?? ""),
+          unit: String(line.unit ?? "Each"),
+        })),
       );
     }
   }, [detail.data, editId]);
 
-  const amountDue = sumDecimals(lines.map((line) => lineAmount(line)));
+  const total = sumDecimals(lines.map((line) => lineAmount(line)));
 
-  const updateLine = (id: number, patch: Partial<BillLine>) => {
+  const updateLine = (id: number, patch: Partial<ReceiptLine>) => {
     setLines((current) =>
       current.map((line) => {
         if (line.id !== id) return line;
         const next = { ...line, ...patch };
-        if (patch.kind === "account") {
-          next.itemId = "";
-        }
-        if (patch.kind === "item") {
-          next.accountId = "";
-        }
-        if (patch.itemId !== undefined && patch.itemId) {
+        if (patch.itemId) {
           const item = references.itemById.get(patch.itemId);
           if (item) {
-            next.description =
-              next.description || String(item.data.name ?? item.data.description ?? "");
-            next.rate =
-              next.rate ||
-              String(item.data.purchaseCost ?? item.data.salesPrice ?? "");
-            next.kind = "item";
-            next.accountId = "";
+            next.description = String(
+              item.data.salesDescription ??
+                item.data.description ??
+                item.data.name ??
+                next.description,
+            );
+            next.unit = String(item.data.unit ?? next.unit ?? "Each");
+            next.rate = String(item.data.salesPrice ?? next.rate);
           }
         }
         return next;
@@ -178,96 +199,116 @@ export function BillFormPage() {
   };
 
   const resetForm = () => {
-    setVendorId("");
-    setBillDate(todayIso());
-    setDueDate(dueInThirtyDays());
-    setVendorReference("");
-    setTerms("Net 30");
+    setCustomerId("");
+    setDocumentNumber("");
+    setSaleDate(todayIso());
+    setPaymentMethod("Cash");
+    setReference("");
+    setDepositToAccountId(depositOptions[0]?.value ?? "");
     setMemo("");
     setLines(Array.from({ length: 6 }, () => blankLine()));
     idempotencyKey.current = crypto.randomUUID();
     loadedKey.current = "";
+    if (editId) router.push("/sales/sales-receipts/new");
   };
 
-  const save = async (closeAfter: boolean) => {
-    if (!vendorId) {
+  const save = async (mode: SaveMode) => {
+    if (!customerId) {
       setMessage({
-        title: "Vendor required",
-        description: "Select the vendor this bill is from.",
+        title: "Customer required",
+        description: "Select the customer for this sales receipt.",
         variant: "error",
       });
       return;
     }
-
-    const filled = lines.filter((line) => {
-      const hasTarget =
-        (line.kind === "account" && line.accountId) ||
-        (line.kind === "item" && line.itemId);
-      return hasTarget && Number(line.rate) >= 0 && Number(line.quantity) > 0;
-    });
-
+    if (!depositToAccountId) {
+      setMessage({
+        title: "Deposit account required",
+        description: "Choose where the cash sale is deposited.",
+        variant: "error",
+      });
+      return;
+    }
+    const filled = lines.filter(
+      (line) => line.itemId && Number(line.quantity) > 0,
+    );
     if (!filled.length) {
       setMessage({
-        title: "Lines required",
-        description: "Add at least one account or item line.",
+        title: "Items required",
+        description: "Add at least one item line.",
         variant: "error",
       });
       return;
     }
 
     const data = {
-      vendorId,
-      billDate,
-      dueDate,
+      customerId,
+      saleDate,
       currency: references.baseCurrency || "USD",
       exchangeRate: "1",
-      vendorReference: vendorReference || undefined,
-      terms: terms || undefined,
+      documentNumber: documentNumber || undefined,
+      paymentMethod,
+      depositToAccountId,
+      reference: reference || undefined,
       memo: memo || undefined,
+      // Cash-sale posting reads total/amount on create.
+      total,
+      amount: total,
       lines: filled.map((line) => ({
-        ...(line.kind === "item"
-          ? { itemId: line.itemId }
-          : { accountId: line.accountId }),
-        description:
-          line.description ||
-          line.memo ||
-          (line.kind === "item" ? "Item" : "Expense"),
+        itemId: line.itemId,
+        description: line.description || "Item",
         quantity: line.quantity || "1",
         unitPrice: line.rate || "0",
+        ...(warehouseId ? { warehouseId } : {}),
       })),
     };
 
     setSaving(true);
-    setSaveAndClose(closeAfter);
+    setSaveMode(mode);
     try {
+      let id = editId;
       if (editId) {
         const version = detail.data?.data.version;
         if (version === undefined) {
-          throw new Error("Bill version is missing. Reload and try again.");
+          throw new Error(
+            "Sales receipt version is missing. Reload and try again.",
+          );
         }
         await mutations.update.mutateAsync({ id: editId, data, version });
       } else {
-        await mutations.create.mutateAsync({
+        const created = await mutations.create.mutateAsync({
           data,
           status: "incomplete",
           idempotencyKey: idempotencyKey.current,
         });
+        id = created.data.id;
       }
 
       setMessage({
-        title: "Bill saved",
-        description: closeAfter
-          ? "Returning to the bills list."
-          : "Saved. You can enter another bill.",
+        title: "Sales receipt saved",
+        description:
+          mode === "close"
+            ? "Returning to the sales receipts list."
+            : mode === "new"
+              ? "Saved. Ready for another cash sale."
+              : "Saved.",
         variant: "success",
       });
 
-      if (closeAfter) {
+      if (mode === "close") {
         window.setTimeout(() => {
-          router.push("/purchasing/bills");
+          router.push(
+            id
+              ? `/sales/sales-receipts/${encodeURIComponent(id)}`
+              : "/sales/sales-receipts",
+          );
         }, 500);
-      } else {
+      } else if (mode === "new") {
         resetForm();
+      } else if (!editId && id) {
+        router.replace(
+          `/sales/sales-receipts/new?edit=${encodeURIComponent(id)}`,
+        );
       }
     } catch (caught) {
       setMessage({
@@ -275,12 +316,11 @@ export function BillFormPage() {
         description:
           caught instanceof Error
             ? caught.message
-            : "The API rejected this bill.",
+            : "The API rejected this sales receipt.",
         variant: "error",
       });
     } finally {
       setSaving(false);
-      setSaveAndClose(false);
     }
   };
 
@@ -290,19 +330,19 @@ export function BillFormPage() {
         className="mx-auto max-w-[1100px]"
         onSubmit={(event) => {
           event.preventDefault();
-          void save(false);
+          void save("stay");
         }}
       >
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <Link
-              href="/purchasing/bills"
+              href="/sales/sales-receipts"
               className="mb-2 inline-flex items-center gap-2 text-xs font-bold text-[#007DCC]"
             >
-              <ArrowLeft size={14} /> Back to bills
+              <ArrowLeft size={14} /> Back to sales receipts
             </Link>
             <h1 className="text-2xl font-bold tracking-[-0.03em] text-[#142735]">
-              {editId ? "Edit bill" : "Enter bill"}
+              {editId ? "Edit sales receipt" : "Enter sales receipt"}
             </h1>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -311,20 +351,31 @@ export function BillFormPage() {
               disabled={saving}
               className="flex h-10 items-center gap-2 rounded-xl border border-[#d5e0e7] bg-white px-4 text-xs font-bold text-[#334b57]"
             >
-              {saving && !saveAndClose ? (
+              {saving && saveMode === "stay" ? (
                 <LoaderCircle size={14} className="animate-spin" />
               ) : (
                 <Save size={14} />
               )}
+              Save
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void save("new")}
+              className="flex h-10 items-center gap-2 rounded-xl border border-[#007DCC] bg-white px-4 text-xs font-bold text-[#007DCC]"
+            >
+              {saving && saveMode === "new" ? (
+                <LoaderCircle size={14} className="animate-spin" />
+              ) : null}
               Save & new
             </button>
             <button
               type="button"
               disabled={saving}
-              onClick={() => void save(true)}
+              onClick={() => void save("close")}
               className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"
             >
-              {saving && saveAndClose ? (
+              {saving && saveMode === "close" ? (
                 <LoaderCircle size={14} className="animate-spin" />
               ) : null}
               Save & close
@@ -335,17 +386,17 @@ export function BillFormPage() {
         <Toast message={message} onClose={() => setMessage(null)} />
 
         <Card className="mt-5 overflow-hidden p-0">
-          <div className="grid gap-3 border-b border-[#e5ecf1] bg-[#f7fafc] px-4 py-3 sm:grid-cols-2 lg:grid-cols-5">
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] lg:col-span-2">
-              Vendor
+          <div className="grid gap-3 border-b border-[#e5ecf1] bg-[#f7fafc] px-4 py-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] xl:col-span-2">
+              Customer:Job
               <Select
-                value={vendorId || undefined}
-                onValueChange={setVendorId}
-                options={vendorOptions}
-                placeholder="Select vendor"
+                value={customerId || undefined}
+                onValueChange={setCustomerId}
+                options={customerOptions}
+                placeholder="Select customer"
                 allowAddNew
-                addNewLabel="vendor"
-                quickAddKind="vendor"
+                addNewLabel="customer"
+                quickAddKind="customer"
                 onCreateOption={references.createOption}
                 className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
               />
@@ -354,59 +405,69 @@ export function BillFormPage() {
               Date
               <div className="mt-1.5">
                 <DatePicker
-                  value={billDate}
-                  onChange={setBillDate}
+                  value={saleDate}
+                  onChange={setSaleDate}
                   className="h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
                 />
               </div>
             </label>
             <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Bill due
-              <div className="mt-1.5">
-                <DatePicker
-                  value={dueDate}
-                  onChange={setDueDate}
-                  className="h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
-                />
-              </div>
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Ref. no.
+              Sale no.
               <input
-                value={vendorReference}
-                onChange={(event) => setVendorReference(event.target.value)}
-                placeholder="Vendor invoice #"
+                value={documentNumber}
+                onChange={(event) => setDocumentNumber(event.target.value)}
+                placeholder="Auto if blank"
                 className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
               />
             </label>
             <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-              Terms
+              Payment method
               <Select
-                value={terms}
-                onValueChange={setTerms}
-                options={["Due on receipt", "Net 15", "Net 30", "Net 60"]}
+                value={paymentMethod}
+                onValueChange={setPaymentMethod}
+                options={PAYMENT_METHODS}
                 searchable={false}
                 className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
               />
             </label>
-            <div className="flex flex-col justify-end lg:col-span-4">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
-                Amount due
-              </p>
-              <p className="mt-1.5 text-xl font-bold tabular-nums text-[#142735]">
-                {formatDecimal(amountDue)}
-              </p>
-            </div>
+            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+              Ref. no.
+              <input
+                value={reference}
+                onChange={(event) => setReference(event.target.value)}
+                className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
+              />
+            </label>
+            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] sm:col-span-2">
+              Deposit to
+              <Select
+                value={depositToAccountId || undefined}
+                onValueChange={setDepositToAccountId}
+                options={depositOptions}
+                placeholder="Select account"
+                className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+              />
+            </label>
+            <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97]">
+              Warehouse
+              <Select
+                value={warehouseId || undefined}
+                onValueChange={setWarehouseId}
+                options={warehouseOptions}
+                placeholder="Select warehouse"
+                className="mt-1.5 h-9 rounded-lg border-[#c9d6df] bg-white text-xs"
+              />
+            </label>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left">
+            <table className="w-full min-w-[820px] text-left">
               <thead className="bg-[#eef4f8] text-[10px] font-bold uppercase tracking-wide text-[#6f8390]">
                 <tr>
-                  <th className="w-28 px-3 py-2.5">Type</th>
-                  <th className="px-3 py-2.5">Account / Item</th>
+                  <th className="px-3 py-2.5">Item</th>
                   <th className="px-3 py-2.5">Description</th>
                   <th className="w-24 px-3 py-2.5 text-right">Qty</th>
+                  <th className="w-20 px-3 py-2.5">U/M</th>
                   <th className="w-28 px-3 py-2.5 text-right">Rate</th>
                   <th className="w-28 px-3 py-2.5 text-right">Amount</th>
                   <th className="w-10 px-2 py-2.5" />
@@ -423,50 +484,18 @@ export function BillFormPage() {
                   >
                     <td className="p-1.5">
                       <Select
-                        value={line.kind}
+                        value={line.itemId || undefined}
                         onValueChange={(value) =>
-                          updateLine(line.id, {
-                            kind: value as LineKind,
-                          })
+                          updateLine(line.id, { itemId: value })
                         }
-                        options={[
-                          { label: "Expense", value: "account" },
-                          { label: "Item", value: "item" },
-                        ]}
-                        searchable={false}
+                        options={references.itemOptions}
+                        placeholder="Select item"
+                        allowAddNew
+                        addNewLabel="item"
+                        quickAddKind="item"
+                        onCreateOption={references.createOption}
                         className="h-9 rounded-md border-[#b7c8d3] bg-white px-2 text-xs"
                       />
-                    </td>
-                    <td className="p-1.5">
-                      {line.kind === "item" ? (
-                        <Select
-                          value={line.itemId || undefined}
-                          onValueChange={(value) =>
-                            updateLine(line.id, { itemId: value })
-                          }
-                          options={itemOptions}
-                          placeholder="Select item"
-                          allowAddNew
-                          addNewLabel="item"
-                          quickAddKind="item"
-                          onCreateOption={references.createOption}
-                          className="h-9 rounded-md border-[#b7c8d3] bg-white px-2 text-xs"
-                        />
-                      ) : (
-                        <Select
-                          value={line.accountId || undefined}
-                          onValueChange={(value) =>
-                            updateLine(line.id, { accountId: value })
-                          }
-                          options={accountOptions}
-                          placeholder="Select account"
-                          allowAddNew
-                          addNewLabel="account"
-                          quickAddKind="account"
-                          onCreateOption={references.createOption}
-                          className="h-9 rounded-md border-[#b7c8d3] bg-white px-2 text-xs"
-                        />
-                      )}
                     </td>
                     <td className="p-1.5">
                       <input
@@ -476,7 +505,6 @@ export function BillFormPage() {
                             description: event.target.value,
                           })
                         }
-                        placeholder="Description"
                         className="h-9 w-full rounded-md border border-[#b7c8d3] bg-white px-2 text-xs outline-none"
                       />
                     </td>
@@ -490,6 +518,15 @@ export function BillFormPage() {
                         }
                         inputMode="decimal"
                         className="h-9 w-full rounded-md border border-[#b7c8d3] bg-white px-2 text-right text-xs tabular-nums outline-none"
+                      />
+                    </td>
+                    <td className="p-1.5">
+                      <input
+                        value={line.unit}
+                        onChange={(event) =>
+                          updateLine(line.id, { unit: event.target.value })
+                        }
+                        className="h-9 w-full rounded-md border border-[#b7c8d3] bg-white px-2 text-xs outline-none"
                       />
                     </td>
                     <td className="p-1.5">
@@ -540,11 +577,11 @@ export function BillFormPage() {
                       <Plus size={14} /> Add lines
                     </button>
                     <span className="ml-4 text-[11px] font-semibold text-[#6f8390]">
-                      Amount due
+                      Total
                     </span>
                   </td>
                   <td className="px-3 py-3 text-right tabular-nums">
-                    {formatDecimal(amountDue)}
+                    {formatDecimal(total)}
                   </td>
                   <td />
                 </tr>
@@ -558,7 +595,7 @@ export function BillFormPage() {
               <input
                 value={memo}
                 onChange={(event) => setMemo(event.target.value)}
-                placeholder="Optional note for this bill"
+                placeholder="Optional note"
                 className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-xs outline-none"
               />
             </label>

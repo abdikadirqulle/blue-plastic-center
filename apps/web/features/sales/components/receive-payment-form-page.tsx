@@ -297,7 +297,7 @@ export function ReceivePaymentFormPage() {
               ) : (
                 <Save size={14} />
               )}
-              Save
+              Save & new
             </button>
             <button
               type="button"

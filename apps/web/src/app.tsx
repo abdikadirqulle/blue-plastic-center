@@ -13,7 +13,9 @@ import { ReportViewerPage } from "../features/reports/report-viewer-page"
 import { JournalEntryDetailsPage } from "../features/accounting/components/journal-entry-details-page"
 import { JournalEntryFormPage } from "../features/accounting/components/journal-entry-form-page"
 import { BillFormPage } from "../features/purchasing/components/bill-form-page"
+import { InvoiceFormPage } from "../features/sales/components/invoice-form-page"
 import { ReceivePaymentFormPage } from "../features/sales/components/receive-payment-form-page"
+import { SalesReceiptFormPage } from "../features/sales/components/sales-receipt-form-page"
 import { ResourceDetailsPage } from "../features/resources/resource-details-page"
 import { ResourceFormPage } from "../features/resources/resource-form-page"
 import { ResourcePage } from "../features/resources/resource-page"
@@ -124,6 +126,12 @@ function ResourceFormRoute() {
   }
   if (section === "sales" && resource === "payments") {
     return <ReceivePaymentFormPage />
+  }
+  if (section === "sales" && resource === "invoices") {
+    return <InvoiceFormPage />
+  }
+  if (section === "sales" && resource === "sales-receipts") {
+    return <SalesReceiptFormPage />
   }
   if (section === "purchasing" && resource === "bills") {
     return <BillFormPage />
