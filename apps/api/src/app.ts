@@ -21,7 +21,7 @@ import { InvoiceService } from "./modules/sales/invoice-service.js"
 import type { InvoiceRepository } from "./modules/sales/invoice-repository.js"
 import { MemoryInvoiceRepository } from "./modules/sales/memory-invoice-repository.js"
 import { MemoryInventoryMovements } from "./modules/inventory/memory-inventory-movements.js"
-import type { InventoryReadPort } from "./modules/inventory/inventory-movement-port.js"
+import type { InventoryReadPort, InventoryOpeningPort } from "./modules/inventory/inventory-movement-port.js"
 import { activityRoutes } from "./modules/read-models/activity.routes.js"
 import { RecordReadModel } from "./modules/read-models/record-read-model.js"
 import { projectRoutes } from "./modules/projects/project.routes.js"
@@ -54,7 +54,7 @@ export function createApp(
   identityRepository: IdentityRepository = new MemoryIdentityRepository(),
   ledgerRepository?: LedgerRepository,
   invoiceRepository?: InvoiceRepository,
-  inventoryReadPort?: InventoryReadPort,
+  inventoryReadPort?: InventoryReadPort & Partial<InventoryOpeningPort>,
 ) {
   const app = Fastify({
     logger: env.LOG_LEVEL === "silent" ? false : { level: env.LOG_LEVEL },
@@ -74,15 +74,26 @@ export function createApp(
         : new MemoryLedgerRepository(repository),
       stock,
     )
+  const inventoryForReads = inventoryReadPort ?? stock
   // Balances are read from the ledger, the invoice tables and the stock ledger
   // on every request, so no screen can show a figure the books disagree with.
   const readModel = new RecordReadModel(
     repository,
     ledger,
     invoiceStore,
-    inventoryReadPort ?? stock,
+    inventoryForReads,
   )
-  const service = new ResourceService(repository, invoiceStore, readModel)
+  const openingStock: InventoryOpeningPort | undefined =
+    inventoryReadPort && "recordOpening" in inventoryReadPort
+      ? (inventoryReadPort as InventoryOpeningPort)
+      : stock
+  const service = new ResourceService(
+    repository,
+    invoiceStore,
+    readModel,
+    openingStock,
+    ledger,
+  )
   const invoices = new InvoiceService(invoiceStore)
   const authService = new AuthService(identityRepository, env.SESSION_TTL_HOURS)
   const workflows = new OperationalWorkflowService(service)
@@ -122,7 +133,7 @@ export function createApp(
         prefix: "/auth",
       })
       await v1.register(
-        async (sales) => salesRoutes(sales, workflows, service, invoices),
+        async (sales) => salesRoutes(sales, workflows, service, invoices, ledger),
         { prefix: "/sales" },
       )
       await v1.register(

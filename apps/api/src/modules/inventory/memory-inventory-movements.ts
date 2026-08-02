@@ -11,6 +11,7 @@ import type {
   InventoryMovementPort,
   InventoryMovementRecord,
   InventoryMovementRequest,
+  InventoryOpeningPort,
   InventoryReadPort,
   InventoryStockLevel,
 } from "./inventory-movement-port.js"
@@ -34,11 +35,38 @@ const sourceKey = (
  * PostgreSQL implementation. Used by the default runtime and by tests.
  */
 export class MemoryInventoryMovements
-  implements InventoryMovementPort<unknown>, InventoryReadPort
+  implements InventoryMovementPort<unknown>, InventoryReadPort, InventoryOpeningPort
 {
   private readonly costing = new WeightedAverageInventoryCostingService()
   private balances = new Map<string, InventoryBalanceSnapshot>()
   private movements: StoredMovement[] = []
+  private defaultWarehouseId = "45000000-0000-4000-8000-000000000001"
+
+  async recordOpening(
+    context: RequestContext,
+    input: {
+      itemId: string
+      quantity: string
+      unitCost: string
+      asOf?: string
+      warehouseId?: string
+    },
+  ) {
+    if (!/^\d+(\.\d+)?$/.test(input.quantity) || Number(input.quantity) <= 0)
+      return undefined
+    return this.apply({}, context, {
+      warehouseId: input.warehouseId ?? this.defaultWarehouseId,
+      itemId: input.itemId,
+      kind: "receipt",
+      quantity: input.quantity,
+      unitCost: input.unitCost || "0",
+      occurredAt: `${(input.asOf ?? new Date().toISOString().slice(0, 10))}T00:00:00.000Z`,
+      sourceModule: "inventory",
+      sourceType: "opening_balance",
+      sourceId: input.itemId,
+      idempotencyKey: `opening:${input.itemId}`,
+    })
+  }
 
   /** Captures state so a failed business action can be rolled back whole. */
   snapshot() {

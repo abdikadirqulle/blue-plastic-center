@@ -318,6 +318,11 @@ export class PostgresResourceRepository implements ResourceRepository {
         phone: typeof record.data.phone === "string" ? record.data.phone : null,
         currency: typeof record.data.currency === "string" ? record.data.currency : "USD",
         openingBalance: String(record.data.openingBalance ?? "0"),
+        receivableAccountId:
+          typeof record.data.receivableAccountId === "string" &&
+          record.data.receivableAccountId
+            ? record.data.receivableAccountId
+            : null,
         active: record.status !== "inactive",
         version: record.version,
         createdBy: record.createdBy,
@@ -446,6 +451,11 @@ export class PostgresResourceRepository implements ResourceRepository {
         phone: typeof record.data.phone === "string" ? record.data.phone : null,
         currency: String(record.data.currency ?? "USD"),
         openingBalance: String(record.data.openingBalance ?? "0"),
+        receivableAccountId:
+          typeof record.data.receivableAccountId === "string" &&
+          record.data.receivableAccountId
+            ? record.data.receivableAccountId
+            : null,
         active: record.status !== "inactive",
         version: record.version,
         updatedBy: record.updatedBy,

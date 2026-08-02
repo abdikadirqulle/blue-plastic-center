@@ -60,6 +60,24 @@ export interface InventoryReadPort {
 }
 
 /**
+ * Writes the opening quantity a new inventory item declares on its form into
+ * the stock ledger. Without this the list reads zero while the form still
+ * shows the figure the user typed.
+ */
+export interface InventoryOpeningPort {
+  recordOpening(
+    context: RequestContext,
+    input: {
+      itemId: string
+      quantity: string
+      unitCost: string
+      asOf?: string
+      warehouseId?: string
+    },
+  ): Promise<InventoryMovementRecord | undefined>
+}
+
+/**
  * Transaction-scoped stock ledger port. The implementation must apply the
  * movement, update the balance, and enforce the idempotency key inside the same
  * unit of work as the document that caused it.

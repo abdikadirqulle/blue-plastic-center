@@ -10,12 +10,17 @@ import {
 import type { ResourceService } from "../../services/resource-service.js"
 import { listQuerySchema, writeSchema } from "../resources/resource.schemas.js"
 import type { InvoiceService } from "./invoice-service.js"
+import type { LedgerRepository } from "../accounting/ledger-repository.js"
+import { createBalancedJournalEntry } from "../accounting/posting-engine.js"
+import { systemAccountKeys } from "../accounting/system-accounts.js"
+import { conflict, validation } from "../../platform/errors.js"
 
 export async function salesRoutes(
   app: FastifyInstance,
   workflows: OperationalWorkflowService,
   resources: ResourceService,
   invoices: InvoiceService,
+  ledger?: LedgerRepository,
 ) {
   app.get("/invoices", async (request) => {
     authorizeResource(request.requestContext.principal, "read", "sales")
@@ -117,6 +122,8 @@ export async function salesRoutes(
     "/payments/:id/allocate",
     async (request) => {
       authorizeResource(request.requestContext.principal, "update", "sales")
+      if (!ledger)
+        throw conflict("Payment posting requires the accounting ledger")
       const current = await resources.get(
         request.requestContext,
         "sales",
@@ -124,6 +131,16 @@ export async function salesRoutes(
         request.params.id,
       )
       const input = allocationSchema.parse(request.body)
+      const amount = String(current.data.amount ?? "0")
+      if (!/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0)
+        throw validation("Payment amount must be a positive decimal")
+      const depositAccountId =
+        typeof current.data.depositToAccountId === "string"
+          ? current.data.depositToAccountId
+          : typeof current.data.depositTo === "string" &&
+              /^[0-9a-f-]{36}$/i.test(current.data.depositTo)
+            ? current.data.depositTo
+            : undefined
       const payment = await resources.update(
         request.requestContext,
         "sales",
@@ -132,39 +149,44 @@ export async function salesRoutes(
         {
           version: current.version,
           status: "applied",
-          data: input,
-        },
-      )
-      const amount = String(current.data.amount)
-      await resources.create(
-        request.requestContext,
-        "accounting",
-        "journal-entries",
-        {
-          status: "draft",
           data: {
-            journalDate: current.data.paymentDate,
-            sourceModule: "sales",
-            sourceResource: "payments",
-            sourceId: current.id,
-            lines: [
-              {
-                accountId: current.data.depositToAccountId,
-                debit: amount,
-                credit: "0.0000",
-              },
-              {
-                accountId: "1100",
-                debit: "0.0000",
-                credit: amount,
-              },
-            ],
+            ...current.data,
+            ...input,
+            allocations: input.allocations ?? current.data.allocations,
           },
         },
       )
-      return {
-        data: payment,
-      }
+      await ledger.post(
+        request.requestContext,
+        createBalancedJournalEntry({
+          sourceModule: "sales",
+          sourceType: "payment",
+          sourceId: current.id,
+          idempotencyKey: `payment:${current.id}:post`,
+          transactionDate: String(
+            current.data.paymentDate ?? new Date().toISOString().slice(0, 10),
+          ),
+          currency: String(current.data.currency ?? "USD"),
+          memo: `Customer payment ${String(current.data.documentNumber ?? current.id)}`,
+          lines: [
+            {
+              ...(depositAccountId
+                ? { accountId: depositAccountId }
+                : { systemAccountKey: "bank" }),
+              description: "Payment deposited",
+              debit: amount,
+              credit: "0",
+            },
+            {
+              systemAccountKey: systemAccountKeys.ACCOUNTS_RECEIVABLE,
+              description: "Accounts receivable relief",
+              debit: "0",
+              credit: amount,
+            },
+          ],
+        }),
+      )
+      return { data: payment }
     },
   )
 

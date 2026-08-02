@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm"
 import type { Database, DatabaseTransaction } from "../../db/client.js"
-import { inventoryBalances, inventoryMovements } from "../../db/schema.js"
+import { inventoryBalances, inventoryMovements, warehouses } from "../../db/schema.js"
 import { conflict, validation } from "../../platform/errors.js"
 import type { RequestContext } from "../../platform/types.js"
 import {
@@ -11,6 +11,7 @@ import type {
   InventoryMovementPort,
   InventoryMovementRecord,
   InventoryMovementRequest,
+  InventoryOpeningPort,
   InventoryReadPort,
 } from "./inventory-movement-port.js"
 
@@ -39,11 +40,67 @@ function toRecord(row: MovementRow): InventoryMovementRecord {
 }
 
 export class PostgresInventoryMovements
-  implements InventoryMovementPort<DatabaseTransaction>, InventoryReadPort
+  implements
+    InventoryMovementPort<DatabaseTransaction>,
+    InventoryReadPort,
+    InventoryOpeningPort
 {
   private readonly costing = new WeightedAverageInventoryCostingService()
 
   constructor(private readonly db: Database) {}
+
+  /**
+   * Records the quantity typed on a new item form as opening stock. Idempotent
+   * per item so a retried create never doubles the warehouse balance.
+   */
+  async recordOpening(
+    context: RequestContext,
+    input: {
+      itemId: string
+      quantity: string
+      unitCost: string
+      asOf?: string
+      warehouseId?: string
+    },
+  ) {
+    if (!/^\d+(\.\d+)?$/.test(input.quantity) || Number(input.quantity) <= 0)
+      return undefined
+    return this.db.transaction(async (transaction) => {
+      const warehouseId =
+        input.warehouseId ??
+        (await this.defaultWarehouse(transaction, context.companyId))
+      if (!warehouseId)
+        throw validation(
+          "Opening stock needs a warehouse. Create a warehouse before adding inventory items.",
+        )
+      return this.apply(transaction, context, {
+        warehouseId,
+        itemId: input.itemId,
+        kind: "receipt",
+        quantity: input.quantity,
+        unitCost: input.unitCost || "0",
+        occurredAt: `${(input.asOf ?? new Date().toISOString().slice(0, 10))}T00:00:00.000Z`,
+        sourceModule: "inventory",
+        sourceType: "opening_balance",
+        sourceId: input.itemId,
+        idempotencyKey: `opening:${input.itemId}`,
+      })
+    })
+  }
+
+  private async defaultWarehouse(
+    transaction: DatabaseTransaction,
+    companyId: string,
+  ) {
+    const available = await transaction
+      .select({ id: warehouses.id })
+      .from(warehouses)
+      .where(
+        and(eq(warehouses.companyId, companyId), eq(warehouses.active, true)),
+      )
+      .limit(2)
+    return available.length >= 1 ? available[0].id : undefined
+  }
 
   async apply(
     transaction: DatabaseTransaction,

@@ -6,6 +6,10 @@ import {
 } from "@blue-plastic/types"
 import { getResourceDefinition } from "../domain/modules.js"
 import type { RecordEnricher } from "../modules/read-models/record-read-model.js"
+import type { InventoryOpeningPort } from "../modules/inventory/inventory-movement-port.js"
+import type { LedgerRepository } from "../modules/accounting/ledger-repository.js"
+import { systemAccountKeys } from "../modules/accounting/system-accounts.js"
+import { createBalancedJournalEntry } from "../modules/accounting/posting-engine.js"
 import { conflict, notFound, validation } from "../platform/errors.js"
 import type {
   ListQuery,
@@ -133,6 +137,8 @@ export class ResourceService {
     private readonly repository: ResourceRepository,
     private readonly invoices?: InvoiceRepository,
     private readonly enricher?: RecordEnricher,
+    private readonly inventory?: InventoryOpeningPort,
+    private readonly ledger?: LedgerRepository,
   ) {}
 
   validateData(
@@ -294,7 +300,125 @@ export class ResourceService {
       await this.repository.create(record)
     }
     await this.audit(context, "create", record, { after: record.data })
+    await this.seedItemOpeningStock(context, moduleName, resourceName, record)
+    await this.postCashSale(context, moduleName, resourceName, record)
     return record
+  }
+
+  /**
+   * A cash sale never touches receivables: bank (or cash) is debited and sales
+   * revenue is credited in the same moment the receipt is saved.
+   */
+  private async postCashSale(
+    context: RequestContext,
+    moduleName: string,
+    resourceName: string,
+    record: ResourceRecord,
+  ) {
+    if (moduleName !== "sales" || resourceName !== "sales-receipts") return
+    if (!this.ledger) return
+    const amount = String(
+      record.data.total ?? record.data.amount ?? "0",
+    )
+    if (!/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0) return
+    const depositAccountId =
+      typeof record.data.depositToAccountId === "string"
+        ? record.data.depositToAccountId
+        : undefined
+    await this.ledger.post(
+      context,
+      createBalancedJournalEntry({
+        sourceModule: "sales",
+        sourceType: "sales_receipt",
+        sourceId: record.id,
+        idempotencyKey: `sales-receipt:${record.id}:post`,
+        transactionDate: String(
+          record.data.saleDate ?? record.createdAt.slice(0, 10),
+        ),
+        currency: String(record.data.currency ?? "USD"),
+        memo: `Cash sale ${String(record.data.documentNumber ?? record.id)}`,
+        lines: [
+          {
+            ...(depositAccountId
+              ? { accountId: depositAccountId }
+              : { systemAccountKey: "bank" }),
+            description: "Cash sale received",
+            debit: amount,
+            credit: "0",
+          },
+          {
+            systemAccountKey: systemAccountKeys.SALES_REVENUE,
+            description: "Cash sale revenue",
+            debit: "0",
+            credit: amount,
+          },
+        ],
+      }),
+    )
+  }
+
+  /**
+   * An inventory item's opening quantity only exists on the form until it is
+   * written into the stock ledger (and the inventory asset account). The list
+   * and the detail register both read from there, so skipping this step leaves
+   * the table at zero while the form still shows what the user typed.
+   */
+  private async seedItemOpeningStock(
+    context: RequestContext,
+    moduleName: string,
+    resourceName: string,
+    record: ResourceRecord,
+  ) {
+    if (moduleName !== "inventory" || resourceName !== "items") return
+    if (String(record.data.type ?? "").toLowerCase() !== "inventory") return
+    if (!this.inventory) return
+    const quantity = String(record.data.openingQuantity ?? "0")
+    if (!/^\d+(\.\d+)?$/.test(quantity) || Number(quantity) <= 0) return
+    const unitCost = String(record.data.purchaseCost ?? "0")
+    const movement = await this.inventory.recordOpening(context, {
+      itemId: record.id,
+      quantity,
+      unitCost,
+      asOf:
+        typeof record.data.asOf === "string" && record.data.asOf
+          ? record.data.asOf
+          : undefined,
+    })
+    if (!movement || !this.ledger) return
+    const value = movement.valueDelta
+    if (!/^\d+(\.\d+)?$/.test(value) || Number(value) <= 0) return
+    const inventoryAccountId =
+      typeof record.data.inventoryAccountId === "string"
+        ? record.data.inventoryAccountId
+        : undefined
+    await this.ledger.post(
+      context,
+      createBalancedJournalEntry({
+        sourceModule: "inventory",
+        sourceType: "opening_balance",
+        sourceId: record.id,
+        idempotencyKey: `opening-gl:${record.id}`,
+        transactionDate: (record.data.asOf as string) || record.createdAt.slice(0, 10),
+        currency: String(record.data.currency ?? "USD"),
+        memo: `Opening stock — ${String(record.data.name ?? record.id)}`,
+        lines: [
+          {
+            ...(inventoryAccountId
+              ? { accountId: inventoryAccountId }
+              : { systemAccountKey: systemAccountKeys.INVENTORY_ASSET }),
+            description: `Opening inventory — ${String(record.data.name ?? "")}`,
+            debit: value,
+            credit: "0",
+          },
+          {
+            systemAccountKey: "owner_capital",
+            description: "Opening balance equity",
+            debit: "0",
+            credit: value,
+          },
+        ],
+      }),
+    )
   }
 
   async update(

@@ -253,6 +253,12 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
 
       await this.validateTenantContext(transaction, context, parsed.currency)
       const customer = await this.requireCustomer(transaction, context, parsed.customerId)
+      await this.applyReceivableAccount(
+        transaction,
+        context,
+        customer.id,
+        (parsed as { receivableAccountId?: string }).receivableAccountId,
+      )
       const calculated = calculateInvoiceTotals(parsed)
       const resolved = await this.resolveLines(transaction, context, calculated.lines)
       const invoiceNumber =
@@ -333,6 +339,12 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
       })
       await this.validateTenantContext(transaction, context, merged.currency)
       const customer = await this.requireCustomer(transaction, context, merged.customerId)
+      await this.applyReceivableAccount(
+        transaction,
+        context,
+        customer.id,
+        (merged as { receivableAccountId?: string }).receivableAccountId,
+      )
       const calculated = calculateInvoiceTotals(merged)
       const resolved = await this.resolveLines(transaction, context, calculated.lines)
       const [updated] = await transaction
@@ -851,6 +863,34 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
       })
     }
     return resolved
+  }
+
+  private async applyReceivableAccount(
+    transaction: DatabaseTransaction,
+    context: RequestContext,
+    customerId: string,
+    receivableAccountId: unknown,
+  ) {
+    if (typeof receivableAccountId !== "string" || !receivableAccountId) return
+    const [account] = await transaction
+      .select({ id: accounts.id, type: accounts.type })
+      .from(accounts)
+      .where(
+        and(
+          eq(accounts.id, receivableAccountId),
+          eq(accounts.companyId, context.companyId),
+          eq(accounts.active, true),
+        ),
+      )
+      .limit(1)
+    if (!account || account.type !== "asset")
+      throw validation("Accounts receivable must be an active asset account")
+    await transaction
+      .update(customers)
+      .set({ receivableAccountId: account.id, updatedAt: new Date() })
+      .where(
+        and(eq(customers.id, customerId), eq(customers.companyId, context.companyId)),
+      )
   }
 
   private async requireWarehouse(

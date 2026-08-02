@@ -393,6 +393,13 @@ const salesResources: ResourceConfig[] = [
             options: [],
             width: "third",
           },
+          {
+            name: "receivableAccountId",
+            label: "Accounts receivable (deyn)",
+            type: "select",
+            options: [],
+            width: "third",
+          },
         ],
       },
       {
@@ -545,6 +552,13 @@ const salesResources: ResourceConfig[] = [
             name: "openingBalance",
             label: "Opening balance",
             type: "number",
+            width: "third",
+          },
+          {
+            name: "receivableAccountId",
+            label: "Accounts receivable (deyn)",
+            type: "select",
+            options: [],
             width: "third",
           },
           {
@@ -2364,7 +2378,7 @@ const commonResourceSpecs: Array<{
       },
       { name: "preferredVendorId", label: "Preferred vendor", type: "select" },
       { name: "reorderPoint", label: "Reorder point", type: "number" },
-      { name: "openingQuantity", label: "Quantity on hand", type: "number" },
+      { name: "openingQuantity", label: "Opening quantity", type: "number" },
       { name: "asOf", label: "As of date", type: "date" },
       {
         name: "serialTracking",
