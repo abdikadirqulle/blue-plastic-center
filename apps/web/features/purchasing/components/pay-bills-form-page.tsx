@@ -6,7 +6,12 @@ import { Card } from "../../../components/ui/card";
 import { DatePicker } from "../../../components/ui/date-picker";
 import { Select } from "../../../components/ui/select";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
-import { cn, formatDecimal, sumDecimals } from "../../../lib/utils";
+import {
+  cn,
+  formatDecimal,
+  formatDecimalInput,
+  sumDecimals,
+} from "../../../lib/utils";
 import { useReferenceData } from "../../resources/reference-data";
 import {
   recordIdentifier,
@@ -319,7 +324,9 @@ export function PayBillsFormPage() {
                               updateAllocation(
                                 bill.id,
                                 vendorId,
-                                event.target.checked ? due : "",
+                                event.target.checked
+                                  ? formatDecimalInput(due)
+                                  : "",
                               )
                             }
                             className="size-4 accent-[#007DCC]"
@@ -352,6 +359,14 @@ export function PayBillsFormPage() {
                                 event.target.value,
                               )
                             }
+                            onBlur={() => {
+                              if (!payAmount) return;
+                              updateAllocation(
+                                bill.id,
+                                vendorId,
+                                formatDecimalInput(payAmount),
+                              );
+                            }}
                             inputMode="decimal"
                             className="h-9 w-full rounded-md border border-[#b7c8d3] bg-white px-2 text-right text-xs tabular-nums outline-none"
                           />

@@ -7,7 +7,12 @@ import { Card } from "../../../components/ui/card";
 import { DatePicker } from "../../../components/ui/date-picker";
 import { Select } from "../../../components/ui/select";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
-import { cn, formatDecimal, sumDecimals } from "../../../lib/utils";
+import {
+  cn,
+  formatDecimal,
+  formatDecimalInput,
+  sumDecimals,
+} from "../../../lib/utils";
 import { useReferenceData } from "../../resources/reference-data";
 import {
   useResourceDetail,
@@ -162,7 +167,7 @@ export function InvoiceFormPage() {
           itemId: String(line.itemId ?? line.accountId ?? ""),
           description: String(line.description ?? ""),
           quantity: String(line.quantity ?? "1"),
-          rate: String(line.unitPrice ?? line.rate ?? ""),
+          rate: formatDecimalInput(String(line.unitPrice ?? line.rate ?? "")),
           unit: String(line.unit ?? "Each"),
         })),
       );
@@ -186,7 +191,9 @@ export function InvoiceFormPage() {
                 next.description,
             );
             next.unit = String(item.data.unit ?? next.unit ?? "Each");
-            next.rate = String(item.data.salesPrice ?? next.rate);
+            next.rate = formatDecimalInput(
+              String(item.data.salesPrice ?? next.rate),
+            );
           }
         }
         return next;
@@ -513,6 +520,12 @@ export function InvoiceFormPage() {
                             rate: moneyInput(event.target.value),
                           })
                         }
+                        onBlur={() => {
+                          if (!line.rate) return;
+                          updateLine(line.id, {
+                            rate: formatDecimalInput(line.rate),
+                          });
+                        }}
                         inputMode="decimal"
                         className="h-9 w-full rounded-md border border-[#b7c8d3] bg-white px-2 text-right text-xs tabular-nums outline-none"
                       />

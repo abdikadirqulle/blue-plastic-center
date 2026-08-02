@@ -7,7 +7,12 @@ import { Card } from "../../../components/ui/card";
 import { DatePicker } from "../../../components/ui/date-picker";
 import { Select } from "../../../components/ui/select";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
-import { cn, formatDecimal, sumDecimals } from "../../../lib/utils";
+import {
+  cn,
+  formatDecimal,
+  formatDecimalInput,
+  sumDecimals,
+} from "../../../lib/utils";
 import { useReferenceData } from "../../resources/reference-data";
 import {
   recordIdentifier,
@@ -98,7 +103,7 @@ export function ReceivePaymentFormPage() {
     const data = record.data;
     setCustomerId(String(data.customerId ?? data.customer ?? ""));
     setPaymentDate(String(data.paymentDate ?? todayIso()));
-    setAmount(String(data.amount ?? ""));
+    setAmount(formatDecimalInput(String(data.amount ?? "")) || "");
     setPaymentMethod(String(data.paymentMethod ?? "Cash"));
     setReference(String(data.reference ?? ""));
     setDepositToAccountId(
@@ -110,7 +115,7 @@ export function ReceivePaymentFormPage() {
         ? (data.allocations as Array<Record<string, unknown>>)
             .map((allocation) => ({
               invoiceId: String(allocation.invoiceId ?? ""),
-              amount: String(allocation.amount ?? ""),
+              amount: formatDecimalInput(String(allocation.amount ?? "")),
             }))
             .filter((allocation) => allocation.invoiceId && allocation.amount)
         : [],
@@ -162,7 +167,7 @@ export function ReceivePaymentFormPage() {
       amount === previousApplied ||
       Number(amount) === Number(previousApplied)
     ) {
-      if (Number(total) > 0) setAmount(total);
+      if (Number(total) > 0) setAmount(formatDecimalInput(total));
       else if (!cleaned) setAmount("");
     }
   };
@@ -346,6 +351,10 @@ export function ReceivePaymentFormPage() {
               <input
                 value={amount}
                 onChange={(event) => setAmount(moneyInput(event.target.value))}
+                onBlur={() => {
+                  if (!amount) return;
+                  setAmount(formatDecimalInput(amount));
+                }}
                 inputMode="decimal"
                 placeholder="0.00"
                 className="mt-1.5 h-9 w-full rounded-lg border border-[#c9d6df] bg-white px-3 text-right text-xs tabular-nums outline-none"
@@ -441,7 +450,9 @@ export function ReceivePaymentFormPage() {
                             onChange={(event) =>
                               updateAllocation(
                                 invoice.id,
-                                event.target.checked ? openBalance : "",
+                                event.target.checked
+                                  ? formatDecimalInput(openBalance)
+                                  : "",
                               )
                             }
                             className="size-4 accent-[#007DCC]"
@@ -466,6 +477,13 @@ export function ReceivePaymentFormPage() {
                             onChange={(event) =>
                               updateAllocation(invoice.id, event.target.value)
                             }
+                            onBlur={() => {
+                              if (!paymentAmount) return;
+                              updateAllocation(
+                                invoice.id,
+                                formatDecimalInput(paymentAmount),
+                              );
+                            }}
                             inputMode="decimal"
                             className="h-9 w-full rounded-md border border-[#b7c8d3] bg-white px-2 text-right text-xs tabular-nums outline-none"
                           />
