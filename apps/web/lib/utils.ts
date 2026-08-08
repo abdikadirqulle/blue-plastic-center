@@ -30,6 +30,15 @@ function toMinor(value: unknown) {
   return negative ? -minor : minor;
 }
 
+export function compareDecimals(left: unknown, right: unknown) {
+  const difference = toMinor(left) - toMinor(right);
+  return difference < 0n ? -1 : difference > 0n ? 1 : 0;
+}
+
+export function subtractDecimals(left: unknown, right: unknown) {
+  return sumDecimals([left, `-${String(right ?? "0")}`]);
+}
+
 /**
  * Adds decimal strings exactly. Money never passes through a float, not even
  * for a figure that is only shown on a summary card.

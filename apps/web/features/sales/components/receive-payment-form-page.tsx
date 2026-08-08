@@ -7,10 +7,13 @@ import { Card } from "../../../components/ui/card";
 import { DatePicker } from "../../../components/ui/date-picker";
 import { Select } from "../../../components/ui/select";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
+import { apiClient } from "../../../lib/api-client";
 import {
   cn,
+  compareDecimals,
   formatDecimal,
   formatDecimalInput,
+  subtractDecimals,
   sumDecimals,
 } from "../../../lib/utils";
 import { useReferenceData } from "../../resources/reference-data";
@@ -53,6 +56,7 @@ export function ReceivePaymentFormPage() {
   const router = useRouter();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit") ?? "";
+  const sourceInvoiceId = searchParams.get("invoice") ?? "";
   const detail = useResourceDetail("sales", "payments", editId);
   const mutations = useResourceMutations("sales", "payments");
   const invoices = useResourceList("sales", "invoices", {
@@ -62,6 +66,7 @@ export function ReceivePaymentFormPage() {
   const references = useReferenceData();
   const idempotencyKey = useRef(crypto.randomUUID());
   const loadedKey = useRef("");
+  const sourceInvoiceLoaded = useRef(false);
 
   const customerOptions = useMemo(
     () =>
@@ -88,6 +93,7 @@ export function ReceivePaymentFormPage() {
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveAndClose, setSaveAndClose] = useState(false);
+  const isPosted = detail.data?.data.status.toLowerCase() === "posted";
 
   useEffect(() => {
     if (!depositToAccountId && depositOptions[0]) {
@@ -122,14 +128,29 @@ export function ReceivePaymentFormPage() {
     );
   }, [detail.data, editId]);
 
+  useEffect(() => {
+    if (editId || !sourceInvoiceId || sourceInvoiceLoaded.current) return;
+    const invoice = (invoices.data?.data ?? []).find(
+      (candidate) => candidate.id === sourceInvoiceId,
+    );
+    if (!invoice) return;
+    sourceInvoiceLoaded.current = true;
+    const openBalance = String(invoice.data.balanceDue ?? "0");
+    setCustomerId(String(invoice.data.customerId ?? ""));
+    if (compareDecimals(openBalance, "0") > 0) {
+      setAmount(formatDecimalInput(openBalance));
+      setAllocations([{ invoiceId: invoice.id, amount: formatDecimalInput(openBalance) }]);
+    }
+  }, [editId, invoices.data, sourceInvoiceId]);
+
   const openInvoices = useMemo(
     () =>
       (invoices.data?.data ?? []).filter((invoice) => {
-        const balance = Number(invoice.data.balanceDue ?? 0);
+        const balance = String(invoice.data.balanceDue ?? "0");
         return (
           Boolean(customerId) &&
           invoice.data.customerId === customerId &&
-          balance > 0 &&
+          compareDecimals(balance, "0") > 0 &&
           ["open", "partially_paid", "overdue"].includes(
             invoice.status.toLowerCase(),
           )
@@ -159,15 +180,16 @@ export function ReceivePaymentFormPage() {
     const next = allocations.filter(
       (allocation) => allocation.invoiceId !== invoiceId,
     );
-    if (cleaned && Number(cleaned) > 0) next.push({ invoiceId, amount: cleaned });
+    if (cleaned && compareDecimals(cleaned, "0") > 0)
+      next.push({ invoiceId, amount: cleaned });
     setAllocations(next);
     const total = sumDecimals(next.map((entry) => entry.amount || "0"));
     if (
       !amount ||
       amount === previousApplied ||
-      Number(amount) === Number(previousApplied)
+      compareDecimals(amount || "0", previousApplied) === 0
     ) {
-      if (Number(total) > 0) setAmount(formatDecimalInput(total));
+      if (compareDecimals(total, "0") > 0) setAmount(formatDecimalInput(total));
       else if (!cleaned) setAmount("");
     }
   };
@@ -194,10 +216,30 @@ export function ReceivePaymentFormPage() {
       });
       return;
     }
-    if (!amount || Number(amount) <= 0) {
+    if (!amount || compareDecimals(amount, "0") <= 0) {
       setMessage({
         title: "Amount required",
         description: "Enter the payment amount received.",
+        variant: "error",
+      });
+      return;
+    }
+    if (compareDecimals(appliedTotal, amount) > 0) {
+      setMessage({
+        title: "Allocation exceeds payment",
+        description: "Applied invoice amounts cannot exceed the payment amount.",
+        variant: "error",
+      });
+      return;
+    }
+    const excessive = allocations.find((allocation) => {
+      const invoice = openInvoices.find((candidate) => candidate.id === allocation.invoiceId);
+      return !invoice || compareDecimals(allocation.amount, invoice.data.balanceDue ?? "0") > 0;
+    });
+    if (excessive) {
+      setMessage({
+        title: "Allocation exceeds invoice balance",
+        description: "Reduce the allocation to the invoice's current balance due.",
         variant: "error",
       });
       return;
@@ -226,18 +268,25 @@ export function ReceivePaymentFormPage() {
     setSaving(true);
     setSaveAndClose(closeAfter);
     try {
+      let savedId = editId;
       if (editId) {
         const version = detail.data?.data.version;
         if (version === undefined) {
           throw new Error("Payment version is missing. Reload and try again.");
         }
-        await mutations.update.mutateAsync({ id: editId, data, version });
+        const updated = await mutations.update.mutateAsync({ id: editId, data, version });
+        await apiClient.action(
+          `/v1/sales/payments/${encodeURIComponent(editId)}/allocate`,
+          { allocations },
+        );
+        savedId = updated.data.id;
       } else {
-        await mutations.create.mutateAsync({
+        const created = await mutations.create.mutateAsync({
           data,
           status: "draft",
           idempotencyKey: idempotencyKey.current,
         });
+        savedId = created.data.id;
       }
 
       setMessage({
@@ -250,7 +299,7 @@ export function ReceivePaymentFormPage() {
 
       if (closeAfter) {
         window.setTimeout(() => {
-          router.push("/sales/payments");
+          router.push(`/sales/payments/${encodeURIComponent(savedId)}`);
         }, 500);
       } else {
         resetForm();
@@ -292,6 +341,16 @@ export function ReceivePaymentFormPage() {
             </h1>
           </div>
           <div className="flex flex-wrap gap-2">
+            {isPosted ? (
+              <Link
+                href={`/sales/payments/${encodeURIComponent(editId)}`}
+                className="flex h-10 items-center rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"
+              >
+                View posted payment
+              </Link>
+            ) : null}
+            {!isPosted ? (
+              <>
             <button
               type="submit"
               disabled={saving}
@@ -302,7 +361,7 @@ export function ReceivePaymentFormPage() {
               ) : (
                 <Save size={14} />
               )}
-              Save & new
+              Save draft & new
             </button>
             <button
               type="button"
@@ -313,13 +372,16 @@ export function ReceivePaymentFormPage() {
               {saving && saveAndClose ? (
                 <LoaderCircle size={14} className="animate-spin" />
               ) : null}
-              Save & close
+              Save draft & close
             </button>
+              </>
+            ) : null}
           </div>
         </div>
 
         <Toast message={message} onClose={() => setMessage(null)} />
 
+        <fieldset disabled={isPosted}>
         <Card className="mt-5 overflow-hidden p-0">
           <div className="grid gap-3 border-b border-[#e5ecf1] bg-[#f7fafc] px-4 py-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <label className="text-[10px] font-bold uppercase tracking-wide text-[#7a8d97] xl:col-span-2">
@@ -392,13 +454,15 @@ export function ReceivePaymentFormPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left">
+            <table className="w-full min-w-[900px] text-left">
               <thead className="bg-[#eef4f8] text-[10px] font-bold uppercase tracking-wide text-[#6f8390]">
                 <tr>
                   <th className="w-16 px-3 py-2.5">Apply</th>
                   <th className="px-3 py-2.5">Invoice</th>
+                  <th className="px-3 py-2.5">Invoice date</th>
                   <th className="px-3 py-2.5">Due date</th>
                   <th className="px-3 py-2.5 text-right">Original amount</th>
+                  <th className="px-3 py-2.5 text-right">Amount paid</th>
                   <th className="px-3 py-2.5 text-right">Open balance</th>
                   <th className="w-36 px-3 py-2.5 text-right">Payment</th>
                 </tr>
@@ -407,7 +471,7 @@ export function ReceivePaymentFormPage() {
                 {!customerId ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={8}
                       className="px-3 py-10 text-center text-sm font-semibold text-[#7a8d97]"
                     >
                       Select a customer to view their open invoices.
@@ -416,7 +480,7 @@ export function ReceivePaymentFormPage() {
                 ) : invoices.isLoading ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={8}
                       className="px-3 py-10 text-center text-sm font-semibold text-[#7a8d97]"
                     >
                       Loading open invoices…
@@ -425,7 +489,7 @@ export function ReceivePaymentFormPage() {
                 ) : !openInvoices.length ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={8}
                       className="px-3 py-10 text-center text-sm font-semibold text-[#7a8d97]"
                     >
                       This customer has no open invoices.
@@ -462,10 +526,16 @@ export function ReceivePaymentFormPage() {
                           {recordIdentifier(invoice)}
                         </td>
                         <td className="px-3 py-2.5 text-sm text-[#405762]">
+                          {String(invoice.data.invoiceDate ?? "—")}
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-[#405762]">
                           {String(invoice.data.dueDate ?? "—")}
                         </td>
                         <td className="px-3 py-2.5 text-right text-sm tabular-nums text-[#243f4c]">
                           {formatDecimal(String(invoice.data.total ?? "0"))}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-sm tabular-nums text-[#405762]">
+                          {formatDecimal(String(invoice.data.amountPaid ?? "0"))}
                         </td>
                         <td className="px-3 py-2.5 text-right text-sm font-bold tabular-nums text-[#243f4c]">
                           {formatDecimal(openBalance)}
@@ -495,8 +565,8 @@ export function ReceivePaymentFormPage() {
               </tbody>
               <tfoot>
                 <tr className="border-t border-[#cfdce5] bg-[#f7fafc] text-xs font-bold text-[#243f4c]">
-                  <td colSpan={5} className="px-3 py-3 text-right">
-                    Amounts applied
+                  <td colSpan={7} className="px-3 py-3 text-right">
+                    Applied · Unapplied {formatDecimal(subtractDecimals(amount || "0", appliedTotal))}
                   </td>
                   <td className="px-3 py-3 text-right tabular-nums">
                     {formatDecimal(appliedTotal)}
@@ -518,6 +588,7 @@ export function ReceivePaymentFormPage() {
             </label>
           </div>
         </Card>
+        </fieldset>
       </form>
     </AppShell>
   );

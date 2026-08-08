@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Copy,
   FileText,
+  LoaderCircle,
   Pencil,
   Printer,
   RefreshCcw,
@@ -39,6 +40,7 @@ import {
   recordTitle,
   useRecordActivity,
   useResourceDetail,
+  useResourceList,
   useResourceMutations,
 } from "./resource-api";
 import { apiClient } from "@/lib/api-client";
@@ -491,6 +493,56 @@ function InvoiceAccountingPanels({ data }: { data: Record<string, unknown> }) {
   );
 }
 
+function PaymentSettlementPanel({ data }: { data: Record<string, unknown> }) {
+  const invoices = useResourceList("sales", "invoices", { page: 1, pageSize: 200 });
+  const allocations = Array.isArray(data.allocations)
+    ? data.allocations as Array<Record<string, unknown>>
+    : [];
+  const invoiceNames = new Map(
+    (invoices.data?.data ?? []).map((invoice) => [invoice.id, recordIdentifier(invoice)]),
+  );
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex items-center justify-between border-b border-[#e8eef2] px-5 py-4">
+        <div>
+          <h2 className="text-sm font-bold text-[#263f4b]">Invoice allocations</h2>
+          <p className="mt-1 text-xs text-[#7b8d97]">Settlement recorded by the relational payment ledger.</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] font-bold uppercase text-[#81929c]">Unapplied</p>
+          <p className="mt-1 text-sm font-bold tabular-nums text-[#29424e]">
+            {formatDecimal(String(data.unappliedAmount ?? data.amount ?? "0"))}
+          </p>
+        </div>
+      </div>
+      {allocations.length ? (
+        <table className="w-full text-left text-xs">
+          <thead className="bg-[#f8fafc] text-[10px] uppercase text-[#7b8e98]">
+            <tr><th className="px-5 py-3">Invoice</th><th className="px-5 py-3 text-right">Applied</th></tr>
+          </thead>
+          <tbody>
+            {allocations.map((allocation, index) => {
+              const invoiceId = String(allocation.invoiceId ?? "");
+              return (
+                <tr key={`${invoiceId}-${index}`} className="border-t border-[#edf1f4]">
+                  <td className="px-5 py-3 font-bold text-[#007DCC]">
+                    {invoiceNames.get(invoiceId) ?? invoiceId}
+                  </td>
+                  <td className="px-5 py-3 text-right font-bold tabular-nums">
+                    {formatDecimal(String(allocation.amount ?? "0"))}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      ) : (
+        <p className="px-5 py-8 text-center text-xs text-[#7b8d97]">This payment is fully unapplied.</p>
+      )}
+    </Card>
+  );
+}
+
 export function ResourceDetailsPage({
   config,
   id,
@@ -506,6 +558,7 @@ export function ResourceDetailsPage({
   const references = useReferenceData();
   const record = detail.data?.data;
   const isInvoice = config.module === "sales" && config.slug === "invoices";
+  const isCustomerPayment = config.module === "sales" && config.slug === "payments";
   const row: ResourceRow = record
     ? {
         id: record.id,
@@ -536,6 +589,7 @@ export function ResourceDetailsPage({
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [actionPending, setActionPending] = useState(false);
   const listHref = `/${config.module}/${config.slug}`;
   const notify = (
     title: string,
@@ -552,6 +606,8 @@ export function ResourceDetailsPage({
     description: string,
     idempotencyKey?: string,
   ) => {
+    if (actionPending) return;
+    setActionPending(true);
     try {
       await apiClient.action(path, body, "POST", idempotencyKey);
       await detail.refetch();
@@ -559,6 +615,12 @@ export function ResourceDetailsPage({
       await queryClient.invalidateQueries({
         queryKey: queryKeys.resource(config.module, config.slug),
       });
+      if (isCustomerPayment) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.resource("sales", "invoices") }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.resource("sales", "customers") }),
+        ]);
+      }
       notify(successTitle, "success", description);
     } catch (caught) {
       notify(
@@ -568,6 +630,8 @@ export function ResourceDetailsPage({
           ? caught.message
           : "The API rejected this action.",
       );
+    } finally {
+      setActionPending(false);
     }
   };
 
@@ -651,12 +715,12 @@ export function ResourceDetailsPage({
               <Printer size={15} />{" "}
               {config.module === "sales" ? "Preview" : "Print"}
             </button>
-            <Link
+            {!isCustomerPayment || row.status.toLowerCase() === "draft" ? <Link
               href={`${listHref}/new?edit=${encodeURIComponent(row.id)}`}
               className="flex h-10 items-center gap-2 rounded-xl bg-[#007DCC] px-4 text-xs font-bold text-white"
             >
               <Pencil size={15} /> Edit
-            </Link>
+            </Link> : null}
           </div>
         </div>
 
@@ -809,6 +873,8 @@ export function ResourceDetailsPage({
 
             {isInvoice ? (
               <InvoiceAccountingPanels data={record.data} />
+            ) : isCustomerPayment ? (
+              <PaymentSettlementPanel data={record.data} />
             ) : (
               <RegisterCard
                 activity={activity.data?.data}
@@ -892,6 +958,22 @@ export function ResourceDetailsPage({
                       <FileText size={15} /> Preview / download PDF
                     </button>
                   </>
+                ) : null}
+                {isCustomerPayment && row.status.toLowerCase() === "draft" ? (
+                  <button
+                    disabled={actionPending}
+                    onClick={() => void runAction(
+                      `/v1/sales/payments/${encodeURIComponent(row.id)}/post`,
+                      undefined,
+                      "Payment posted",
+                      `${displayId} updated invoice and customer balances.`,
+                      `payment:${row.id}:post`,
+                    )}
+                    className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {actionPending ? <LoaderCircle size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+                    {actionPending ? "Posting payment…" : "Post payment"}
+                  </button>
                 ) : null}
                 {config.module === "sales" && config.slug === "credit-notes" ? (
                   <Link
@@ -1040,18 +1122,18 @@ export function ResourceDetailsPage({
                     <CheckCircle2 size={15} /> Approve payroll
                   </button>
                 ) : null}
-                <Link
+                {!isCustomerPayment || row.status.toLowerCase() === "draft" ? <Link
                   href={`${listHref}/new?edit=${encodeURIComponent(row.id)}`}
                   className="flex w-full items-center gap-3 rounded-xl bg-[#eaf5fc] px-3 py-3 text-xs font-bold text-[#007DCC]"
                 >
                   <Pencil size={15} /> Edit this record
-                </Link>
-                <button
+                </Link> : null}
+                {!isCustomerPayment || row.status.toLowerCase() === "draft" ? <button
                   onClick={() => setDeleteOpen(true)}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-xs font-bold text-red-600 hover:bg-red-50"
                 >
                   <Trash2 size={15} /> Delete record
-                </button>
+                </button> : null}
               </div>
             </Card>
             <Card className="p-5">
