@@ -10,6 +10,7 @@ export function ConfirmDeleteDialog({
   recordName,
   description = "This action removes the record from the current workspace. This cannot be undone.",
   confirmLabel = "Move to Trash",
+  pendingLabel = "Deleting…",
   confirming = false,
   onClose,
   onConfirm,
@@ -19,6 +20,7 @@ export function ConfirmDeleteDialog({
   recordName?: string;
   description?: string;
   confirmLabel?: string;
+  pendingLabel?: string;
   confirming?: boolean;
   onClose: () => void;
   onConfirm: () => void | Promise<void>;
@@ -100,7 +102,7 @@ export function ConfirmDeleteDialog({
             className="flex h-11 items-center justify-center gap-2 rounded-xl bg-red-600 px-5 text-xs font-bold text-white shadow-sm shadow-red-200 hover:bg-red-700 disabled:opacity-50"
           >
             <Trash2 size={15} />
-            {confirming ? "Deleting…" : confirmLabel}
+            {confirming ? pendingLabel : confirmLabel}
           </button>
         </div>
       </div>

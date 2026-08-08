@@ -588,6 +588,7 @@ export function ResourceDetailsPage({
   const displayId = row.displayId ?? row.cells[0] ?? "Record";
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [reverseOpen, setReverseOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [actionPending, setActionPending] = useState(false);
   const listHref = `/${config.module}/${config.slug}`;
@@ -606,7 +607,7 @@ export function ResourceDetailsPage({
     description: string,
     idempotencyKey?: string,
   ) => {
-    if (actionPending) return;
+    if (actionPending) return false;
     setActionPending(true);
     try {
       await apiClient.action(path, body, "POST", idempotencyKey);
@@ -622,6 +623,7 @@ export function ResourceDetailsPage({
         ]);
       }
       notify(successTitle, "success", description);
+      return true;
     } catch (caught) {
       notify(
         "Action failed",
@@ -630,6 +632,7 @@ export function ResourceDetailsPage({
           ? caught.message
           : "The API rejected this action.",
       );
+      return false;
     } finally {
       setActionPending(false);
     }
@@ -975,6 +978,16 @@ export function ResourceDetailsPage({
                     {actionPending ? "Posting payment…" : "Post payment"}
                   </button>
                 ) : null}
+                {isCustomerPayment && row.status.toLowerCase() === "posted" ? (
+                  <button
+                    disabled={actionPending}
+                    onClick={() => setReverseOpen(true)}
+                    className="flex w-full items-center gap-3 rounded-xl bg-amber-50 px-3 py-3 text-xs font-bold text-amber-700 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {actionPending ? <LoaderCircle size={15} className="animate-spin" /> : <RefreshCcw size={15} />}
+                    {actionPending ? "Reversing payment…" : "Reverse Payment"}
+                  </button>
+                ) : null}
                 {config.module === "sales" && config.slug === "credit-notes" ? (
                   <Link
                     href={`/sales/refund-receipts/new?credit=${encodeURIComponent(row.id)}`}
@@ -1180,6 +1193,28 @@ export function ResourceDetailsPage({
         onConfirm={async () => {
           await mutations.remove.mutateAsync(row.id);
           router.push(`${listHref}?deleted=${encodeURIComponent(displayId)}`);
+        }}
+      />
+      <ConfirmDeleteDialog
+        open={reverseOpen}
+        title={`Reverse ${displayId}?`}
+        recordName={`${displayId} · ${row.cells[0] ?? config.title}`}
+        description="The posted payment will not be deleted. Its accounting effect will be reversed, restoring invoice balances and customer AR."
+        confirmLabel="Reverse Payment"
+        pendingLabel="Reversing…"
+        confirming={actionPending}
+        onClose={() => {
+          if (!actionPending) setReverseOpen(false);
+        }}
+        onConfirm={async () => {
+          const succeeded = await runAction(
+            `/v1/sales/payments/${encodeURIComponent(row.id)}/reverse`,
+            { reason: "Reversed from the payment detail page" },
+            "Payment reversed",
+            `${displayId} restored invoice and customer balances.`,
+            `payment:${row.id}:reverse`,
+          );
+          if (succeeded) setReverseOpen(false);
         }}
       />
       {config.module === "sales" ? (
