@@ -19,6 +19,7 @@ import type {
 } from "../platform/types.js"
 import type { ResourceRepository } from "../repositories/resource-repository.js"
 import type { InvoiceRepository } from "../modules/sales/invoice-repository.js"
+import type { CustomerPaymentService } from "../modules/sales/customer-payment-service.js"
 import { validateOperationalData } from "../modules/operations/operational-validation.js"
 import { assertBalanced } from "../modules/accounting/ledger-math.js"
 
@@ -139,6 +140,7 @@ export class ResourceService {
     private readonly enricher?: RecordEnricher,
     private readonly inventory?: InventoryOpeningPort,
     private readonly ledger?: LedgerRepository,
+    private readonly payments?: CustomerPaymentService,
   ) {}
 
   validateData(
@@ -165,7 +167,9 @@ export class ResourceService {
   ) {
     requireMvpResource(moduleName, resourceName)
     const result =
-      this.invoices && isRelationalResource(moduleName, resourceName)
+      this.payments && moduleName === "sales" && resourceName === "payments"
+        ? await this.payments.list(context, query)
+        : this.invoices && moduleName === "sales" && resourceName === "invoices"
         ? await this.invoices.list(context, query)
         : await this.repository.list(
             {
@@ -196,7 +200,9 @@ export class ResourceService {
   ) {
     requireMvpResource(moduleName, resourceName)
     const record =
-      this.invoices && isRelationalResource(moduleName, resourceName)
+      this.payments && moduleName === "sales" && resourceName === "payments"
+        ? await this.payments.get(context, id)
+        : this.invoices && moduleName === "sales" && resourceName === "invoices"
         ? await this.invoices.findById(context, id)
         : await this.repository.findById(
             {
@@ -228,6 +234,14 @@ export class ResourceService {
     requireMvpResource(moduleName, resourceName)
     if (moduleName === "accounting" && resourceName === "audit-log")
       throw conflict("Audit records are read-only")
+    if (this.payments && moduleName === "sales" && resourceName === "payments")
+      return this.payments.create(
+        context,
+        input,
+        idempotency
+          ? { idempotencyKey: idempotency.key, requestHash: idempotency.requestHash }
+          : undefined,
+      )
     if (this.invoices && isRelationalResource(moduleName, resourceName))
       return this.invoices.create(
         context,
@@ -432,6 +446,8 @@ export class ResourceService {
     requireMvpResource(moduleName, resourceName)
     if (moduleName === "accounting" && resourceName === "audit-log")
       throw conflict("Audit records are read-only")
+    if (this.payments && moduleName === "sales" && resourceName === "payments")
+      return this.payments.update(context, id, input)
     if (this.invoices && isRelationalResource(moduleName, resourceName))
       return this.invoices.update(context, id, {
         status: input.status,
@@ -488,6 +504,8 @@ export class ResourceService {
     requireMvpResource(moduleName, resourceName)
     if (moduleName === "accounting" && resourceName === "audit-log")
       throw conflict("Audit records are read-only")
+    if (this.payments && moduleName === "sales" && resourceName === "payments")
+      return this.payments.remove(context, id)
     if (this.invoices && isRelationalResource(moduleName, resourceName))
       return this.invoices.remove(context, id)
     const current = await this.get(context, moduleName, resourceName, id)

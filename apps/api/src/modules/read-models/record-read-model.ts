@@ -14,6 +14,7 @@ import { decimalToMinor, minorToDecimal } from "../accounting/ledger-math.js"
 import type { InventoryReadPort } from "../inventory/inventory-movement-port.js"
 import { lineAmount, sumLineAmounts } from "../operations/money.js"
 import type { InvoiceRepository } from "../sales/invoice-repository.js"
+import type { CustomerPaymentRepository } from "../sales/customer-payment-repository.js"
 import {
   addDecimals,
   averageCost,
@@ -158,6 +159,7 @@ export class RecordReadModel implements RecordEnricher {
     private readonly ledger: LedgerRepository,
     private readonly invoices?: InvoiceRepository,
     private readonly inventory?: InventoryReadPort,
+    private readonly payments?: CustomerPaymentRepository,
   ) {}
 
   async enrich(
@@ -586,6 +588,8 @@ export class RecordReadModel implements RecordEnricher {
     moduleName: string,
     resourceName: string,
   ) {
+    if (moduleName === "sales" && resourceName === "payments" && this.payments)
+      return (await this.payments.list(context, listAll)).data
     const result = await this.resources.list(
       {
         companyId: context.companyId,

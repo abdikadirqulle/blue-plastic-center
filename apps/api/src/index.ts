@@ -7,6 +7,7 @@ import { PostgresIdentityRepository } from "./modules/auth/postgres-identity-rep
 import { MemoryLedgerRepository } from "./modules/accounting/memory-ledger-repository.js";
 import { PostgresLedgerRepository } from "./modules/accounting/postgres-ledger-repository.js";
 import { PostgresInvoiceRepository } from "./modules/sales/postgres-invoice-repository.js";
+import { PostgresCustomerPaymentRepository } from "./modules/sales/postgres-customer-payment-repository.js";
 import { PostgresInventoryMovements } from "./modules/inventory/postgres-inventory-movements.js";
 import { MemoryResourceRepository } from "./repositories/memory-resource-repository.js";
 import { PostgresResourceRepository } from "./repositories/postgres-resource-repository.js";
@@ -27,6 +28,9 @@ const inventoryMovements = database ? new PostgresInventoryMovements(database.db
 const invoiceRepository = database && ledgerRepository instanceof PostgresLedgerRepository && inventoryMovements
   ? new PostgresInvoiceRepository(database.db, ledgerRepository, inventoryMovements)
   : undefined;
+const paymentRepository = database
+  ? new PostgresCustomerPaymentRepository(database.db)
+  : undefined;
 const app = createApp(
   repository,
   env,
@@ -34,6 +38,7 @@ const app = createApp(
   ledgerRepository,
   invoiceRepository,
   inventoryMovements,
+  paymentRepository,
 );
 
 try {

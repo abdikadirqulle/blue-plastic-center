@@ -101,6 +101,31 @@ export type InvoiceCreateData = z.infer<typeof invoiceCreateDataSchema>
 export type InvoiceUpdateData = z.infer<typeof invoiceUpdateDataSchema>
 export type InvoiceTotals = z.infer<typeof invoiceTotalsSchema>
 
+export const customerPaymentStatusSchema = z.enum(["draft", "posted", "reversed"])
+
+const customerPaymentDataShape = {
+  customerId: identifier,
+  paymentDate: isoDate,
+  amount: positiveDecimal,
+  currency: currencyCode,
+  exchangeRate: invoicePositiveDecimalSchema.default("1"),
+  depositToAccountId: identifier,
+  paymentMethod: z.string().trim().min(1).max(100),
+  reference: z.string().trim().max(200).optional(),
+}
+
+export const customerPaymentCreateDataSchema = z.object({
+  ...customerPaymentDataShape,
+  allocations: z
+    .array(z.object({ invoiceId: identifier, amount: positiveDecimal }))
+    .default([]),
+}).passthrough()
+export const customerPaymentUpdateDataSchema = z.object(customerPaymentDataShape)
+  .partial()
+  .passthrough()
+export type CustomerPaymentCreateData = z.infer<typeof customerPaymentCreateDataSchema>
+export type CustomerPaymentUpdateData = z.infer<typeof customerPaymentUpdateDataSchema>
+
 export const salesSchemas: Record<string, OperationalSchema> = {
   customers: partySchema,
   estimates: customerDocument.extend({
@@ -112,25 +137,7 @@ export const salesSchemas: Record<string, OperationalSchema> = {
     requestedShipDate: isoDate.optional(),
   }),
   invoices: invoiceCreateDataSchema,
-  payments: z
-    .object({
-      customerId: identifier,
-      paymentDate: isoDate,
-      amount: positiveDecimal,
-      currency: currencyCode,
-      depositToAccountId: identifier,
-      paymentMethod: z.string().min(1),
-      allocations: z
-        .array(
-          z.object({
-            invoiceId: identifier,
-            amount: positiveDecimal,
-          }),
-        )
-        .default([]),
-      reference: z.string().optional(),
-    })
-    .passthrough(),
+  payments: customerPaymentCreateDataSchema,
   "credit-notes": customerDocument.extend({
     creditDate: isoDate,
   }),
@@ -181,6 +188,18 @@ export const allocationSchema = z.object({
       }),
     )
     .min(1),
+}).superRefine((value, context) => {
+  const seen = new Set<string>()
+  value.allocations.forEach((allocation, index) => {
+    if (seen.has(allocation.invoiceId)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "An invoice can appear only once per payment",
+        path: ["allocations", index, "invoiceId"],
+      })
+    }
+    seen.add(allocation.invoiceId)
+  })
 })
 
 export const emailDocumentSchema = z.object({

@@ -20,6 +20,9 @@ import { salesRoutes } from "./modules/sales/sales.routes.js"
 import { InvoiceService } from "./modules/sales/invoice-service.js"
 import type { InvoiceRepository } from "./modules/sales/invoice-repository.js"
 import { MemoryInvoiceRepository } from "./modules/sales/memory-invoice-repository.js"
+import type { CustomerPaymentRepository } from "./modules/sales/customer-payment-repository.js"
+import { CustomerPaymentService } from "./modules/sales/customer-payment-service.js"
+import { MemoryCustomerPaymentRepository } from "./modules/sales/memory-customer-payment-repository.js"
 import { MemoryInventoryMovements } from "./modules/inventory/memory-inventory-movements.js"
 import type { InventoryReadPort, InventoryOpeningPort } from "./modules/inventory/inventory-movement-port.js"
 import { activityRoutes } from "./modules/read-models/activity.routes.js"
@@ -55,6 +58,7 @@ export function createApp(
   ledgerRepository?: LedgerRepository,
   invoiceRepository?: InvoiceRepository,
   inventoryReadPort?: InventoryReadPort & Partial<InventoryOpeningPort>,
+  paymentRepository?: CustomerPaymentRepository,
 ) {
   const app = Fastify({
     logger: env.LOG_LEVEL === "silent" ? false : { level: env.LOG_LEVEL },
@@ -75,6 +79,8 @@ export function createApp(
       stock,
     )
   const inventoryForReads = inventoryReadPort ?? stock
+  const paymentStore = paymentRepository ?? new MemoryCustomerPaymentRepository(repository, invoiceStore)
+  const payments = new CustomerPaymentService(paymentStore)
   // Balances are read from the ledger, the invoice tables and the stock ledger
   // on every request, so no screen can show a figure the books disagree with.
   const readModel = new RecordReadModel(
@@ -82,6 +88,7 @@ export function createApp(
     ledger,
     invoiceStore,
     inventoryForReads,
+    paymentStore,
   )
   const openingStock: InventoryOpeningPort | undefined =
     inventoryReadPort && "recordOpening" in inventoryReadPort
@@ -93,6 +100,7 @@ export function createApp(
     readModel,
     openingStock,
     ledger,
+    payments,
   )
   const invoices = new InvoiceService(invoiceStore)
   const authService = new AuthService(identityRepository, env.SESSION_TTL_HOURS)
@@ -133,7 +141,7 @@ export function createApp(
         prefix: "/auth",
       })
       await v1.register(
-        async (sales) => salesRoutes(sales, workflows, service, invoices, ledger),
+        async (sales) => salesRoutes(sales, workflows, service, invoices, payments),
         { prefix: "/sales" },
       )
       await v1.register(

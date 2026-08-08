@@ -472,6 +472,10 @@ export const customerPayments = pgTable(
       table.companyId,
       table.customerId,
     ),
+    check(
+      "customer_payments_status_chk",
+      sql`${table.status} in ('draft', 'posted', 'reversed')`,
+    ),
   ],
 )
 

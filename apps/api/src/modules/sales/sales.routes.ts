@@ -3,24 +3,20 @@ import { createHash } from "node:crypto"
 import { authorizeResource } from "../../platform/auth.js"
 import type { OperationalWorkflowService } from "../operations/operational-workflow.service.js"
 import {
-  allocationSchema,
   conversionSchema,
   emailDocumentSchema,
 } from "@blue-plastic/types"
 import type { ResourceService } from "../../services/resource-service.js"
 import { listQuerySchema, writeSchema } from "../resources/resource.schemas.js"
 import type { InvoiceService } from "./invoice-service.js"
-import type { LedgerRepository } from "../accounting/ledger-repository.js"
-import { createBalancedJournalEntry } from "../accounting/posting-engine.js"
-import { systemAccountKeys } from "../accounting/system-accounts.js"
-import { conflict, validation } from "../../platform/errors.js"
+import type { CustomerPaymentService } from "./customer-payment-service.js"
 
 export async function salesRoutes(
   app: FastifyInstance,
   workflows: OperationalWorkflowService,
   resources: ResourceService,
   invoices: InvoiceService,
-  ledger?: LedgerRepository,
+  payments: CustomerPaymentService,
 ) {
   app.get("/invoices", async (request) => {
     authorizeResource(request.requestContext.principal, "read", "sales")
@@ -122,71 +118,13 @@ export async function salesRoutes(
     "/payments/:id/allocate",
     async (request) => {
       authorizeResource(request.requestContext.principal, "update", "sales")
-      if (!ledger)
-        throw conflict("Payment posting requires the accounting ledger")
-      const current = await resources.get(
-        request.requestContext,
-        "sales",
-        "payments",
-        request.params.id,
-      )
-      const input = allocationSchema.parse(request.body)
-      const amount = String(current.data.amount ?? "0")
-      if (!/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0)
-        throw validation("Payment amount must be a positive decimal")
-      const depositAccountId =
-        typeof current.data.depositToAccountId === "string"
-          ? current.data.depositToAccountId
-          : typeof current.data.depositTo === "string" &&
-              /^[0-9a-f-]{36}$/i.test(current.data.depositTo)
-            ? current.data.depositTo
-            : undefined
-      const payment = await resources.update(
-        request.requestContext,
-        "sales",
-        "payments",
-        current.id,
-        {
-          version: current.version,
-          status: "applied",
-          data: {
-            ...current.data,
-            ...input,
-            allocations: input.allocations ?? current.data.allocations,
-          },
-        },
-      )
-      await ledger.post(
-        request.requestContext,
-        createBalancedJournalEntry({
-          sourceModule: "sales",
-          sourceType: "payment",
-          sourceId: current.id,
-          idempotencyKey: `payment:${current.id}:post`,
-          transactionDate: String(
-            current.data.paymentDate ?? new Date().toISOString().slice(0, 10),
-          ),
-          currency: String(current.data.currency ?? "USD"),
-          memo: `Customer payment ${String(current.data.documentNumber ?? current.id)}`,
-          lines: [
-            {
-              ...(depositAccountId
-                ? { accountId: depositAccountId }
-                : { systemAccountKey: systemAccountKeys.BANK }),
-              description: "Payment deposited",
-              debit: amount,
-              credit: "0",
-            },
-            {
-              systemAccountKey: systemAccountKeys.ACCOUNTS_RECEIVABLE,
-              description: "Accounts receivable relief",
-              debit: "0",
-              credit: amount,
-            },
-          ],
-        }),
-      )
-      return { data: payment }
+      return {
+        data: await payments.allocate(
+          request.requestContext,
+          request.params.id,
+          request.body,
+        ),
+      }
     },
   )
 

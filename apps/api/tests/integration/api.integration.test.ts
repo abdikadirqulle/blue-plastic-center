@@ -573,6 +573,11 @@ test("MVP secured workflows cover invoices, customer payments, and documents", a
     }),
   })).json().data;
   assert.equal(invoice.data.total, "100.0000");
+  const postedInvoice = await request(app, `/v1/sales/invoices/${invoice.id}/post`, {
+    method: "POST",
+    headers: { "Idempotency-Key": `post-${invoice.id}` },
+  });
+  assert.equal(postedInvoice.status, 200);
 
   const payment = (await request(app, "/v1/sales/payments", {
     method: "POST",
@@ -583,7 +588,7 @@ test("MVP secured workflows cover invoices, customer payments, and documents", a
         paymentDate: "2026-07-28",
         amount: "100.00",
         currency: "USD",
-        depositToAccountId: "bank-1",
+        depositToAccountId: references.accountId,
         paymentMethod: "bank-transfer",
         allocations: [],
       },
@@ -595,7 +600,9 @@ test("MVP secured workflows cover invoices, customer payments, and documents", a
       allocations: [{ invoiceId: invoice.id, amount: "100.00" }],
     }),
   });
-  assert.equal(applied.json().data.status, "applied");
+  assert.equal(applied.status, 200);
+  assert.equal(applied.json().data.status, "draft");
+  assert.equal(applied.json().data.data.unappliedAmount, "0.0000");
 
   const attachment = await request(app, `/v1/documents/sales/invoices/${invoice.id}/attachments`, {
     method: "POST",
@@ -651,7 +658,7 @@ test.skip("deferred workflows cover estimates, purchasing receipts, fulfillment,
         paymentDate: "2026-07-28",
         amount: "100.00",
         currency: "USD",
-        depositToAccountId: "bank-1",
+        depositToAccountId: references.accountId,
         paymentMethod: "bank-transfer",
         allocations: [],
       },
@@ -663,7 +670,7 @@ test.skip("deferred workflows cover estimates, purchasing receipts, fulfillment,
       allocations: [{ invoiceId: converted.json().data.id, amount: "100.00" }],
     }),
   });
-  assert.equal(applied.json().data.status, "applied");
+  assert.equal(applied.json().data.status, "draft");
   const draftPostings = await request(app, "/v1/accounting/journal-entries");
   assert.equal(draftPostings.json().meta.total, 1);
 
