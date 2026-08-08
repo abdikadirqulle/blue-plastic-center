@@ -5,12 +5,17 @@
  */
 export const systemAccountKeys = {
   ACCOUNTS_RECEIVABLE: "accounts_receivable",
+  ACCOUNTS_PAYABLE: "accounts_payable",
   SALES_REVENUE: "sales_revenue",
   SERVICE_REVENUE: "service_revenue",
   SALES_DISCOUNTS: "sales_discounts",
   INVENTORY_ASSET: "inventory_asset",
   COST_OF_GOODS_SOLD: "cost_of_goods_sold",
   TAX_PAYABLE: "tax_payable",
+  CASH: "cash",
+  BANK: "bank",
+  MOBILE_MONEY: "mobile_money",
+  OWNER_EQUITY: "owner_capital",
 } as const
 
 export type SystemAccountName = keyof typeof systemAccountKeys

@@ -13,6 +13,8 @@ import {
 import { conflict, notFound } from "../../platform/errors.js"
 import type { RequestContext, ResourceRecord } from "../../platform/types.js"
 import type { LedgerRepository, SourceReversalInput } from "./ledger-repository.js"
+import { createPostgresAccountResolver } from "./account-resolver.js"
+import { resolveOpenFiscalPeriod } from "./fiscal-period-resolver.js"
 import {
   createReversalCommand,
   postingFingerprint,
@@ -314,20 +316,11 @@ export class PostgresLedgerRepository implements LedgerRepository {
     } else if (command.reversalOfId) {
       throw conflict("Only reversal postings may reference an original transaction")
     }
-    const [closed] = await transaction.select({ id: fiscalPeriods.id }).from(fiscalPeriods)
-      .where(and(
-        eq(fiscalPeriods.companyId, context.companyId),
-        eq(fiscalPeriods.status, "closed"),
-        lte(fiscalPeriods.startDate, date),
-        gte(fiscalPeriods.endDate, date),
-      )).limit(1)
-    if (closed) throw conflict("The fiscal period is closed")
-    const [period] = await transaction.select({ id: fiscalPeriods.id }).from(fiscalPeriods)
-      .where(and(
-        eq(fiscalPeriods.companyId, context.companyId),
-        lte(fiscalPeriods.startDate, date),
-        gte(fiscalPeriods.endDate, date),
-      )).limit(1)
+    const period = await resolveOpenFiscalPeriod(
+      transaction,
+      context.companyId,
+      date,
+    )
 
     const [duplicate] = await transaction.select({ id: accountingTransactions.id })
       .from(accountingTransactions).where(and(
@@ -343,21 +336,18 @@ export class PostgresLedgerRepository implements LedgerRepository {
       )).limit(1)
     if (duplicate) throw conflict("Source transaction posting already exists")
 
+    const accountResolver = createPostgresAccountResolver(transaction)
     const resolvedLines: Array<{ accountId: string; description?: string; debit: string; credit: string }> = []
     for (const line of command.lines) {
-      const conditions = []
-      if (line.accountId) conditions.push(eq(accounts.id, line.accountId))
-      if (line.accountNumber) conditions.push(eq(accounts.accountNumber, line.accountNumber))
-      if (line.systemAccountKey) conditions.push(eq(accounts.systemKey, line.systemAccountKey))
-      const [account] = await transaction.select().from(accounts).where(and(
-        eq(accounts.companyId, context.companyId),
-        eq(accounts.active, true),
-        or(...conditions),
-      )).limit(1)
-      const reference = line.accountId ?? line.accountNumber ?? line.systemAccountKey
-      if (!account) throw notFound(`Active ledger account ${reference} was not found`)
-      if (manual && (account.isControlAccount || !account.allowManualPosting))
-        throw conflict(`Ledger account ${reference} does not allow manual posting`)
+      const account = line.systemAccountKey
+        ? await accountResolver.resolveMeaning(context.companyId, line.systemAccountKey)
+        : line.accountId
+          ? await accountResolver.validateExplicitAccount(context.companyId, line.accountId)
+          : await accountResolver.resolveLegacyAccountNumber(
+            context.companyId,
+            String(line.accountNumber),
+          )
+      if (manual) accountResolver.assertManualPostingAllowed(account)
       resolvedLines.push({
         accountId: account.id,
         description: line.description,
@@ -380,7 +370,7 @@ export class PostgresLedgerRepository implements LedgerRepository {
       postingKind: command.postingKind ?? "primary",
       postingFingerprint: fingerprint,
       idempotencyKey: command.idempotencyKey,
-      fiscalPeriodId: period?.id,
+      fiscalPeriodId: period.id,
       reversalOfId: command.reversalOfId,
       status: "posted",
       currency: command.currency,
