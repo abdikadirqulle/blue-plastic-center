@@ -643,6 +643,7 @@ export class PostgresLedgerRepository implements TransactionalLedgerRepository {
         transactionId: accountingTransactions.id,
         transactionNumber: accountingTransactions.transactionNumber,
         date: accountingTransactions.transactionDate,
+        recordedAt: accountingTransactions.createdAt,
         memo: accountingTransactions.memo,
         description: accountingLines.description,
         debit: accountingLines.debit,
@@ -669,7 +670,7 @@ export class PostgresLedgerRepository implements TransactionalLedgerRepository {
       .map((row) => ({
         transactionId: row.transactionId,
         transactionNumber: row.transactionNumber,
-        date: row.date.toISOString().slice(0, 10),
+        date: row.recordedAt.toISOString(),
         memo: row.memo ?? "",
         description: row.description ?? "",
         debit: row.debit,

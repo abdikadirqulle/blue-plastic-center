@@ -391,7 +391,7 @@ export class RecordReadModel implements RecordEnricher {
     const rows: ActivityRow[] = [
       ...invoices.map((invoice) => ({
         id: invoice.id,
-        date: invoice.invoiceDate,
+        date: invoice.recordedAt,
         kind: "invoice" as const,
         reference: invoice.invoiceNumber,
         description: `Due ${invoice.dueDate}`,
@@ -402,7 +402,7 @@ export class RecordReadModel implements RecordEnricher {
       })),
       ...payments.map((payment) => ({
         id: payment.id,
-        date: String(payment.data.paymentDate ?? payment.createdAt.slice(0, 10)),
+        date: payment.createdAt,
         kind: "payment" as const,
         reference: String(payment.data.documentNumber ?? payment.id.slice(0, 8)),
         description: String(payment.data.paymentMethod ?? "Payment received"),
@@ -413,7 +413,7 @@ export class RecordReadModel implements RecordEnricher {
       })),
       ...receipts.map((receipt) => ({
         id: receipt.id,
-        date: String(receipt.data.saleDate ?? receipt.createdAt.slice(0, 10)),
+        date: receipt.createdAt,
         kind: "receipt" as const,
         reference: String(receipt.data.documentNumber ?? receipt.id.slice(0, 8)),
         description: String(receipt.data.paymentMethod ?? "Cash sale"),
@@ -454,7 +454,7 @@ export class RecordReadModel implements RecordEnricher {
     const rows: ActivityRow[] = [
       ...bills.map((bill) => ({
         id: bill.id,
-        date: String(bill.data.billDate ?? bill.createdAt.slice(0, 10)),
+        date: bill.createdAt,
         kind: "bill" as const,
         reference: String(bill.data.documentNumber ?? bill.data.billNumber ?? "—"),
         description: bill.data.dueDate ? `Due ${String(bill.data.dueDate)}` : "",
@@ -465,7 +465,7 @@ export class RecordReadModel implements RecordEnricher {
       })),
       ...payments.map((payment) => ({
         id: payment.id,
-        date: String(payment.data.paymentDate ?? payment.createdAt.slice(0, 10)),
+        date: payment.createdAt,
         kind: "payment" as const,
         reference: String(payment.data.documentNumber ?? payment.id.slice(0, 8)),
         description: String(payment.data.paymentMethod ?? "Payment sent"),
@@ -502,7 +502,7 @@ export class RecordReadModel implements RecordEnricher {
     const rows: ActivityRow[] = movements
       .map((movement) => ({
         id: movement.id,
-        date: movement.occurredAt.slice(0, 10),
+        date: movement.occurredAt,
         kind: "movement" as const,
         reference: sourceLabel(movement.sourceType),
         description: sourceLabel(movement.kind),

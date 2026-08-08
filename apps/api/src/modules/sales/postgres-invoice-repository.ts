@@ -205,6 +205,7 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
       invoiceNumber: row.invoiceNumber,
       invoiceDate: dateText(row.invoiceDate),
       dueDate: dateText(row.dueDate),
+      recordedAt: (row.postedAt ?? row.createdAt).toISOString(),
       status: deriveInvoiceStatus({
         status: settlements.get(row.id)?.status ?? row.status,
         total: row.total,

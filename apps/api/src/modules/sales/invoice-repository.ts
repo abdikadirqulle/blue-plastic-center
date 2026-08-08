@@ -23,6 +23,8 @@ export interface InvoiceDocumentView {
   invoiceNumber: string
   invoiceDate: string
   dueDate: string
+  /** When the invoice was posted or created — used for register date/time display. */
+  recordedAt: string
   status: string
   total: string
   amountPaid: string

@@ -58,6 +58,43 @@ const statusVariant = (status: string) => {
   return "neutral";
 };
 
+/** Renders timestamps as `2026-08-08 9:40 am`. Date-only values stay date-only. */
+function formatDateTime(value: unknown) {
+  const text = String(value ?? "").trim();
+  if (!text || text === "—" || text === "\u2014") return "\u2014";
+
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(text);
+  const parsed = new Date(dateOnly ? `${text}T12:00:00` : text);
+  if (Number.isNaN(parsed.getTime())) return text;
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  const datePart = `${year}-${month}-${day}`;
+
+  // Business calendar dates arrive without a clock time — never invent 12:00 am.
+  if (dateOnly) return datePart;
+
+  const timeMatch = text.match(/T(\d{2}):(\d{2})(?::(\d{2}(?:\.\d+)?))?/);
+  const isMidnightClock =
+    Boolean(timeMatch) &&
+    timeMatch![1] === "00" &&
+    timeMatch![2] === "00" &&
+    (!timeMatch![3] || Number(timeMatch![3]) === 0);
+  if (isMidnightClock) return datePart;
+
+  let hours = parsed.getHours();
+  const minutes = String(parsed.getMinutes()).padStart(2, "0");
+  const suffix = hours >= 12 ? "pm" : "am";
+  hours = hours % 12;
+  if (hours === 0) hours = 12;
+  return `${datePart} ${hours}:${minutes} ${suffix}`;
+}
+
+function isDateLikeField(name: string) {
+  return /date|asOf|occurredAt|createdAt|updatedAt|postedAt|voidedAt/i.test(name);
+}
+
 /**
  * Figures worth putting at the top of a document. Anything not listed stays in
  * its section below, so the header cannot fill up with incidental form fields.
@@ -126,6 +163,8 @@ function metricValue(metric: ActivityMetric, currency: string) {
   if (metric.format === "money")
     return `${currency} ${formatDecimal(metric.value)}`;
   if (metric.format === "quantity") return formatDecimal(metric.value);
+  if (metric.format === "date" || isDateLikeField(metric.key))
+    return formatDateTime(metric.value);
   return metric.value;
 }
 
@@ -184,7 +223,7 @@ const money = (value: string | undefined) =>
 function registerCells(row: ActivityRow, kind: string) {
   if (kind === "item")
     return [
-      row.date,
+      formatDateTime(row.date),
       row.description,
       row.reference,
       formatDecimal(row.quantity ?? "0"),
@@ -193,7 +232,7 @@ function registerCells(row: ActivityRow, kind: string) {
     ];
   if (kind === "account")
     return [
-      row.date,
+      formatDateTime(row.date),
       row.reference,
       row.description,
       money(row.debit),
@@ -201,7 +240,7 @@ function registerCells(row: ActivityRow, kind: string) {
       money(row.running),
     ];
   return [
-    row.date,
+    formatDateTime(row.date),
     row.kind,
     row.reference,
     row.status ?? "\u2014",
@@ -331,6 +370,8 @@ function displayValue(
         (typeof actual === "string" && /^-?\d+(\.\d+)?$/.test(actual)))
     )
       return formatDecimal(actual);
+    if (field.type === "date" || isDateLikeField(field.name))
+      return formatDateTime(actual);
     if (
       /(Id$)|customer|vendor|project|employee|warehouse|account|item|bankAccount|paymentAccount|depositTo/i.test(
         field.name,
@@ -444,7 +485,7 @@ function InvoiceAccountingPanels({ data }: { data: Record<string, unknown> }) {
                 {movements.map((movement, index) => (
                   <tr key={index} className="border-t border-[#edf1f4]">
                     <td className="px-5 py-3">
-                      {String(movement.movementDate ?? "—")}
+                      {formatDateTime(movement.occurredAt ?? movement.movementDate)}
                     </td>
                     <td className="px-5 py-3 capitalize">
                       {String(movement.direction ?? "out")}
@@ -480,7 +521,7 @@ function InvoiceAccountingPanels({ data }: { data: Record<string, unknown> }) {
                     {String(event.action ?? "changed")}
                   </p>
                   <p className="mt-1 text-[10px] text-[#82949e]">
-                    {String(event.occurredAt ?? "").slice(0, 19).replace("T", " ")}
+                    {formatDateTime(event.occurredAt)}
                     {event.userId ? ` · ${String(event.userId)}` : ""}
                   </p>
                 </div>
@@ -572,10 +613,10 @@ export function ResourceDetailsPage({
               record.data.cost ??
               "—",
           ),
-          String(
+          formatDateTime(
             Object.entries(record.data).find(([key]) =>
               /date/i.test(key),
-            )?.[1] ?? record.createdAt.slice(0, 10),
+            )?.[1] ?? record.createdAt,
           ),
         ],
       }
@@ -743,6 +784,8 @@ export function ResourceDetailsPage({
                       key,
                     )
                       ? references.resolve(value)
+                      : isDateLikeField(key)
+                        ? formatDateTime(value)
                       : /amount|total|balance|price|cost|debit|credit|rate/i.test(
                             key,
                           ) && /^-?\d+(\.\d+)?$/.test(String(value))
@@ -1135,7 +1178,7 @@ export function ResourceDetailsPage({
                           {event.action}
                         </p>
                         <p className="mt-1 text-[10px] text-[#82949e]">
-                          {event.occurredAt.slice(0, 19).replace("T", " ")}
+                          {formatDateTime(event.occurredAt)}
                         </p>
                       </div>
                     </div>

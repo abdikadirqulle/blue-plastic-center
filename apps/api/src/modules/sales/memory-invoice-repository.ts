@@ -139,6 +139,7 @@ export class MemoryInvoiceRepository implements InvoiceRepository {
         invoiceNumber: invoice.invoiceNumber,
         invoiceDate: invoice.invoiceDate,
         dueDate: invoice.dueDate,
+        recordedAt: invoice.postedAt ?? invoice.createdAt,
         status: this.project(invoice).status,
         total: invoice.total,
         amountPaid: invoice.amountPaid,
