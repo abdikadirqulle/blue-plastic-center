@@ -104,4 +104,18 @@ describe("invoice total calculator", () => {
       balanceDue: "81.0000",
     })
   })
+
+  it("uses half-away-from-zero at multiplication boundaries", () => {
+    expect(calculateInvoiceTotals({
+      discountType: "none",
+      discountValue: "0",
+      lines: [{
+        itemId: "item-1",
+        description: "Rounding boundary",
+        quantity: "0.0001",
+        unitPrice: "0.5000",
+        discountAmount: "0",
+      }],
+    })).toMatchObject({ subtotal: "0.0001", total: "0.0001" })
+  })
 })

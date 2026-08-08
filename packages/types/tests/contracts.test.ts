@@ -110,6 +110,25 @@ describe("shared operational contracts", () => {
       }],
     })).toThrow()
   })
+
+  it("validates payroll arithmetic without truncating excess precision", () => {
+    const payRun = getOperationalSchema("payroll", "pay-runs")
+    const base = {
+      periodStart: "2026-07-01",
+      periodEnd: "2026-07-31",
+      paymentDate: "2026-07-31",
+      wageExpenseAccountId: "wages",
+      payrollPayableAccountId: "payable",
+    }
+    expect(payRun?.safeParse({
+      ...base,
+      lines: [{ employeeId: "employee-1", grossPay: "1000.0000", deductions: "100.0000", netPay: "900.0000" }],
+    }).success).toBe(true)
+    expect(payRun?.safeParse({
+      ...base,
+      lines: [{ employeeId: "employee-1", grossPay: "1000.00001", deductions: "100", netPay: "900.00001" }],
+    }).success).toBe(false)
+  })
 })
 
 describe("shared form contracts", () => {

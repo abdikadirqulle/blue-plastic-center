@@ -8,7 +8,7 @@ import {
   parseMoney,
   subtractMoney,
 } from "../../src/modules/accounting/money.js"
-import { sumLineAmounts } from "../../src/modules/operations/money.js"
+import { lineAmount, sumLineAmounts } from "../../src/modules/operations/money.js"
 
 describe("canonical money", () => {
   it.each([
@@ -76,6 +76,16 @@ describe("exact financial arithmetic", () => {
       { quantity: "2.5", unitPrice: "10.1234" },
       { quantity: "3", unitPrice: "0.1000" },
     ])).toBe("25.6085")
+  })
+
+  it("rounds signed operation results half away from zero", () => {
+    expect(lineAmount({ quantity: "0.0001", unitPrice: "0.5000" })).toBe("0.0001")
+    expect(lineAmount({ quantity: "-0.0001", unitPrice: "0.5000" })).toBe("-0.0001")
+  })
+
+  it("rejects excess operation precision instead of truncating it", () => {
+    expect(() => lineAmount({ quantity: "1.00001", unitPrice: "1" }))
+      .toThrow("at most 4 decimal places")
   })
 
   it("accepts balanced journals and rejects invalid journals", () => {

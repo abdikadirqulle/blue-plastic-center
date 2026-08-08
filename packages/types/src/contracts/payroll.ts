@@ -6,10 +6,10 @@ import {
   positiveDecimal,
   type OperationalSchema,
 } from "./operational.js"
-function decimalToMinor(value: string) {
-  const [whole, fraction = ""] = value.split(".")
-  return BigInt(whole) * 10_000n + BigInt(`${fraction}0000`.slice(0, 4))
-}
+import { compareMoney, parseMoney, subtractMoney } from "../money.js"
+
+const hasValidMoneyScale = (value: string) =>
+  (value.split(".")[1]?.length ?? 0) <= 4
 
 const payRunLine = z
   .object({
@@ -18,15 +18,24 @@ const payRunLine = z
     deductions: decimalString.default("0"),
     netPay: positiveDecimal,
   })
-  .refine(
-    (line) =>
-      decimalToMinor(line.grossPay) - decimalToMinor(line.deductions) ===
-      decimalToMinor(line.netPay),
-    {
+  .superRefine((line, context) => {
+    if (![line.grossPay, line.deductions, line.netPay].every(hasValidMoneyScale)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Payroll amounts support at most 4 decimal places",
+        path: ["netPay"],
+      })
+      return
+    }
+    if (compareMoney(
+      subtractMoney(parseMoney(line.grossPay), parseMoney(line.deductions)),
+      parseMoney(line.netPay),
+    ) !== 0) context.addIssue({
+      code: z.ZodIssueCode.custom,
       message: "Net pay must equal gross pay minus deductions",
       path: ["netPay"],
-    },
-  )
+    })
+  })
 
 export const payrollSchemas: Record<string, OperationalSchema> = {
   "pay-runs": z
