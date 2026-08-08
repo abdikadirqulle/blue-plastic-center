@@ -219,18 +219,13 @@ export class RecordReadModel implements RecordEnricher {
       context,
       records.map((record) => record.id),
     )
-    const payments = await this.listRecords(context, "sales", "payments")
-    const allocated = allocationsByDocument(payments)
     const asOf = today()
     return records.map((record) => {
-      const balance = netPayments(
-        summarizeParty(
-          documents
-            .filter((document) => document.customerId === record.id)
-            .map((document) => toPartyDocument(document, allocated)),
-          asOf,
-        ),
-        paymentAmounts(payments, "customerId", record.id),
+      const balance = summarizeParty(
+        documents
+          .filter((document) => document.customerId === record.id)
+          .map(toPartyDocument),
+        asOf,
       )
       return withData(record, {
         openBalance: balance.openBalance,
@@ -389,13 +384,9 @@ export class RecordReadModel implements RecordEnricher {
       String(candidate.data.customerId ?? "") === record.id
     const payments = paymentRecords.filter(forCustomer)
     const receipts = receiptRecords.filter(forCustomer)
-    const allocated = allocationsByDocument(payments)
-    const balance = netPayments(
-      summarizeParty(
-        invoices.map((invoice) => toPartyDocument(invoice, allocated)),
-        today(),
-      ),
-      activeAmounts(payments),
+    const balance = summarizeParty(
+      invoices.map(toPartyDocument),
+      today(),
     )
     const rows: ActivityRow[] = [
       ...invoices.map((invoice) => ({
@@ -714,21 +705,15 @@ function toBillDocument(
 
 function toPartyDocument(
   invoice: {
-    id: string
     balanceDue: string
     total: string
     invoiceDate: string
     dueDate: string
     status: string
   },
-  allocated: Map<string, string>,
 ): PartyDocument {
   return {
-    outstanding: outstandingAfterAllocations(
-      invoice.balanceDue,
-      invoice.total,
-      allocated.get(invoice.id) ?? "0",
-    ),
+    outstanding: invoice.balanceDue,
     total: invoice.total,
     date: invoice.invoiceDate,
     dueDate: invoice.dueDate,

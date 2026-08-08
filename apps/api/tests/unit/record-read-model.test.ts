@@ -4,6 +4,8 @@ import { MemoryLedgerRepository } from "../../src/modules/accounting/memory-ledg
 import { MemoryInventoryMovements } from "../../src/modules/inventory/memory-inventory-movements.js"
 import { MemoryInvoiceRepository } from "../../src/modules/sales/memory-invoice-repository.js"
 import { InvoiceService } from "../../src/modules/sales/invoice-service.js"
+import { CustomerPaymentService } from "../../src/modules/sales/customer-payment-service.js"
+import { MemoryCustomerPaymentRepository } from "../../src/modules/sales/memory-customer-payment-repository.js"
 import { RecordReadModel } from "../../src/modules/read-models/record-read-model.js"
 import { MemoryResourceRepository } from "../../src/repositories/memory-resource-repository.js"
 import type { RequestContext, ResourceRecord } from "../../src/platform/types.js"
@@ -15,6 +17,7 @@ const customerId = "30000000-0000-4000-8000-000000000001"
 const itemId = "40000000-0000-4000-8000-000000000002"
 const warehouseId = "50000000-0000-4000-8000-000000000001"
 const receivableId = "60000000-0000-4000-8000-000000000001"
+const bankId = "60000000-0000-4000-8000-000000000002"
 
 const context: RequestContext = {
   requestId: randomUUID(),
@@ -54,6 +57,7 @@ describe("record read model", () => {
   let inventory: MemoryInventoryMovements
   let invoices: MemoryInvoiceRepository
   let sales: InvoiceService
+  let payments: CustomerPaymentService
   let readModel: RecordReadModel
 
   beforeEach(async () => {
@@ -62,7 +66,9 @@ describe("record read model", () => {
     inventory = new MemoryInventoryMovements()
     invoices = new MemoryInvoiceRepository(resources, ledger, inventory)
     sales = new InvoiceService(invoices)
-    readModel = new RecordReadModel(resources, ledger, invoices, inventory)
+    const paymentRepository = new MemoryCustomerPaymentRepository(resources, invoices, ledger)
+    payments = new CustomerPaymentService(paymentRepository)
+    readModel = new RecordReadModel(resources, ledger, invoices, inventory, paymentRepository)
 
     await resources.create(
       record(customerId, "sales", "customers", { displayName: "Banaadir Trading" }),
@@ -85,6 +91,13 @@ describe("record read model", () => {
         accountType: "asset",
         systemKey: "accounts_receivable",
         openingBalance: "999",
+      }),
+    )
+    await resources.create(
+      record(bankId, "accounting", "chart-of-accounts", {
+        accountNumber: "1020",
+        accountName: "Bank",
+        accountType: "asset",
       }),
     )
     inventory.seedBalance({
@@ -111,6 +124,45 @@ describe("record read model", () => {
     })
     return sales.post(context, draft.id, `post-${draft.id}`)
   }
+
+  const payInvoice = async (
+    invoiceId: string,
+    amount: string,
+    shouldPost = true,
+  ) => {
+    const payment = await payments.create(context, {
+      status: "draft",
+      data: {
+        customerId,
+        paymentDate: "2026-01-20",
+        amount,
+        currency: "USD",
+        depositToAccountId: bankId,
+        paymentMethod: "bank-transfer",
+        allocations: [{ invoiceId, amount }],
+      },
+    })
+    return shouldPost
+      ? payments.post(context, payment.id, `post-payment-${payment.id}`)
+      : payment
+  }
+
+  const customerBalance = async () => {
+    const customer = await resources.findById(
+      { companyId, module: "sales", resource: "customers" },
+      customerId,
+    )
+    const [enriched] = await readModel.enrich(context, "sales", "customers", [customer!])
+    return enriched.data
+  }
+
+  it("returns zero when a customer has no posted receivables", async () => {
+    expect(await customerBalance()).toMatchObject({
+      openBalance: "0.0000",
+      overdueBalance: "0.0000",
+      openInvoices: 0,
+    })
+  })
 
   it("reads a customer balance from the invoice tables, not from the customer form", async () => {
     await postInvoice("2020-02-10")
@@ -159,6 +211,36 @@ describe("record read model", () => {
     expect(activity.rows).toHaveLength(1)
     expect(activity.rows[0].status).toBe("draft")
     expect(activity.rows[0].running).toBeUndefined()
+  })
+
+  it("uses exact partial settlement and ignores a draft allocation", async () => {
+    const invoice = await postInvoice("2026-02-10")
+    await payInvoice(invoice.id, "40.1234")
+    await payInvoice(invoice.id, "50.0000", false)
+    expect(await customerBalance()).toMatchObject({
+      openBalance: "159.8766",
+      openInvoices: 1,
+    })
+  })
+
+  it("returns zero after a posted invoice is fully settled", async () => {
+    const invoice = await postInvoice("2026-02-10")
+    await payInvoice(invoice.id, "200.0000")
+    expect(await customerBalance()).toMatchObject({
+      openBalance: "0.0000",
+      openInvoices: 0,
+    })
+  })
+
+  it("aggregates exact open balances across multiple posted invoices", async () => {
+    const first = await postInvoice("2026-02-10")
+    const second = await postInvoice("2026-03-10")
+    await payInvoice(first.id, "50.0001")
+    await payInvoice(second.id, "80.0002")
+    expect(await customerBalance()).toMatchObject({
+      openBalance: "269.9997",
+      openInvoices: 2,
+    })
   })
 
   it("reads stock on hand from the stock ledger instead of the opening quantity", async () => {
@@ -233,7 +315,7 @@ describe("record read model", () => {
     expect(enriched.data.customerName).toBe("Banaadir Trading")
   })
 
-  it("builds a customer register from invoices and payments with a running balance", async () => {
+  it("keeps legacy JSON payments out of the canonical customer register", async () => {
     const posted = await postInvoice("2026-02-10")
     await resources.create(
       record("70000000-0000-4000-8000-000000000002", "sales", "payments", {
@@ -251,23 +333,17 @@ describe("record read model", () => {
 
     expect(activity.kind).toBe("customer")
     expect(activity.metrics.find((entry) => entry.key === "openBalance")?.value).toBe(
-      "150.0000",
+      "200.0000",
     )
-    expect(activity.rows).toHaveLength(2)
+    expect(activity.rows).toHaveLength(1)
     expect(activity.rows[0]).toMatchObject({
-      kind: "payment",
-      reference: "PAY-1",
-      amount: "-50.00",
-      running: "150.0000",
-    })
-    expect(activity.rows[1]).toMatchObject({
       kind: "invoice",
       reference: String(posted.data.documentNumber),
       running: "200.0000",
     })
   })
 
-  it("takes a recorded payment off what the customer owes", async () => {
+  it("does not let a legacy JSON payment alter canonical customer AR", async () => {
     await postInvoice("2026-02-10")
     await resources.create(
       record("70000000-0000-4000-8000-000000000004", "sales", "payments", {
@@ -282,10 +358,10 @@ describe("record read model", () => {
     )
     const [enriched] = await readModel.enrich(context, "sales", "customers", [customer!])
 
-    expect(enriched.data.openBalance).toBe("120.0000")
+    expect(enriched.data.openBalance).toBe("200.0000")
   })
 
-  it("never counts a payment already applied to an invoice twice", async () => {
+  it("does not use legacy JSON allocation heuristics for customer AR", async () => {
     const posted = await postInvoice("2026-02-10")
     await resources.update({
       ...posted,
@@ -306,7 +382,7 @@ describe("record read model", () => {
     )
     const [enriched] = await readModel.enrich(context, "sales", "customers", [customer!])
 
-    expect(enriched.data.openBalance).toBe("0.0000")
+    expect(enriched.data.openBalance).toBe("200.0000")
   })
 
   it("shows a cash sale in the customer history without moving the balance", async () => {
