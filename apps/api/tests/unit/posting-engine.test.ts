@@ -81,4 +81,78 @@ describe("central posting command", () => {
     await expect(ledger.post(context, command({ sourceVersion: 4 })))
       .rejects.toMatchObject({ status: 409, code: "CONFLICT" })
   })
+
+  it("retries the same reversal without duplicating or changing the original", async () => {
+    const ledger = new MemoryLedgerRepository(new MemoryResourceRepository())
+    const primary = await ledger.post(context, command())
+    const originalLines = structuredClone(ledger.linesOf(primary.transactionId))
+    const reversalInput = {
+      sourceModule: "sales",
+      sourceType: "invoice",
+      sourceId: command().sourceId,
+      reversalDate: "2026-07-29",
+      idempotencyKey: "reverse-invoice-1",
+      memo: "Customer cancellation",
+    }
+
+    const first = await ledger.reverseTransaction(context, reversalInput)
+    const retry = await ledger.reverseTransaction(context, reversalInput)
+    const reversal = ledger.findPosting(context.companyId, command(), "reversal")
+
+    expect(retry).toEqual(first)
+    expect(reversal?.record.data).toMatchObject({
+      currency: "USD",
+      exchangeRate: "1",
+      reversalOfId: primary.transactionId,
+      memo: "Customer cancellation",
+    })
+    expect(ledger.linesOf(primary.transactionId)).toEqual(originalLines)
+    expect(ledger.linesOf(first.transactionId)).toEqual([
+      { accountId: systemAccountKeys.ACCOUNTS_RECEIVABLE, debit: "0.0000", credit: "100.0000" },
+      { accountId: systemAccountKeys.SALES_REVENUE, debit: "100.0000", credit: "0.0000" },
+    ])
+  })
+
+  it("rejects a changed reversal retry and a second distinct reversal", async () => {
+    const ledger = new MemoryLedgerRepository(new MemoryResourceRepository())
+    await ledger.post(context, command())
+    const reversal = {
+      sourceModule: "sales",
+      sourceType: "invoice",
+      sourceId: command().sourceId,
+      reversalDate: "2026-07-29",
+      idempotencyKey: "reverse-invoice-1",
+      memo: "Customer cancellation",
+    }
+    await ledger.reverseTransaction(context, reversal)
+
+    await expect(ledger.reverseTransaction(context, {
+      ...reversal,
+      reversalDate: "2026-07-30",
+    })).rejects.toMatchObject({ status: 409, code: "CONFLICT" })
+    await expect(ledger.reverseTransaction(context, {
+      ...reversal,
+      idempotencyKey: "reverse-invoice-2",
+    })).rejects.toMatchObject({ status: 409, code: "CONFLICT" })
+  })
+
+  it("leaves no reversal fact when period validation fails", async () => {
+    const ledger = new MemoryLedgerRepository(new MemoryResourceRepository())
+    const primary = await ledger.post(context, command())
+    await ledger.closePeriod(context, {
+      name: "July 2026",
+      startDate: "2026-07-29",
+      endDate: "2026-07-29",
+    })
+
+    await expect(ledger.reverseTransaction(context, {
+      sourceModule: "sales",
+      sourceType: "invoice",
+      sourceId: command().sourceId,
+      reversalDate: "2026-07-29",
+      idempotencyKey: "reverse-closed-period",
+    })).rejects.toMatchObject({ status: 409, code: "CONFLICT" })
+    expect(ledger.findPosting(context.companyId, command(), "reversal")).toBeUndefined()
+    expect(ledger.linesOf(primary.transactionId)).toHaveLength(2)
+  })
 })

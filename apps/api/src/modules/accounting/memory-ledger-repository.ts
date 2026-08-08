@@ -78,8 +78,6 @@ export class MemoryLedgerRepository implements LedgerRepository {
   async reverseTransaction(context: RequestContext, input: SourceReversalInput) {
     const original = this.findPosting(context.companyId, input)
     if (!original) throw notFound("A posted transaction for this document was not found")
-    if (this.reversedTransactionIds.has(original.record.id))
-      throw conflict("The transaction was already reversed by another request")
     const command = original.record.data as unknown as PostingCommand
     const result = await this.post(
       context,
@@ -103,8 +101,10 @@ export class MemoryLedgerRepository implements LedgerRepository {
         memo: input.memo ?? `Reversal of ${original.record.id}`,
       }),
     )
-    this.reversedTransactionIds.add(original.record.id)
-    original.record.status = "reversed"
+    if (!this.reversedTransactionIds.has(original.record.id)) {
+      this.reversedTransactionIds.add(original.record.id)
+      original.record.status = "reversed"
+    }
     return result
   }
 

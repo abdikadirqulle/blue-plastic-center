@@ -1,0 +1,2 @@
+DROP INDEX "transactions_reversal_idx";--> statement-breakpoint
+CREATE UNIQUE INDEX "transactions_reversal_once_uq" ON "accounting_transactions" USING btree ("reversal_of_id") WHERE "accounting_transactions"."reversal_of_id" is not null;

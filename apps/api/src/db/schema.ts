@@ -642,7 +642,9 @@ export const accountingTransactions = pgTable(
       table.sourceId,
       table.postingKind,
     ),
-    index("transactions_reversal_idx").on(table.reversalOfId),
+    uniqueIndex("transactions_reversal_once_uq")
+      .on(table.reversalOfId)
+      .where(sql`${table.reversalOfId} is not null`),
     check("transactions_status_chk", sql`${table.status} in ('draft', 'posted', 'reversed', 'voided')`),
   ],
 )

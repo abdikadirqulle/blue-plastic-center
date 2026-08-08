@@ -170,7 +170,11 @@ export class PostgresLedgerRepository implements LedgerRepository {
           eq(accountingTransactions.sourceType, input.sourceType),
           eq(accountingTransactions.sourceId, input.sourceId),
           eq(accountingTransactions.postingKind, "primary"),
-          eq(accountingTransactions.status, "posted"),
+          eq(accountingTransactions.branchId, context.branchId),
+          or(
+            eq(accountingTransactions.status, "posted"),
+            eq(accountingTransactions.status, "reversed"),
+          ),
         ),
       )
       .limit(1)
@@ -180,6 +184,9 @@ export class PostgresLedgerRepository implements LedgerRepository {
       .select()
       .from(accountingLines)
       .where(eq(accountingLines.transactionId, original.id))
+    if (lines.some((line) =>
+      line.functionalDebit !== line.debit || line.functionalCredit !== line.credit
+    )) throw conflict("Foreign-currency GL reversal is not enabled")
     const result = await this.postInTransaction(
       transaction,
       context,
@@ -198,6 +205,7 @@ export class PostgresLedgerRepository implements LedgerRepository {
         memo: input.memo ?? `Reversal of ${original.transactionNumber}`,
       }),
     )
+    if (original.status === "reversed") return result
     const reversedAt = new Date()
     const [marked] = await transaction
       .update(accountingTransactions)
@@ -215,7 +223,18 @@ export class PostgresLedgerRepository implements LedgerRepository {
         ),
       )
       .returning({ id: accountingTransactions.id })
-    if (!marked) throw conflict("The transaction was already reversed by another request")
+    if (!marked) {
+      const [current] = await transaction.select({ status: accountingTransactions.status })
+        .from(accountingTransactions)
+        .where(and(
+          eq(accountingTransactions.id, original.id),
+          eq(accountingTransactions.companyId, context.companyId),
+          eq(accountingTransactions.branchId, context.branchId),
+        ))
+        .limit(1)
+      if (current?.status === "reversed") return result
+      throw conflict("The transaction was already reversed by another request")
+    }
     return result
   }
 
@@ -322,6 +341,7 @@ export class PostgresLedgerRepository implements LedgerRepository {
       }).from(accountingTransactions).where(and(
         eq(accountingTransactions.id, String(command.reversalOfId)),
         eq(accountingTransactions.companyId, context.companyId),
+        eq(accountingTransactions.branchId, context.branchId),
         eq(accountingTransactions.status, "posted"),
       )).limit(1)
       if (!original) throw notFound("Original posted transaction was not found in this company")
@@ -427,6 +447,12 @@ export class PostgresLedgerRepository implements LedgerRepository {
         fiscalPeriodId: period.id,
         postingFingerprint: fingerprint,
         postingKind,
+        ...(postingKind === "reversal"
+          ? {
+              reversalOfId: command.reversalOfId,
+              reversalReason: command.memo ?? null,
+            }
+          : {}),
         ...(command.sourceVersion === undefined
           ? {}
           : { sourceVersion: command.sourceVersion }),

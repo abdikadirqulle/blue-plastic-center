@@ -30,8 +30,13 @@ describe("accounting database safety schema", () => {
     expect(indexNames(accountingTransactions)).toEqual(expect.arrayContaining([
       "transactions_company_posting_fingerprint_uq",
       "transactions_company_source_idx",
-      "transactions_reversal_idx",
+      "transactions_reversal_once_uq",
     ]))
+    expect(
+      getTableConfig(accountingTransactions).indexes.find(
+        (index) => index.config.name === "transactions_reversal_once_uq",
+      )?.config.unique,
+    ).toBe(true)
     expect(checkNames(accountingTransactions)).toContain("transactions_status_chk")
   })
 
