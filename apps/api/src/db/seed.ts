@@ -707,6 +707,7 @@ async function seed() {
         sourceModule: "seed",
         status: "posted",
         currency: "USD",
+        functionalCurrency: "USD",
         memo,
         postedAt: new Date(`${date}T12:00:00.000Z`),
         postedBy: "00000000-0000-4000-8000-000000000001",
@@ -730,6 +731,8 @@ async function seed() {
           description: memo,
           debit,
           credit,
+          functionalDebit: debit,
+          functionalCredit: credit,
           lineNumber: lineIndex + 1,
         })
         .onConflictDoUpdate({
@@ -739,6 +742,8 @@ async function seed() {
             description: memo,
             debit,
             credit,
+            functionalDebit: debit,
+            functionalCredit: credit,
           },
         });
     }

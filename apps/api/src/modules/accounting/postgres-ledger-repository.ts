@@ -6,6 +6,7 @@ import {
   accountingTransactions,
   accounts,
   auditEvents,
+  companies,
   fiscalPeriods,
   postingIdempotencyKeys,
   resourceRecords,
@@ -15,6 +16,7 @@ import type { RequestContext, ResourceRecord } from "../../platform/types.js"
 import type { LedgerRepository, SourceReversalInput } from "./ledger-repository.js"
 import { createPostgresAccountResolver } from "./account-resolver.js"
 import { resolveOpenFiscalPeriod } from "./fiscal-period-resolver.js"
+import { prepareSameCurrencyFunctionalAmounts } from "./functional-currency.js"
 import {
   createReversalCommand,
   postingFingerprint,
@@ -336,6 +338,10 @@ export class PostgresLedgerRepository implements LedgerRepository {
       context.companyId,
       date,
     )
+    const [company] = await transaction.select({
+      functionalCurrency: companies.functionalCurrency,
+    }).from(companies).where(eq(companies.id, context.companyId)).limit(1)
+    if (!company) throw notFound("Posting company was not found")
 
     const [duplicate] = await transaction.select({ id: accountingTransactions.id })
       .from(accountingTransactions).where(and(
@@ -370,6 +376,11 @@ export class PostgresLedgerRepository implements LedgerRepository {
         credit: line.credit,
       })
     }
+    const functionalLines = prepareSameCurrencyFunctionalAmounts(
+      command.currency,
+      company.functionalCurrency,
+      resolvedLines,
+    )
 
     const transactionId = randomUUID()
     const transactionNumber = `JOU-${transactionId.slice(0, 8).toUpperCase()}`
@@ -389,18 +400,21 @@ export class PostgresLedgerRepository implements LedgerRepository {
       reversalOfId: command.reversalOfId,
       status: "posted",
       currency: command.currency,
+      functionalCurrency: company.functionalCurrency,
       exchangeRate: command.exchangeRate ?? "1",
       memo: command.memo,
       postedAt: new Date(),
       postedBy: context.principal.userId,
     }).onConflictDoNothing().returning({ id: accountingTransactions.id })
     if (!insertedTransaction) throw conflict("Source transaction posting already exists")
-    await transaction.insert(accountingLines).values(resolvedLines.map((line, index) => ({
+    await transaction.insert(accountingLines).values(functionalLines.map((line, index) => ({
       transactionId,
       accountId: line.accountId,
       description: line.description,
       debit: line.debit,
       credit: line.credit,
+      functionalDebit: line.functionalDebit,
+      functionalCredit: line.functionalCredit,
       lineNumber: index + 1,
     })))
     await transaction.insert(auditEvents).values({

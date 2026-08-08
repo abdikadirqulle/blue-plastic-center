@@ -616,6 +616,7 @@ export const accountingTransactions = pgTable(
     ),
     status: text("status").notNull().default("draft"),
     currency: text("currency").notNull(),
+    functionalCurrency: text("functional_currency").notNull(),
     exchangeRate: numeric("exchange_rate", { precision: 20, scale: 8 })
       .notNull()
       .default("1"),
@@ -661,6 +662,8 @@ export const accountingLines = pgTable(
     credit: numeric("credit", { precision: 20, scale: 4 })
       .notNull()
       .default("0"),
+    functionalDebit: numeric("functional_debit", { precision: 20, scale: 4 }).notNull(),
+    functionalCredit: numeric("functional_credit", { precision: 20, scale: 4 }).notNull(),
     lineNumber: integer("line_number").notNull(),
   },
   (table) => [
@@ -668,8 +671,16 @@ export const accountingLines = pgTable(
     uniqueIndex("accounting_lines_transaction_number_uq").on(table.transactionId, table.lineNumber),
     check("accounting_lines_non_negative_chk", sql`${table.debit} >= 0 and ${table.credit} >= 0`),
     check(
+      "accounting_lines_functional_non_negative_chk",
+      sql`${table.functionalDebit} >= 0 and ${table.functionalCredit} >= 0`,
+    ),
+    check(
       "accounting_lines_one_side_chk",
       sql`(${table.debit} > 0 and ${table.credit} = 0) or (${table.credit} > 0 and ${table.debit} = 0)`,
+    ),
+    check(
+      "accounting_lines_functional_one_side_chk",
+      sql`(${table.functionalDebit} > 0 and ${table.functionalCredit} = 0) or (${table.functionalCredit} > 0 and ${table.functionalDebit} = 0)`,
     ),
   ],
 )

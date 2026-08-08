@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 import { getTableConfig } from "drizzle-orm/pg-core"
 import { describe, expect, it } from "vitest"
 import {
@@ -16,6 +17,9 @@ const indexNames = (table: Parameters<typeof getTableConfig>[0]) =>
 const checkNames = (table: Parameters<typeof getTableConfig>[0]) =>
   getTableConfig(table).checks.map((check) => check.name)
 
+const columnNames = (table: Parameters<typeof getTableConfig>[0]) =>
+  getTableConfig(table).columns.map((column) => column.name)
+
 describe("accounting database safety schema", () => {
   it("uses a tenant-unique stable key for system accounts", () => {
     expect(indexNames(accounts)).toContain("accounts_company_system_key_uq")
@@ -32,10 +36,17 @@ describe("accounting database safety schema", () => {
   })
 
   it("requires one-sided non-negative journal lines", () => {
+    expect(columnNames(accountingTransactions)).toContain("functional_currency")
+    expect(columnNames(accountingLines)).toEqual(expect.arrayContaining([
+      "functional_debit",
+      "functional_credit",
+    ]))
     expect(indexNames(accountingLines)).toContain("accounting_lines_transaction_number_uq")
     expect(checkNames(accountingLines)).toEqual(expect.arrayContaining([
       "accounting_lines_non_negative_chk",
       "accounting_lines_one_side_chk",
+      "accounting_lines_functional_non_negative_chk",
+      "accounting_lines_functional_one_side_chk",
     ]))
   })
 
@@ -99,4 +110,20 @@ describe("migration 0007 legacy cutover safety", () => {
     expect(migration).toContain("Allocations are staged for the")
   })
 })
-import { readFileSync } from "node:fs"
+
+describe("migration 0012 functional currency backfill", () => {
+  const migration = readFileSync(
+    new URL("../../drizzle/0012_yielding_lethal_legion.sql", import.meta.url),
+    "utf8",
+  )
+
+  it("copies exact historical amounts before enforcing non-null columns", () => {
+    expect(migration).toContain('"functional_debit" = "debit"')
+    expect(migration).toContain('"functional_credit" = "credit"')
+    expect(migration).toContain('company."functional_currency"')
+    expect(migration.indexOf('SET "functional_debit" = "debit"'))
+      .toBeLessThan(migration.indexOf('"functional_debit" SET NOT NULL'))
+    expect(migration.indexOf('SET "functional_currency" = company."functional_currency"'))
+      .toBeLessThan(migration.indexOf('"functional_currency" SET NOT NULL'))
+  })
+})
