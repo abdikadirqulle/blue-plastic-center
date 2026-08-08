@@ -77,14 +77,20 @@ export const sessions = pgTable(
   "sessions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     tokenHash: text("token_hash").notNull(),
     csrfTokenHash: text("csrf_token_hash").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     userAgent: text("user_agent"),
     ipAddress: text("ip_address"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     uniqueIndex("sessions_token_hash_uq").on(table.tokenHash),
@@ -93,7 +99,9 @@ export const sessions = pgTable(
 )
 
 export const companySettings = pgTable("company_settings", {
-  companyId: uuid("company_id").primaryKey().references(() => companies.id, { onDelete: "cascade" }),
+  companyId: uuid("company_id")
+    .primaryKey()
+    .references(() => companies.id, { onDelete: "cascade" }),
   tradingName: text("trading_name"),
   taxRegistrationNumber: text("tax_registration_number"),
   fiscalYearStartMonth: integer("fiscal_year_start_month").notNull().default(1),
@@ -107,39 +115,53 @@ export const currencies = pgTable(
   "currencies",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     code: text("code").notNull(),
     name: text("name").notNull(),
     symbol: text("symbol").notNull(),
     decimalPlaces: integer("decimal_places").notNull().default(2),
-    exchangeRate: numeric("exchange_rate", { precision: 20, scale: 8 }).notNull().default("1"),
+    exchangeRate: numeric("exchange_rate", { precision: 20, scale: 8 })
+      .notNull()
+      .default("1"),
     active: boolean("active").notNull().default(true),
     ...auditColumns,
   },
-  (table) => [uniqueIndex("currencies_company_code_uq").on(table.companyId, table.code)],
+  (table) => [
+    uniqueIndex("currencies_company_code_uq").on(table.companyId, table.code),
+  ],
 )
 
 export const taxCodes = pgTable(
   "tax_codes",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     code: text("code").notNull(),
     name: text("name").notNull(),
     rate: numeric("rate", { precision: 9, scale: 6 }).notNull(),
     salesAccountId: uuid("sales_account_id").references(() => accounts.id),
-    purchaseAccountId: uuid("purchase_account_id").references(() => accounts.id),
+    purchaseAccountId: uuid("purchase_account_id").references(
+      () => accounts.id,
+    ),
     active: boolean("active").notNull().default(true),
     ...auditColumns,
   },
-  (table) => [uniqueIndex("tax_codes_company_code_uq").on(table.companyId, table.code)],
+  (table) => [
+    uniqueIndex("tax_codes_company_code_uq").on(table.companyId, table.code),
+  ],
 )
 
 export const paymentTerms = pgTable(
   "payment_terms",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     name: text("name").notNull(),
     dueDays: integer("due_days").notNull().default(0),
     discountDays: integer("discount_days"),
@@ -147,47 +169,69 @@ export const paymentTerms = pgTable(
     active: boolean("active").notNull().default(true),
     ...auditColumns,
   },
-  (table) => [uniqueIndex("payment_terms_company_name_uq").on(table.companyId, table.name)],
+  (table) => [
+    uniqueIndex("payment_terms_company_name_uq").on(
+      table.companyId,
+      table.name,
+    ),
+  ],
 )
 
 export const documentSequences = pgTable(
   "document_sequences",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     documentType: text("document_type").notNull(),
     prefix: text("prefix").notNull().default(""),
     nextNumber: integer("next_number").notNull().default(1),
     padding: integer("padding").notNull().default(5),
     ...auditColumns,
   },
-  (table) => [uniqueIndex("document_sequences_company_type_uq").on(table.companyId, table.documentType)],
+  (table) => [
+    uniqueIndex("document_sequences_company_type_uq").on(
+      table.companyId,
+      table.documentType,
+    ),
+  ],
 )
 
 export const customers = pgTable(
   "customers",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     displayName: text("display_name").notNull(),
     companyName: text("company_name"),
     email: text("email"),
     phone: text("phone"),
     currency: text("currency").notNull().default("USD"),
     paymentTermId: uuid("payment_term_id").references(() => paymentTerms.id),
-    receivableAccountId: uuid("receivable_account_id").references(() => accounts.id),
-    openingBalance: numeric("opening_balance", { precision: 20, scale: 4 }).notNull().default("0"),
+    receivableAccountId: uuid("receivable_account_id").references(
+      () => accounts.id,
+    ),
+    openingBalance: numeric("opening_balance", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
     active: boolean("active").notNull().default(true),
     ...ownedRecordColumns(),
   },
-  (table) => [index("customers_company_name_idx").on(table.companyId, table.displayName)],
+  (table) => [
+    index("customers_company_name_idx").on(table.companyId, table.displayName),
+  ],
 )
 
 export const vendors = pgTable(
   "vendors",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     displayName: text("display_name").notNull(),
     companyName: text("company_name"),
     email: text("email"),
@@ -195,87 +239,139 @@ export const vendors = pgTable(
     currency: text("currency").notNull().default("USD"),
     paymentTermId: uuid("payment_term_id").references(() => paymentTerms.id),
     payableAccountId: uuid("payable_account_id").references(() => accounts.id),
-    openingBalance: numeric("opening_balance", { precision: 20, scale: 4 }).notNull().default("0"),
+    openingBalance: numeric("opening_balance", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
     active: boolean("active").notNull().default(true),
     ...ownedRecordColumns(),
   },
-  (table) => [index("vendors_company_name_idx").on(table.companyId, table.displayName)],
+  (table) => [
+    index("vendors_company_name_idx").on(table.companyId, table.displayName),
+  ],
 )
 
 export const warehouses = pgTable(
   "warehouses",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     branchId: uuid("branch_id").references(() => branches.id),
     code: text("code").notNull(),
     name: text("name").notNull(),
     active: boolean("active").notNull().default(true),
     ...auditColumns,
   },
-  (table) => [uniqueIndex("warehouses_company_code_uq").on(table.companyId, table.code)],
+  (table) => [
+    uniqueIndex("warehouses_company_code_uq").on(table.companyId, table.code),
+  ],
 )
 
 export const items = pgTable(
   "items",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     sku: text("sku").notNull(),
     name: text("name").notNull(),
     type: text("type").notNull(),
-    salesPrice: numeric("sales_price", { precision: 20, scale: 4 }).notNull().default("0"),
-    purchaseCost: numeric("purchase_cost", { precision: 20, scale: 4 }).notNull().default("0"),
+    salesPrice: numeric("sales_price", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
+    purchaseCost: numeric("purchase_cost", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
     incomeAccountId: uuid("income_account_id").references(() => accounts.id),
     expenseAccountId: uuid("expense_account_id").references(() => accounts.id),
-    inventoryAccountId: uuid("inventory_account_id").references(() => accounts.id),
+    inventoryAccountId: uuid("inventory_account_id").references(
+      () => accounts.id,
+    ),
     taxCodeId: uuid("tax_code_id").references(() => taxCodes.id),
     active: boolean("active").notNull().default(true),
     ...ownedRecordColumns(),
   },
-  (table) => [uniqueIndex("items_company_sku_uq").on(table.companyId, table.sku)],
+  (table) => [
+    uniqueIndex("items_company_sku_uq").on(table.companyId, table.sku),
+  ],
 )
 
 export const invoices = pgTable(
   "invoices",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
-    branchId: uuid("branch_id").notNull().references(() => branches.id),
-    customerId: uuid("customer_id").notNull().references(() => customers.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
+    branchId: uuid("branch_id")
+      .notNull()
+      .references(() => branches.id),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id),
     invoiceNumber: text("invoice_number").notNull(),
     invoiceDate: timestamp("invoice_date", { withTimezone: true }).notNull(),
     dueDate: timestamp("due_date", { withTimezone: true }).notNull(),
     currency: text("currency").notNull(),
-    exchangeRate: numeric("exchange_rate", { precision: 20, scale: 8 }).notNull().default("1"),
+    exchangeRate: numeric("exchange_rate", { precision: 20, scale: 8 })
+      .notNull()
+      .default("1"),
     status: text("status").notNull().default("draft"),
     customerPurchaseOrder: text("customer_purchase_order"),
     memo: text("memo"),
     discountType: text("discount_type").notNull().default("none"),
-    discountValue: numeric("discount_value", { precision: 20, scale: 4 }).notNull().default("0"),
-    subtotal: numeric("subtotal", { precision: 20, scale: 4 }).notNull().default("0"),
-    discountTotal: numeric("discount_total", { precision: 20, scale: 4 }).notNull().default("0"),
-    taxTotal: numeric("tax_total", { precision: 20, scale: 4 }).notNull().default("0"),
+    discountValue: numeric("discount_value", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
+    subtotal: numeric("subtotal", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
+    discountTotal: numeric("discount_total", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
+    taxTotal: numeric("tax_total", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
     total: numeric("total", { precision: 20, scale: 4 }).notNull().default("0"),
-    amountPaid: numeric("amount_paid", { precision: 20, scale: 4 }).notNull().default("0"),
-    balanceDue: numeric("balance_due", { precision: 20, scale: 4 }).notNull().default("0"),
+    amountPaid: numeric("amount_paid", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
+    balanceDue: numeric("balance_due", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
     postedAt: timestamp("posted_at", { withTimezone: true }),
     postedBy: uuid("posted_by").references(() => users.id),
     voidedAt: timestamp("voided_at", { withTimezone: true }),
     voidedBy: uuid("voided_by").references(() => users.id),
     voidReason: text("void_reason"),
     version: integer("version").notNull().default(1),
-    createdBy: uuid("created_by").notNull().references(() => users.id),
-    updatedBy: uuid("updated_by").notNull().references(() => users.id),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    updatedBy: uuid("updated_by")
+      .notNull()
+      .references(() => users.id),
     isDeleted: boolean("is_deleted").notNull().default(false),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     ...auditColumns,
   },
   (table) => [
-    uniqueIndex("invoices_company_number_uq").on(table.companyId, table.invoiceNumber),
-    index("invoices_company_customer_idx").on(table.companyId, table.customerId),
+    uniqueIndex("invoices_company_number_uq").on(
+      table.companyId,
+      table.invoiceNumber,
+    ),
+    index("invoices_company_customer_idx").on(
+      table.companyId,
+      table.customerId,
+    ),
     index("invoices_company_due_idx").on(table.companyId, table.dueDate),
-    index("invoices_company_status_idx").on(table.companyId, table.status, table.invoiceDate),
+    index("invoices_company_status_idx").on(
+      table.companyId,
+      table.status,
+      table.invoiceDate,
+    ),
     check(
       "invoices_status_chk",
       sql`${table.status} in ('draft', 'open', 'partially_paid', 'paid', 'overdue', 'voided')`,
@@ -291,23 +387,40 @@ export const invoiceLines = pgTable(
   "invoice_lines",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    invoiceId: uuid("invoice_id").notNull().references(() => invoices.id),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => invoices.id),
     itemId: uuid("item_id").references(() => items.id),
     accountId: uuid("account_id").references(() => accounts.id),
     taxCodeId: uuid("tax_code_id").references(() => taxCodes.id),
     warehouseId: uuid("warehouse_id").references(() => warehouses.id),
     description: text("description").notNull(),
     unit: text("unit"),
-    quantity: numeric("quantity", { precision: 20, scale: 4 }).notNull().default("1"),
-    unitPrice: numeric("unit_price", { precision: 20, scale: 4 }).notNull().default("0"),
-    discountAmount: numeric("discount_amount", { precision: 20, scale: 4 }).notNull().default("0"),
-    taxRate: numeric("tax_rate", { precision: 9, scale: 4 }).notNull().default("0"),
-    taxAmount: numeric("tax_amount", { precision: 20, scale: 4 }).notNull().default("0"),
-    lineTotal: numeric("line_total", { precision: 20, scale: 4 }).notNull().default("0"),
+    quantity: numeric("quantity", { precision: 20, scale: 4 })
+      .notNull()
+      .default("1"),
+    unitPrice: numeric("unit_price", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
+    discountAmount: numeric("discount_amount", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
+    taxRate: numeric("tax_rate", { precision: 9, scale: 4 })
+      .notNull()
+      .default("0"),
+    taxAmount: numeric("tax_amount", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
+    lineTotal: numeric("line_total", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
     lineNumber: integer("line_number").notNull(),
   },
   (table) => [
-    uniqueIndex("invoice_lines_invoice_number_uq").on(table.invoiceId, table.lineNumber),
+    uniqueIndex("invoice_lines_invoice_number_uq").on(
+      table.invoiceId,
+      table.lineNumber,
+    ),
     index("invoice_lines_invoice_idx").on(table.invoiceId),
   ],
 )
@@ -316,29 +429,49 @@ export const customerPayments = pgTable(
   "customer_payments",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
-    branchId: uuid("branch_id").notNull().references(() => branches.id),
-    customerId: uuid("customer_id").notNull().references(() => customers.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
+    branchId: uuid("branch_id")
+      .notNull()
+      .references(() => branches.id),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id),
     paymentNumber: text("payment_number").notNull(),
     paymentDate: timestamp("payment_date", { withTimezone: true }).notNull(),
     currency: text("currency").notNull(),
-    exchangeRate: numeric("exchange_rate", { precision: 20, scale: 8 }).notNull().default("1"),
+    exchangeRate: numeric("exchange_rate", { precision: 20, scale: 8 })
+      .notNull()
+      .default("1"),
     amount: numeric("amount", { precision: 20, scale: 4 }).notNull(),
-    unappliedAmount: numeric("unapplied_amount", { precision: 20, scale: 4 }).notNull().default("0"),
+    unappliedAmount: numeric("unapplied_amount", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
     paymentMethod: text("payment_method"),
     reference: text("reference"),
     depositAccountId: uuid("deposit_account_id").references(() => accounts.id),
     status: text("status").notNull().default("draft"),
     version: integer("version").notNull().default(1),
-    createdBy: uuid("created_by").notNull().references(() => users.id),
-    updatedBy: uuid("updated_by").notNull().references(() => users.id),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    updatedBy: uuid("updated_by")
+      .notNull()
+      .references(() => users.id),
     isDeleted: boolean("is_deleted").notNull().default(false),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     ...auditColumns,
   },
   (table) => [
-    uniqueIndex("customer_payments_company_number_uq").on(table.companyId, table.paymentNumber),
-    index("customer_payments_customer_idx").on(table.companyId, table.customerId),
+    uniqueIndex("customer_payments_company_number_uq").on(
+      table.companyId,
+      table.paymentNumber,
+    ),
+    index("customer_payments_customer_idx").on(
+      table.companyId,
+      table.customerId,
+    ),
   ],
 )
 
@@ -346,13 +479,22 @@ export const customerPaymentAllocations = pgTable(
   "customer_payment_allocations",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    paymentId: uuid("payment_id").notNull().references(() => customerPayments.id),
-    invoiceId: uuid("invoice_id").notNull().references(() => invoices.id),
+    paymentId: uuid("payment_id")
+      .notNull()
+      .references(() => customerPayments.id),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => invoices.id),
     amount: numeric("amount", { precision: 20, scale: 4 }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("payment_allocations_payment_invoice_uq").on(table.paymentId, table.invoiceId),
+    uniqueIndex("payment_allocations_payment_invoice_uq").on(
+      table.paymentId,
+      table.invoiceId,
+    ),
   ],
 )
 
@@ -360,11 +502,21 @@ export const inventoryBalances = pgTable(
   "inventory_balances",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
-    warehouseId: uuid("warehouse_id").notNull().references(() => warehouses.id),
-    itemId: uuid("item_id").notNull().references(() => items.id),
-    quantity: numeric("quantity", { precision: 20, scale: 4 }).notNull().default("0"),
-    inventoryValue: numeric("inventory_value", { precision: 20, scale: 4 }).notNull().default("0"),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
+    warehouseId: uuid("warehouse_id")
+      .notNull()
+      .references(() => warehouses.id),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id),
+    quantity: numeric("quantity", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
+    inventoryValue: numeric("inventory_value", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
     revision: integer("revision").notNull().default(0),
     ...auditColumns,
   },
@@ -389,10 +541,18 @@ export const inventoryMovements = pgTable(
   "inventory_movements",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
-    branchId: uuid("branch_id").notNull().references(() => branches.id),
-    warehouseId: uuid("warehouse_id").notNull().references(() => warehouses.id),
-    itemId: uuid("item_id").notNull().references(() => items.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
+    branchId: uuid("branch_id")
+      .notNull()
+      .references(() => branches.id),
+    warehouseId: uuid("warehouse_id")
+      .notNull()
+      .references(() => warehouses.id),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id),
     kind: text("kind").notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
     sourceModule: text("source_module").notNull(),
@@ -400,13 +560,25 @@ export const inventoryMovements = pgTable(
     sourceId: uuid("source_id").notNull(),
     sourceLineId: uuid("source_line_id"),
     idempotencyKey: text("idempotency_key").notNull(),
-    quantityDelta: numeric("quantity_delta", { precision: 20, scale: 4 }).notNull(),
+    quantityDelta: numeric("quantity_delta", {
+      precision: 20,
+      scale: 4,
+    }).notNull(),
     valueDelta: numeric("value_delta", { precision: 20, scale: 4 }).notNull(),
-    unitCost: numeric("unit_cost", { precision: 20, scale: 4 }).notNull().default("0"),
-    quantityAfter: numeric("quantity_after", { precision: 20, scale: 4 }).notNull(),
+    unitCost: numeric("unit_cost", { precision: 20, scale: 4 })
+      .notNull()
+      .default("0"),
+    quantityAfter: numeric("quantity_after", {
+      precision: 20,
+      scale: 4,
+    }).notNull(),
     valueAfter: numeric("value_after", { precision: 20, scale: 4 }).notNull(),
-    createdBy: uuid("created_by").notNull().references(() => users.id),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     uniqueIndex("inventory_movements_source_uq").on(
@@ -435,48 +607,78 @@ export const idempotencyKeys = pgTable(
   "idempotency_keys",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     key: text("key").notNull(),
     requestHash: text("request_hash").notNull(),
     resourceRecordId: uuid("resource_record_id").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
-  (table) => [uniqueIndex("idempotency_keys_company_key_uq").on(table.companyId, table.key)],
+  (table) => [
+    uniqueIndex("idempotency_keys_company_key_uq").on(
+      table.companyId,
+      table.key,
+    ),
+  ],
 )
 
 export const attachments = pgTable(
   "attachments",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     resourceRecordId: uuid("resource_record_id").notNull(),
     fileName: text("file_name").notNull(),
     contentType: text("content_type").notNull(),
     storageKey: text("storage_key").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
-    uploadedBy: uuid("uploaded_by").notNull().references(() => users.id),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    uploadedBy: uuid("uploaded_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
-  (table) => [index("attachments_resource_idx").on(table.companyId, table.resourceRecordId)],
+  (table) => [
+    index("attachments_resource_idx").on(
+      table.companyId,
+      table.resourceRecordId,
+    ),
+  ],
 )
 
 export const backgroundJobs = pgTable(
   "background_jobs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     type: text("type").notNull(),
     status: text("status").notNull().default("queued"),
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
     result: jsonb("result").$type<Record<string, unknown>>(),
     attempts: integer("attempts").notNull().default(0),
-    scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull().defaultNow(),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdBy: uuid("created_by").notNull().references(() => users.id),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
-  (table) => [index("background_jobs_status_idx").on(table.status, table.scheduledAt)],
+  (table) => [
+    index("background_jobs_status_idx").on(table.status, table.scheduledAt),
+  ],
 )
 
 export const accounts = pgTable(
@@ -508,8 +710,15 @@ export const accounts = pgTable(
     uniqueIndex("accounts_company_system_key_uq")
       .on(table.companyId, table.systemKey)
       .where(sql`${table.systemKey} is not null`),
-    index("accounts_company_type_active_idx").on(table.companyId, table.type, table.active),
-    check("accounts_normal_balance_chk", sql`${table.normalBalance} in ('debit', 'credit')`),
+    index("accounts_company_type_active_idx").on(
+      table.companyId,
+      table.type,
+      table.active,
+    ),
+    check(
+      "accounts_normal_balance_chk",
+      sql`${table.normalBalance} in ('debit', 'credit')`,
+    ),
   ],
 )
 
@@ -517,7 +726,9 @@ export const postingProfiles = pgTable(
   "posting_profiles",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "restrict" }),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "restrict" }),
     code: text("code").notNull(),
     name: text("name").notNull(),
     active: boolean("active").notNull().default(true),
@@ -525,7 +736,10 @@ export const postingProfiles = pgTable(
     ...auditColumns,
   },
   (table) => [
-    uniqueIndex("posting_profiles_company_code_uq").on(table.companyId, table.code),
+    uniqueIndex("posting_profiles_company_code_uq").on(
+      table.companyId,
+      table.code,
+    ),
     check("posting_profiles_version_chk", sql`${table.version} > 0`),
     check(
       "posting_profiles_code_chk",
@@ -538,7 +752,9 @@ export const postingProfileLines = pgTable(
   "posting_profile_lines",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    profileId: uuid("profile_id").notNull().references(() => postingProfiles.id, { onDelete: "cascade" }),
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => postingProfiles.id, { onDelete: "cascade" }),
     role: text("role").notNull(),
     side: text("side").notNull(),
     accountMeaning: text("account_meaning"),
@@ -547,10 +763,19 @@ export const postingProfileLines = pgTable(
     ...auditColumns,
   },
   (table) => [
-    uniqueIndex("posting_profile_lines_role_uq").on(table.profileId, table.role),
-    uniqueIndex("posting_profile_lines_number_uq").on(table.profileId, table.lineNumber),
+    uniqueIndex("posting_profile_lines_role_uq").on(
+      table.profileId,
+      table.role,
+    ),
+    uniqueIndex("posting_profile_lines_number_uq").on(
+      table.profileId,
+      table.lineNumber,
+    ),
     check("posting_profile_lines_number_chk", sql`${table.lineNumber} > 0`),
-    check("posting_profile_lines_side_chk", sql`${table.side} in ('debit', 'credit')`),
+    check(
+      "posting_profile_lines_side_chk",
+      sql`${table.side} in ('debit', 'credit')`,
+    ),
     check(
       "posting_profile_lines_role_chk",
       sql`${table.role} in ('receivable', 'payable', 'revenue', 'sales_discount', 'inventory_asset', 'cost_of_goods_sold', 'tax_payable', 'deposit', 'opening_equity', 'transfer_source', 'transfer_destination', 'bank_fee')`,
@@ -574,7 +799,9 @@ export const fiscalPeriods = pgTable(
   "fiscal_periods",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
     name: text("name").notNull(),
     startDate: timestamp("start_date", { withTimezone: true }).notNull(),
     endDate: timestamp("end_date", { withTimezone: true }).notNull(),
@@ -584,8 +811,15 @@ export const fiscalPeriods = pgTable(
     ...auditColumns,
   },
   (table) => [
-    uniqueIndex("fiscal_periods_company_name_uq").on(table.companyId, table.name),
-    index("fiscal_periods_company_dates_idx").on(table.companyId, table.startDate, table.endDate),
+    uniqueIndex("fiscal_periods_company_name_uq").on(
+      table.companyId,
+      table.name,
+    ),
+    index("fiscal_periods_company_dates_idx").on(
+      table.companyId,
+      table.startDate,
+      table.endDate,
+    ),
   ],
 )
 
@@ -609,7 +843,7 @@ export const accountingTransactions = pgTable(
     postingKind: text("posting_kind").notNull().default("primary"),
     postingFingerprint: text("posting_fingerprint"),
     idempotencyKey: text("idempotency_key"),
-    fiscalPeriodId: uuid("fiscal_period_id").references(() => fiscalPeriods.id),
+    fiscalPeriodId: uuid("fiscal_period_id").notNull().references(() => fiscalPeriods.id),
     reversalOfId: uuid("reversal_of_id").references(
       (): AnyPgColumn => accountingTransactions.id,
       { onDelete: "restrict" },
@@ -645,7 +879,10 @@ export const accountingTransactions = pgTable(
     uniqueIndex("transactions_reversal_once_uq")
       .on(table.reversalOfId)
       .where(sql`${table.reversalOfId} is not null`),
-    check("transactions_status_chk", sql`${table.status} in ('draft', 'posted', 'reversed', 'voided')`),
+    check(
+      "transactions_status_chk",
+      sql`${table.status} in ('draft', 'posted', 'reversed', 'voided')`,
+    ),
   ],
 )
 
@@ -664,14 +901,26 @@ export const accountingLines = pgTable(
     credit: numeric("credit", { precision: 20, scale: 4 })
       .notNull()
       .default("0"),
-    functionalDebit: numeric("functional_debit", { precision: 20, scale: 4 }).notNull(),
-    functionalCredit: numeric("functional_credit", { precision: 20, scale: 4 }).notNull(),
+    functionalDebit: numeric("functional_debit", {
+      precision: 20,
+      scale: 4,
+    }).notNull(),
+    functionalCredit: numeric("functional_credit", {
+      precision: 20,
+      scale: 4,
+    }).notNull(),
     lineNumber: integer("line_number").notNull(),
   },
   (table) => [
     index("accounting_lines_transaction_idx").on(table.transactionId),
-    uniqueIndex("accounting_lines_transaction_number_uq").on(table.transactionId, table.lineNumber),
-    check("accounting_lines_non_negative_chk", sql`${table.debit} >= 0 and ${table.credit} >= 0`),
+    uniqueIndex("accounting_lines_transaction_number_uq").on(
+      table.transactionId,
+      table.lineNumber,
+    ),
+    check(
+      "accounting_lines_non_negative_chk",
+      sql`${table.debit} >= 0 and ${table.credit} >= 0`,
+    ),
     check(
       "accounting_lines_functional_non_negative_chk",
       sql`${table.functionalDebit} >= 0 and ${table.functionalCredit} >= 0`,
@@ -691,23 +940,35 @@ export const postingIdempotencyKeys = pgTable(
   "posting_idempotency_keys",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "restrict" }),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "restrict" }),
     key: text("key").notNull(),
     requestHash: text("request_hash").notNull(),
     sourceModule: text("source_module").notNull(),
     sourceType: text("source_type").notNull(),
     sourceId: uuid("source_id").notNull(),
     postingKind: text("posting_kind").notNull().default("primary"),
-    transactionId: uuid("transaction_id").references(() => accountingTransactions.id, { onDelete: "restrict" }),
+    transactionId: uuid("transaction_id").references(
+      () => accountingTransactions.id,
+      { onDelete: "restrict" },
+    ),
     status: text("status").notNull().default("processing"),
     response: jsonb("response").$type<Record<string, unknown>>(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    createdBy: uuid("created_by").notNull().references(() => users.id, { onDelete: "restrict" }),
-    updatedBy: uuid("updated_by").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    updatedBy: uuid("updated_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
     ...auditColumns,
   },
   (table) => [
-    uniqueIndex("posting_idempotency_company_key_uq").on(table.companyId, table.key),
+    uniqueIndex("posting_idempotency_company_key_uq").on(
+      table.companyId,
+      table.key,
+    ),
     uniqueIndex("posting_idempotency_source_uq").on(
       table.companyId,
       table.sourceModule,
@@ -716,7 +977,10 @@ export const postingIdempotencyKeys = pgTable(
       table.postingKind,
     ),
     index("posting_idempotency_expiry_idx").on(table.expiresAt),
-    check("posting_idempotency_status_chk", sql`${table.status} in ('processing', 'completed', 'failed')`),
+    check(
+      "posting_idempotency_status_chk",
+      sql`${table.status} in ('processing', 'completed', 'failed')`,
+    ),
   ],
 )
 
@@ -727,16 +991,22 @@ export const migrationExceptions = pgTable(
     migrationTag: text("migration_tag").notNull(),
     sourceTable: text("source_table").notNull(),
     sourceId: text("source_id").notNull(),
-    companyId: uuid("company_id").references(() => companies.id, { onDelete: "restrict" }),
+    companyId: uuid("company_id").references(() => companies.id, {
+      onDelete: "restrict",
+    }),
     module: text("module"),
     resource: text("resource"),
     reasonCode: text("reason_code").notNull(),
     reason: text("reason").notNull(),
     rawData: jsonb("raw_data").$type<Record<string, unknown>>(),
     details: jsonb("details").$type<Record<string, unknown>>(),
-    detectedAt: timestamp("detected_at", { withTimezone: true }).notNull().defaultNow(),
+    detectedAt: timestamp("detected_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
-    resolvedBy: uuid("resolved_by").references(() => users.id, { onDelete: "restrict" }),
+    resolvedBy: uuid("resolved_by").references(() => users.id, {
+      onDelete: "restrict",
+    }),
   },
   (table) => [
     uniqueIndex("migration_exceptions_source_reason_uq").on(
@@ -745,8 +1015,14 @@ export const migrationExceptions = pgTable(
       table.sourceId,
       table.reasonCode,
     ),
-    index("migration_exceptions_open_idx").on(table.migrationTag, table.resolvedAt),
-    index("migration_exceptions_company_idx").on(table.companyId, table.detectedAt),
+    index("migration_exceptions_open_idx").on(
+      table.migrationTag,
+      table.resolvedAt,
+    ),
+    index("migration_exceptions_company_idx").on(
+      table.companyId,
+      table.detectedAt,
+    ),
   ],
 )
 

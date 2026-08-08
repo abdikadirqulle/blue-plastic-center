@@ -38,6 +38,11 @@ describe("accounting database safety schema", () => {
       )?.config.unique,
     ).toBe(true)
     expect(checkNames(accountingTransactions)).toContain("transactions_status_chk")
+    expect(
+      getTableConfig(accountingTransactions).columns.find(
+        (column) => column.name === "fiscal_period_id",
+      )?.notNull,
+    ).toBe(true)
   })
 
   it("requires one-sided non-negative journal lines", () => {
@@ -130,5 +135,20 @@ describe("migration 0012 functional currency backfill", () => {
       .toBeLessThan(migration.indexOf('"functional_debit" SET NOT NULL'))
     expect(migration.indexOf('SET "functional_currency" = company."functional_currency"'))
       .toBeLessThan(migration.indexOf('"functional_currency" SET NOT NULL'))
+  })
+})
+
+describe("migration 0014 fiscal-period integrity", () => {
+  const migration = readFileSync(
+    new URL("../../drizzle/0014_living_triathlon.sql", import.meta.url),
+    "utf8",
+  )
+
+  it("backfills only an exact-one open period before enforcing non-null", () => {
+    expect(migration).toContain("candidate.\"company_id\"")
+    expect(migration).toContain("period.\"status\" = 'open'")
+    expect(migration).toContain(") = 1")
+    expect(migration.indexOf('SET "fiscal_period_id" = period."id"'))
+      .toBeLessThan(migration.indexOf('"fiscal_period_id" SET NOT NULL'))
   })
 })

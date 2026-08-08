@@ -439,6 +439,24 @@ async function seed() {
     )
     .toFixed(2);
 
+  const seededFiscalPeriodId = "20000000-0000-4000-8000-000000000001";
+  const [fiscalPeriod] = await db
+    .insert(fiscalPeriods)
+    .values({
+      id: seededFiscalPeriodId,
+      companyId,
+      name: "FY 2026",
+      startDate: new Date("2026-01-01T00:00:00.000Z"),
+      endDate: new Date("2026-12-31T23:59:59.999Z"),
+      status: "open",
+    })
+    .onConflictDoUpdate({
+      target: [fiscalPeriods.companyId, fiscalPeriods.name],
+      set: { status: "open" },
+    })
+    .returning({ id: fiscalPeriods.id });
+  const fiscalPeriodId = fiscalPeriod.id;
+
   const ledgerEntries = [
     [
       "2026-01-02",
@@ -708,6 +726,7 @@ async function seed() {
         status: "posted",
         currency: "USD",
         functionalCurrency: "USD",
+        fiscalPeriodId,
         memo,
         postedAt: new Date(`${date}T12:00:00.000Z`),
         postedBy: "00000000-0000-4000-8000-000000000001",
@@ -718,6 +737,7 @@ async function seed() {
           transactionDate: new Date(`${date}T12:00:00.000Z`),
           memo,
           status: "posted",
+          fiscalPeriodId,
         },
       });
     for (const [lineIndex, [accountNumber, debit, credit]] of lines.entries()) {
@@ -1298,21 +1318,6 @@ async function seed() {
   ];
   for (const [id, status, data] of notificationData)
     await demo(id, "setup", "notifications", status, data);
-
-  await db
-    .insert(fiscalPeriods)
-    .values({
-      id: "20000000-0000-4000-8000-000000000001",
-      companyId: "00000000-0000-4000-8000-000000000001",
-      name: "FY 2026",
-      startDate: new Date("2026-01-01T00:00:00.000Z"),
-      endDate: new Date("2026-12-31T23:59:59.999Z"),
-      status: "open",
-    })
-    .onConflictDoUpdate({
-      target: [fiscalPeriods.companyId, fiscalPeriods.name],
-      set: { status: "open" },
-    });
 
   await close();
   console.log("BLUE PLASTIC CENTER database seed completed");
