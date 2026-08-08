@@ -9,6 +9,7 @@ import {
   reverseJournalSchema,
 } from "@blue-plastic/types"
 import { decimalToMinor, minorToDecimal } from "./ledger-math.js"
+import { systemAccountKeys } from "./system-accounts.js"
 
 export async function accountingRoutes(
   app: FastifyInstance,
@@ -71,7 +72,7 @@ export async function accountingRoutes(
   app.post("/reconciliation/control-accounts", async (request) => {
     authorizeResource(request.requestContext.principal, "read", "accounting")
     const input = reconciliationSchema.parse(request.body)
-    const [ledgerRows, receivables, payables] = await Promise.all([
+    const [ledgerRows, receivables, payables, receivableAccount, payableAccount] = await Promise.all([
       ledger.trialBalance(request.requestContext.companyId, input.from, input.to),
       resources.list(request.requestContext, "debts", "receivables", {
         page: 1,
@@ -83,25 +84,33 @@ export async function accountingRoutes(
         pageSize: 100,
         order: "desc",
       }),
+      ledger.resolveAccountMeaning(
+        request.requestContext.companyId,
+        systemAccountKeys.ACCOUNTS_RECEIVABLE,
+      ),
+      ledger.resolveAccountMeaning(
+        request.requestContext.companyId,
+        systemAccountKeys.ACCOUNTS_PAYABLE,
+      ),
     ])
-    const ledgerBalance = (accountNumber: string) =>
+    const ledgerBalance = (accountId: string) =>
       decimalToMinor(
-        ledgerRows.find((row) => row.accountNumber === accountNumber)?.balance,
+        ledgerRows.find((row) => row.accountId === accountId)?.balance,
       )
     const controls = [
       {
-        controlAccount: "1100",
+        controlAccount: receivableAccount.accountNumber,
         subledger: "receivables",
-        ledgerBalance: ledgerBalance("1100"),
+        ledgerBalance: ledgerBalance(receivableAccount.id),
         subledgerBalance: receivables.data.reduce(
           (total, record) => total + decimalToMinor(record.data.outstanding),
           0n,
         ),
       },
       {
-        controlAccount: "2000",
+        controlAccount: payableAccount.accountNumber,
         subledger: "payables",
-        ledgerBalance: -ledgerBalance("2000"),
+        ledgerBalance: -ledgerBalance(payableAccount.id),
         subledgerBalance: payables.data.reduce(
           (total, record) => total + decimalToMinor(record.data.outstanding),
           0n,

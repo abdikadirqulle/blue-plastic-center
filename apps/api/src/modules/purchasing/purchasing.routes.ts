@@ -3,6 +3,25 @@ import { authorizeResource } from "../../platform/auth.js"
 import type { ResourceService } from "../../services/resource-service.js"
 import type { OperationalWorkflowService } from "../operations/operational-workflow.service.js"
 import { approvalDecisionSchema, receivePurchaseOrderSchema } from "@blue-plastic/types"
+import { validation } from "../../platform/errors.js"
+import { systemAccountKeys } from "../accounting/system-accounts.js"
+
+export function resolveBillPostingAccounts(lines: Array<Record<string, unknown>>) {
+  const expenseAccountIds = [...new Set(lines
+    .map((line) => line.accountId)
+    .filter((accountId): accountId is string =>
+      typeof accountId === "string" && accountId.length > 0
+    ))]
+  if (expenseAccountIds.length !== 1 || lines.some((line) => !line.accountId)) {
+    throw validation(
+      "Approved bill requires one configured expense account across all lines",
+    )
+  }
+  return {
+    debitAccount: { accountId: expenseAccountIds[0] },
+    creditAccount: { systemAccountKey: systemAccountKeys.ACCOUNTS_PAYABLE },
+  }
+}
 
 export async function purchasingRoutes(
   app: FastifyInstance,
@@ -37,15 +56,17 @@ export async function purchasingRoutes(
         "bills",
         String(current.data.documentId),
       )
+      const billLines = bill.data.lines as Array<Record<string, unknown>>
+      const postingAccounts = resolveBillPostingAccounts(billLines)
       await workflows.createDraftPosting(
         request.requestContext,
         "purchasing",
         "bills",
         bill.id,
         String(bill.data.billDate),
-        bill.data.lines as Array<Record<string, unknown>>,
-        "6000",
-        "2000",
+        billLines,
+        postingAccounts.debitAccount,
+        postingAccounts.creditAccount,
       )
     }
     return {

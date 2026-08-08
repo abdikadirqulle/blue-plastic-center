@@ -341,7 +341,7 @@ export class ResourceService {
           {
             ...(depositAccountId
               ? { accountId: depositAccountId }
-              : { systemAccountKey: "bank" }),
+              : { systemAccountKey: systemAccountKeys.BANK }),
             description: "Cash sale received",
             debit: amount,
             credit: "0",
@@ -411,7 +411,7 @@ export class ResourceService {
             credit: "0",
           },
           {
-            systemAccountKey: "owner_capital",
+            systemAccountKey: systemAccountKeys.OWNER_EQUITY,
             description: "Opening balance equity",
             debit: "0",
             credit: value,

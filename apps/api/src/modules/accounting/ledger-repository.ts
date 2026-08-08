@@ -1,5 +1,12 @@
 import type { RequestContext, ResourceRecord } from "../../platform/types.js"
 import type { PostingCommand, PostingResult } from "./posting-engine.js"
+import type { SystemAccountKey } from "./system-accounts.js"
+
+export interface ResolvedLedgerAccount {
+  id: string
+  accountNumber: string
+  name: string
+}
 
 export interface TrialBalanceRow {
   accountId: string
@@ -35,6 +42,10 @@ export interface SourceReversalInput {
 }
 
 export interface LedgerRepository {
+  resolveAccountMeaning(
+    companyId: string,
+    meaning: SystemAccountKey,
+  ): Promise<ResolvedLedgerAccount>
   post(context: RequestContext, command: PostingCommand): Promise<PostingResult>
   /** Reverses the primary posting of a source document, such as an invoice. */
   reverseTransaction(

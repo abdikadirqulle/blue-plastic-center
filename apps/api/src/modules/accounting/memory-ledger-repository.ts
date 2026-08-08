@@ -4,6 +4,7 @@ import type { RequestContext, ResourceRecord } from "../../platform/types.js"
 import type { ResourceRepository } from "../../repositories/resource-repository.js"
 import { decimalToMinor, minorToDecimal } from "./ledger-math.js"
 import type { LedgerRepository, SourceReversalInput } from "./ledger-repository.js"
+import type { SystemAccountKey } from "./system-accounts.js"
 import {
   createReversalCommand,
   postingFingerprint,
@@ -33,6 +34,10 @@ export class MemoryLedgerRepository implements LedgerRepository {
   private readonly closedPeriods = new Map<string, { startDate: string; endDate: string }>()
 
   constructor(private readonly resources: ResourceRepository) {}
+
+  async resolveAccountMeaning(_companyId: string, meaning: SystemAccountKey) {
+    return { id: meaning, accountNumber: meaning, name: meaning }
+  }
 
   /** Captures ledger state so a failed business action can be rolled back. */
   snapshot() {

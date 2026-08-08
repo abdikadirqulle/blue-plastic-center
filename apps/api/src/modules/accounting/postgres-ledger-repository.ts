@@ -23,6 +23,7 @@ import {
   type PostingCommand,
   type PostingResult,
 } from "./posting-engine.js"
+import type { SystemAccountKey } from "./system-accounts.js"
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -43,6 +44,12 @@ export class PostgresLedgerRepository implements LedgerRepository {
   async post(context: RequestContext, command: PostingCommand) {
     return this.db.transaction((transaction) =>
       this.postInTransaction(transaction, context, command),
+    )
+  }
+
+  async resolveAccountMeaning(companyId: string, meaning: SystemAccountKey) {
+    return this.db.transaction((transaction) =>
+      createPostgresAccountResolver(transaction).resolveMeaning(companyId, meaning),
     )
   }
 
@@ -224,7 +231,7 @@ export class PostgresLedgerRepository implements LedgerRepository {
     journal: ResourceRecord,
     manual = true,
   ) {
-    const lines = journal.data.lines as Array<Record<string, unknown>>
+      const lines = journal.data.lines as Array<Record<string, unknown>>
     const sourceId = manual ? journal.id : String(journal.data.sourceId)
     const sourceModule = "accounting"
     const sourceType = "journal"
@@ -242,11 +249,16 @@ export class PostgresLedgerRepository implements LedgerRepository {
       exchangeRate: String(journal.data.exchangeRate ?? "1"),
       memo: journal.data.memo ? String(journal.data.memo) : undefined,
       lines: lines.map((line) => {
-        const accountReference = String(line.accountId)
+        const systemAccountKey = typeof line.systemAccountKey === "string"
+          ? line.systemAccountKey
+          : undefined
+        const accountReference = String(line.accountId ?? "")
         return {
-          ...(uuidPattern.test(accountReference)
-            ? { accountId: accountReference }
-            : { accountNumber: accountReference }),
+          ...(systemAccountKey
+            ? { systemAccountKey }
+            : uuidPattern.test(accountReference)
+              ? { accountId: accountReference }
+              : { accountNumber: accountReference }),
           description: line.description ? String(line.description) : undefined,
           debit: String(line.debit ?? "0"),
           credit: String(line.credit ?? "0"),

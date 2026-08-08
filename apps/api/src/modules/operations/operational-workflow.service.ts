@@ -2,6 +2,7 @@ import { conflict, validation } from "../../platform/errors.js"
 import type { RequestContext } from "../../platform/types.js"
 import type { ResourceService } from "../../services/resource-service.js"
 import { sumLineAmounts } from "./money.js"
+import type { PostingLine } from "../accounting/posting-engine.js"
 
 const transitions: Record<string, Record<string, string[]>> = {
   fulfillment: {
@@ -112,8 +113,8 @@ export class OperationalWorkflowService {
     sourceId: string,
     transactionDate: string,
     lines: Array<Record<string, unknown>>,
-    debitAccountId: string,
-    creditAccountId: string,
+    debitAccount: Pick<PostingLine, "accountId" | "systemAccountKey">,
+    creditAccount: Pick<PostingLine, "accountId" | "systemAccountKey">,
   ) {
     const amount = sumLineAmounts(lines)
     return this.resources.create(context, "accounting", "journal-entries", {
@@ -124,8 +125,8 @@ export class OperationalWorkflowService {
         sourceResource,
         sourceId,
         lines: [
-          { accountId: debitAccountId, debit: amount, credit: "0.0000" },
-          { accountId: creditAccountId, debit: "0.0000", credit: amount },
+          { ...debitAccount, debit: amount, credit: "0.0000" },
+          { ...creditAccount, debit: "0.0000", credit: amount },
         ],
       },
     })

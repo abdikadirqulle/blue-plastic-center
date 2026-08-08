@@ -172,7 +172,7 @@ export async function salesRoutes(
             {
               ...(depositAccountId
                 ? { accountId: depositAccountId }
-                : { systemAccountKey: "bank" }),
+                : { systemAccountKey: systemAccountKeys.BANK }),
               description: "Payment deposited",
               debit: amount,
               credit: "0",
