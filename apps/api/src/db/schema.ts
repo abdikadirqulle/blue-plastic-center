@@ -513,6 +513,63 @@ export const accounts = pgTable(
   ],
 )
 
+export const postingProfiles = pgTable(
+  "posting_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "restrict" }),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    active: boolean("active").notNull().default(true),
+    version: integer("version").notNull().default(1),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("posting_profiles_company_code_uq").on(table.companyId, table.code),
+    check("posting_profiles_version_chk", sql`${table.version} > 0`),
+    check(
+      "posting_profiles_code_chk",
+      sql`${table.code} in ('invoice', 'customer_payment', 'sales_receipt', 'vendor_bill', 'inventory_opening', 'bank_transfer')`,
+    ),
+  ],
+)
+
+export const postingProfileLines = pgTable(
+  "posting_profile_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    profileId: uuid("profile_id").notNull().references(() => postingProfiles.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    side: text("side").notNull(),
+    accountMeaning: text("account_meaning"),
+    overrideSource: text("override_source"),
+    lineNumber: integer("line_number").notNull(),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("posting_profile_lines_role_uq").on(table.profileId, table.role),
+    uniqueIndex("posting_profile_lines_number_uq").on(table.profileId, table.lineNumber),
+    check("posting_profile_lines_number_chk", sql`${table.lineNumber} > 0`),
+    check("posting_profile_lines_side_chk", sql`${table.side} in ('debit', 'credit')`),
+    check(
+      "posting_profile_lines_role_chk",
+      sql`${table.role} in ('receivable', 'payable', 'revenue', 'sales_discount', 'inventory_asset', 'cost_of_goods_sold', 'tax_payable', 'deposit', 'opening_equity', 'transfer_source', 'transfer_destination', 'bank_fee')`,
+    ),
+    check(
+      "posting_profile_lines_meaning_chk",
+      sql`${table.accountMeaning} is null or ${table.accountMeaning} in ('accounts_receivable', 'accounts_payable', 'sales_revenue', 'service_revenue', 'sales_discounts', 'inventory_asset', 'cost_of_goods_sold', 'tax_payable', 'cash', 'bank', 'mobile_money', 'owner_capital')`,
+    ),
+    check(
+      "posting_profile_lines_override_chk",
+      sql`${table.overrideSource} is null or ${table.overrideSource} in ('customer_receivable_account', 'vendor_payable_account', 'item_income_account', 'item_inventory_account', 'item_expense_account', 'tax_sales_account', 'tax_purchase_account', 'deposit_account', 'bank_ledger_account', 'bank_fee_expense_account')`,
+    ),
+    check(
+      "posting_profile_lines_account_source_chk",
+      sql`${table.accountMeaning} is not null or ${table.overrideSource} is not null`,
+    ),
+  ],
+)
+
 export const fiscalPeriods = pgTable(
   "fiscal_periods",
   {

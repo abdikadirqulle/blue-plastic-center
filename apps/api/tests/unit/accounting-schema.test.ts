@@ -5,6 +5,8 @@ import {
   accountingTransactions,
   accounts,
   migrationExceptions,
+  postingProfileLines,
+  postingProfiles,
   postingIdempotencyKeys,
 } from "../../src/db/schema.js"
 
@@ -43,6 +45,25 @@ describe("accounting database safety schema", () => {
       "posting_idempotency_source_uq",
     ]))
     expect(indexNames(migrationExceptions)).toContain("migration_exceptions_source_reason_uq")
+  })
+
+  it("keeps posting profiles company-scoped without account-number policy", () => {
+    expect(indexNames(postingProfiles)).toContain("posting_profiles_company_code_uq")
+    expect(checkNames(postingProfiles)).toEqual(expect.arrayContaining([
+      "posting_profiles_code_chk",
+      "posting_profiles_version_chk",
+    ]))
+    expect(indexNames(postingProfileLines)).toEqual(expect.arrayContaining([
+      "posting_profile_lines_role_uq",
+      "posting_profile_lines_number_uq",
+    ]))
+    expect(checkNames(postingProfileLines)).toEqual(expect.arrayContaining([
+      "posting_profile_lines_account_source_chk",
+      "posting_profile_lines_meaning_chk",
+      "posting_profile_lines_override_chk",
+    ]))
+    expect(getTableConfig(postingProfileLines).columns.map((column) => column.name))
+      .not.toContain("account_number")
   })
 })
 
