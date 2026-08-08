@@ -28,6 +28,7 @@ import type {
   PaymentAllocationInput,
 } from "./customer-payment-repository.js"
 import { buildCustomerPaymentPosting } from "./customer-payment-posting.js"
+import { calculateInvoiceSettlement } from "./invoice-settlement.js"
 
 type Executor = Database | DatabaseTransaction
 type PaymentRow = typeof customerPayments.$inferSelect
@@ -288,21 +289,15 @@ export class PostgresCustomerPaymentRepository implements CustomerPaymentReposit
           asMoney(postedAllocation?.total ?? "0", "Posted allocation total"),
           asMoney(allocation.amount, "Allocation amount"),
         )
-        const amountPaid = formatMoney(amountPaidMoney)
-        const balanceDueMoney = subtractMoney(
-          parseMoney(invoice.total),
-          amountPaidMoney,
-        )
-        if (compareMoney(balanceDueMoney, parseMoney("0")) < 0)
-          throw validation(`Payment exceeds invoice ${invoice.invoiceNumber}'s open amount`)
-        const balanceDue = formatMoney(balanceDueMoney)
-        const status = compareMoney(balanceDueMoney, parseMoney("0")) === 0
-          ? "paid"
-          : "partially_paid"
+        const settlement = calculateInvoiceSettlement({
+          invoiceStatus: invoice.status,
+          total: invoice.total,
+          postedAllocationTotal: formatMoney(amountPaidMoney),
+        })
         const [settled] = await transaction.update(invoices).set({
-          amountPaid,
-          balanceDue,
-          status,
+          amountPaid: settlement.amountPaid,
+          balanceDue: settlement.balanceDue,
+          status: settlement.status,
           version: invoice.version + 1,
           updatedBy: context.principal.userId,
           updatedAt: new Date(),

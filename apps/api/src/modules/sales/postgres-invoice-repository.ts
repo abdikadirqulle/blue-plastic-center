@@ -13,6 +13,8 @@ import {
   branches,
   companies,
   currencies,
+  customerPaymentAllocations,
+  customerPayments,
   customers,
   documentSequences,
   idempotencyKeys,
@@ -42,6 +44,7 @@ import {
   type InvoiceRowView,
 } from "./invoice-record.js"
 import { calculateInvoiceTotals } from "./invoice-totals.js"
+import { calculateInvoiceSettlement } from "./invoice-settlement.js"
 import type {
   InvoiceCreateOptions,
   InvoiceRepository,
@@ -68,7 +71,10 @@ interface ResolvedLine {
 const dateText = (date: Date) => date.toISOString().slice(0, 10)
 const timestamp = (value: Date | null | undefined) => value?.toISOString() ?? undefined
 
-function toRowView(row: InvoiceRow): InvoiceRowView {
+function toRowView(
+  row: InvoiceRow,
+  settlement?: ReturnType<typeof calculateInvoiceSettlement>,
+): InvoiceRowView {
   return {
     id: row.id,
     companyId: row.companyId,
@@ -79,7 +85,7 @@ function toRowView(row: InvoiceRow): InvoiceRowView {
     dueDate: dateText(row.dueDate),
     currency: row.currency,
     exchangeRate: row.exchangeRate,
-    status: row.status,
+    status: settlement?.status ?? row.status,
     customerPurchaseOrder: row.customerPurchaseOrder,
     memo: row.memo,
     discountType: row.discountType,
@@ -88,8 +94,8 @@ function toRowView(row: InvoiceRow): InvoiceRowView {
     discountTotal: row.discountTotal,
     taxTotal: row.taxTotal,
     total: row.total,
-    amountPaid: row.amountPaid,
-    balanceDue: row.balanceDue,
+    amountPaid: settlement?.amountPaid ?? row.amountPaid,
+    balanceDue: settlement?.balanceDue ?? row.balanceDue,
     postedAt: timestamp(row.postedAt),
     postedBy: row.postedBy,
     voidedAt: timestamp(row.voidedAt),
@@ -161,9 +167,13 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
       .orderBy(query.order === "asc" ? asc(invoices.createdAt) : desc(invoices.createdAt))
       .limit(query.pageSize)
       .offset((query.page - 1) * query.pageSize)
+    const settlements = await this.invoiceSettlements(
+      this.db,
+      rows.map(({ invoice }) => invoice),
+    )
     return {
       data: rows.map(({ invoice, customerName }) =>
-        toInvoiceRecord(toRowView(invoice), { customerName }),
+        toInvoiceRecord(toRowView(invoice, settlements.get(invoice.id)), { customerName }),
       ),
       total: count,
     }
@@ -188,6 +198,7 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
       )
       .orderBy(desc(invoices.invoiceDate))
     const asOf = new Date().toISOString().slice(0, 10)
+    const settlements = await this.invoiceSettlements(this.db, rows)
     return rows.map((row) => ({
       id: row.id,
       customerId: row.customerId,
@@ -195,15 +206,15 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
       invoiceDate: dateText(row.invoiceDate),
       dueDate: dateText(row.dueDate),
       status: deriveInvoiceStatus({
-        status: row.status,
+        status: settlements.get(row.id)?.status ?? row.status,
         total: row.total,
-        amountPaid: row.amountPaid,
+        amountPaid: settlements.get(row.id)?.amountPaid ?? "0.0000",
         dueDate: dateText(row.dueDate),
         asOf,
       }),
       total: row.total,
-      amountPaid: row.amountPaid,
-      balanceDue: row.balanceDue,
+      amountPaid: settlements.get(row.id)?.amountPaid ?? "0.0000",
+      balanceDue: settlements.get(row.id)?.balanceDue ?? row.total,
     }))
   }
 
@@ -645,6 +656,7 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
       )
       .limit(1)
     if (!result) return undefined
+    const settlement = (await this.invoiceSettlements(executor, [result.invoice])).get(id)
     const lines = await executor
       .select({ line: invoiceLines, itemName: items.name, accountName: accounts.name })
       .from(invoiceLines)
@@ -674,7 +686,7 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
         ),
       )
       .orderBy(asc(auditEvents.occurredAt))
-    return toInvoiceRecord(toRowView(result.invoice), {
+    return toInvoiceRecord(toRowView(result.invoice, settlement), {
       customerName: result.customerName,
       lines: lines.map(({ line, itemName, accountName }) =>
         toLineView(line, { itemName, accountName }),
@@ -689,6 +701,35 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
         userId: event.userId,
       })),
     })
+  }
+
+  private async invoiceSettlements(executor: Executor, rows: InvoiceRow[]) {
+    if (!rows.length) return new Map<string, ReturnType<typeof calculateInvoiceSettlement>>()
+    const ids = rows.map((row) => row.id)
+    const totals = await executor
+      .select({
+        invoiceId: customerPaymentAllocations.invoiceId,
+        total: sql<string>`coalesce(sum(${customerPaymentAllocations.amount}), 0)::text`,
+      })
+      .from(customerPaymentAllocations)
+      .innerJoin(customerPayments, eq(customerPaymentAllocations.paymentId, customerPayments.id))
+      .where(and(
+        inArray(customerPaymentAllocations.invoiceId, ids),
+        eq(customerPayments.companyId, rows[0]!.companyId),
+        eq(customerPayments.status, "posted"),
+        eq(customerPayments.isDeleted, false),
+        isNull(customerPayments.deletedAt),
+      ))
+      .groupBy(customerPaymentAllocations.invoiceId)
+    const byInvoice = new Map(totals.map((row) => [row.invoiceId, row.total]))
+    return new Map(rows.map((row) => [
+      row.id,
+      calculateInvoiceSettlement({
+        invoiceStatus: row.status,
+        total: row.total,
+        postedAllocationTotal: byInvoice.get(row.id) ?? "0",
+      }),
+    ]))
   }
 
   private async requireInvoiceRow(

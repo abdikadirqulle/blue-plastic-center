@@ -19,7 +19,9 @@ import {
 } from "../../src/db/schema.js"
 import { PostgresLedgerRepository } from "../../src/modules/accounting/postgres-ledger-repository.js"
 import { systemAccountKeys } from "../../src/modules/accounting/system-accounts.js"
+import { PostgresInventoryMovements } from "../../src/modules/inventory/postgres-inventory-movements.js"
 import { PostgresCustomerPaymentRepository } from "../../src/modules/sales/postgres-customer-payment-repository.js"
+import { PostgresInvoiceRepository } from "../../src/modules/sales/postgres-invoice-repository.js"
 import type { RequestContext } from "../../src/platform/types.js"
 
 const enabled = process.env.RUN_POSTGRES_INTEGRATION === "1" && Boolean(process.env.DATABASE_URL)
@@ -69,11 +71,14 @@ postgresDescribe("customer payment PostgreSQL atomic posting", () => {
   let database: ReturnType<typeof createDatabase>
   let db: Database
   let repository: PostgresCustomerPaymentRepository
+  let invoiceRepository: PostgresInvoiceRepository
 
   beforeAll(async () => {
     database = createDatabase(process.env.DATABASE_URL!)
     db = database.db
-    repository = new PostgresCustomerPaymentRepository(db, new PostgresLedgerRepository(db))
+    const ledger = new PostgresLedgerRepository(db)
+    repository = new PostgresCustomerPaymentRepository(db, ledger)
+    invoiceRepository = new PostgresInvoiceRepository(db, ledger, new PostgresInventoryMovements(db))
     await cleanup(db)
     await db.insert(companies).values({ id: companyId, legalName: "Phase 3C Company", functionalCurrency: "USD" })
     await db.insert(branches).values({ id: branchId, companyId, name: "Main", code: "MAIN" })
@@ -175,5 +180,27 @@ postgresDescribe("customer payment PostgreSQL atomic posting", () => {
     expect(unchangedInvoice).toMatchObject({ status: "open", amountPaid: "0.0000", balanceDue: "100.0000" })
     expect(draftPayment.status).toBe("draft")
     expect(journals).toHaveLength(0)
+  }, 60_000)
+
+  it("derives detail and list balances only from posted relational allocations", async () => {
+    const invoiceId = await invoice(5)
+    await db.update(invoices).set({ amountPaid: "99.0000", balanceDue: "1.0000", status: "partially_paid" })
+      .where(eq(invoices.id, invoiceId))
+    const draftPayment = await payment(5, "60.0000", invoiceId)
+
+    const before = await invoiceRepository.findById(context, invoiceId)
+    expect(before?.data).toMatchObject({ amountPaid: "0.0000", balanceDue: "100.0000" })
+
+    await db.update(customerPayments).set({ status: "posted", unappliedAmount: "0.0000" })
+      .where(eq(customerPayments.id, draftPayment))
+    const secondPayment = await payment(6, "40.0000", invoiceId)
+    await db.update(customerPayments).set({ status: "posted", unappliedAmount: "0.0000" })
+      .where(eq(customerPayments.id, secondPayment))
+
+    const detail = await invoiceRepository.findById(context, invoiceId)
+    const listed = await invoiceRepository.list(context, { page: 1, pageSize: 20, order: "desc" })
+    const listInvoice = listed.data.find((record) => record.id === invoiceId)
+    expect(detail).toMatchObject({ status: "paid", data: { amountPaid: "100.0000", balanceDue: "0.0000" } })
+    expect(listInvoice).toMatchObject({ status: "paid", data: { amountPaid: "100.0000", balanceDue: "0.0000" } })
   }, 60_000)
 })
