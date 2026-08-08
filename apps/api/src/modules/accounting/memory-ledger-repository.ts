@@ -131,8 +131,12 @@ export class MemoryLedgerRepository implements LedgerRepository {
       sourceModule: command.sourceModule,
       sourceType: command.sourceType,
       sourceId: command.sourceId,
+      ...(command.sourceVersion === undefined
+        ? {}
+        : { sourceVersion: command.sourceVersion }),
       postingKind: command.postingKind ?? "primary",
       postingFingerprint: postingFingerprint(context.companyId, command),
+      fiscalPeriodId: "memory-open-period",
     }
     const now = new Date().toISOString()
     this.posted.push({

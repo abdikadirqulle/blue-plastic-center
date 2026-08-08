@@ -242,6 +242,9 @@ export class PostgresLedgerRepository implements LedgerRepository {
       sourceModule,
       sourceType,
       sourceId,
+      sourceVersion: typeof journal.data.sourceVersion === "number"
+        ? journal.data.sourceVersion
+        : journal.version,
       postingKind,
       idempotencyKey: String(journal.data.idempotencyKey ?? `journal:${journal.id}`),
       transactionDate: String(journal.data.journalDate),
@@ -404,11 +407,24 @@ export class PostgresLedgerRepository implements LedgerRepository {
       id: randomUUID(), requestId: context.requestId, companyId: context.companyId,
       branchId: context.branchId, userId: context.principal.userId, action: "post",
       entityType: `${command.sourceModule}/${command.sourceType}`, entityId: command.sourceId,
+      changes: {
+        accountingTransactionId: transactionId,
+        transactionNumber,
+        fiscalPeriodId: period.id,
+        postingFingerprint: fingerprint,
+        postingKind,
+        ...(command.sourceVersion === undefined
+          ? {}
+          : { sourceVersion: command.sourceVersion }),
+      },
     })
     return {
       transactionId, transactionNumber, status: "posted", sourceModule: command.sourceModule,
       sourceType: command.sourceType, sourceId: command.sourceId,
-      postingKind: command.postingKind ?? "primary", postingFingerprint: fingerprint,
+      ...(command.sourceVersion === undefined
+        ? {}
+        : { sourceVersion: command.sourceVersion }),
+      postingKind, postingFingerprint: fingerprint, fiscalPeriodId: period.id,
     }
   }
 

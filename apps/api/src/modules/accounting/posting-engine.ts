@@ -14,6 +14,8 @@ export interface PostingCommand {
   sourceModule: string
   sourceType: string
   sourceId: string
+  /** Positive source-document revision that produced this posting, when available. */
+  sourceVersion?: number
   postingKind?: "primary" | "reversal" | "adjustment"
   idempotencyKey: string
   transactionDate: string
@@ -31,8 +33,10 @@ export interface PostingResult {
   sourceModule: string
   sourceType: string
   sourceId: string
+  sourceVersion?: number
   postingKind: string
   postingFingerprint: string
+  fiscalPeriodId: string
 }
 
 function stable(value: unknown): unknown {
@@ -70,6 +74,10 @@ export function validatePostingCommand(command: PostingCommand) {
     throw new Error("Posting source module and type are required")
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(command.sourceId))
     throw new Error("Posting source ID must be a UUID")
+  if (
+    command.sourceVersion !== undefined &&
+    (!Number.isSafeInteger(command.sourceVersion) || command.sourceVersion < 1)
+  ) throw new Error("Posting source version must be a positive safe integer")
   if (!/^\d{4}-\d{2}-\d{2}$/.test(command.transactionDate))
     throw new Error("Posting transaction date is invalid")
   const date = new Date(`${command.transactionDate}T00:00:00.000Z`)
