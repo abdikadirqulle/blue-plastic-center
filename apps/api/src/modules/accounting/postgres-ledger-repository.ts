@@ -13,7 +13,7 @@ import {
 } from "../../db/schema.js"
 import { conflict, notFound } from "../../platform/errors.js"
 import type { RequestContext, ResourceRecord } from "../../platform/types.js"
-import type { LedgerRepository, SourceReversalInput } from "./ledger-repository.js"
+import type { SourceReversalInput, TransactionalLedgerRepository } from "./ledger-repository.js"
 import { createPostgresAccountResolver } from "./account-resolver.js"
 import { resolveOpenFiscalPeriod } from "./fiscal-period-resolver.js"
 import { prepareSameCurrencyFunctionalAmounts } from "./functional-currency.js"
@@ -40,7 +40,7 @@ const inTheBooks = or(
   eq(accountingTransactions.status, "reversed"),
 )
 
-export class PostgresLedgerRepository implements LedgerRepository {
+export class PostgresLedgerRepository implements TransactionalLedgerRepository {
   constructor(private readonly db: Database) {}
 
   async post(context: RequestContext, command: PostingCommand) {

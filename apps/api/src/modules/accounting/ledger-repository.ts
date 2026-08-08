@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "../../db/client.js"
 import type { RequestContext, ResourceRecord } from "../../platform/types.js"
 import type { PostingCommand, PostingResult } from "./posting-engine.js"
 import type { SystemAccountKey } from "./system-accounts.js"
@@ -63,4 +64,17 @@ export interface LedgerRepository {
     accountId: string,
     limit: number,
   ): Promise<AccountLedgerLine[]>
+}
+
+/**
+ * PostgreSQL composition port for workflows that own the surrounding Drizzle
+ * transaction. Implementations must use the supplied transaction for every
+ * posting read/write and must not commit independently.
+ */
+export interface TransactionalLedgerRepository extends LedgerRepository {
+  postInTransaction(
+    transaction: DatabaseTransaction,
+    context: RequestContext,
+    command: PostingCommand,
+  ): Promise<PostingResult>
 }
