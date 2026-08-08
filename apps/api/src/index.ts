@@ -29,7 +29,8 @@ const invoiceRepository = database && ledgerRepository instanceof PostgresLedger
   ? new PostgresInvoiceRepository(database.db, ledgerRepository, inventoryMovements)
   : undefined;
 const paymentRepository = database
-  ? new PostgresCustomerPaymentRepository(database.db)
+  && ledgerRepository instanceof PostgresLedgerRepository
+  ? new PostgresCustomerPaymentRepository(database.db, ledgerRepository)
   : undefined;
 const app = createApp(
   repository,

@@ -128,6 +128,21 @@ export async function salesRoutes(
     },
   )
 
+  app.post<{ Params: { id: string } }>(
+    "/payments/:id/post",
+    async (request) => {
+      authorizeResource(request.requestContext.principal, "post", "sales")
+      const idempotencyKey = request.headers["idempotency-key"]
+      return {
+        data: await payments.post(
+          request.requestContext,
+          request.params.id,
+          typeof idempotencyKey === "string" ? idempotencyKey : "",
+        ),
+      }
+    },
+  )
+
   app.post<{ Params: { resource: string; id: string } }>(
     "/:resource/:id/email",
     async (request, reply) => {

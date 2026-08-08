@@ -7,6 +7,7 @@ import { conflict, notFound, validation } from "../../platform/errors.js"
 import type { ListQuery, RequestContext } from "../../platform/types.js"
 import type { ResourceRepository } from "../../repositories/resource-repository.js"
 import type { MemoryLedgerRepository } from "../accounting/memory-ledger-repository.js"
+import { decimalToMinor, minorToDecimal } from "../accounting/ledger-math.js"
 import type { MemoryInventoryMovements } from "../inventory/memory-inventory-movements.js"
 import {
   canDeleteInvoice,
@@ -142,6 +143,29 @@ export class MemoryInvoiceRepository implements InvoiceRepository {
         amountPaid: invoice.amountPaid,
         balanceDue: invoice.balanceDue,
       }))
+  }
+
+  /** Test-runtime equivalent of the locked relational settlement projection. */
+  applyPaymentSettlement(context: RequestContext, id: string, amount: string) {
+    const invoice = this.find(context, id)
+    if (!invoice) throw validation("Allocation invoice was not found for this company")
+    const paid = decimalToMinor(invoice.amountPaid) + decimalToMinor(amount)
+    const balance = decimalToMinor(invoice.balanceDue) - decimalToMinor(amount)
+    if (balance < 0n)
+      throw validation(`Payment exceeds invoice ${invoice.invoiceNumber}'s open amount`)
+    invoice.amountPaid = minorToDecimal(paid)
+    invoice.balanceDue = minorToDecimal(balance)
+    invoice.status = balance === 0n ? "paid" : "partially_paid"
+    invoice.version += 1
+    invoice.updatedAt = new Date().toISOString()
+    invoice.updatedBy = context.principal.userId
+  }
+
+  snapshotPaymentSettlement(ids: string[]) {
+    const snapshots = this.invoices
+      .filter((invoice) => ids.includes(invoice.id))
+      .map((invoice) => ({ invoice, value: { ...invoice } }))
+    return () => snapshots.forEach(({ invoice, value }) => Object.assign(invoice, value))
   }
 
   async create(

@@ -7,6 +7,7 @@ import type {
 import type { Database, DatabaseTransaction } from "../../db/client.js"
 import {
   accounts,
+  accountingTransactions,
   auditEvents,
   branches,
   companies,
@@ -18,6 +19,7 @@ import {
   invoices,
 } from "../../db/schema.js"
 import { addMoney, compareMoney, formatMoney, parseMoney, subtractMoney } from "../accounting/money.js"
+import type { TransactionalLedgerRepository } from "../accounting/ledger-repository.js"
 import { conflict, notFound, validation } from "../../platform/errors.js"
 import type { ListQuery, RequestContext, ResourceRecord } from "../../platform/types.js"
 import type {
@@ -25,6 +27,7 @@ import type {
   CustomerPaymentRepository,
   PaymentAllocationInput,
 } from "./customer-payment-repository.js"
+import { buildCustomerPaymentPosting } from "./customer-payment-posting.js"
 
 type Executor = Database | DatabaseTransaction
 type PaymentRow = typeof customerPayments.$inferSelect
@@ -41,7 +44,10 @@ const asMoney = (value: string, label: string) => {
 }
 
 export class PostgresCustomerPaymentRepository implements CustomerPaymentRepository {
-  constructor(private readonly db: Database) {}
+  constructor(
+    private readonly db: Database,
+    private readonly ledger: TransactionalLedgerRepository,
+  ) {}
 
   async list(context: RequestContext, query: ListQuery) {
     const conditions = [
@@ -223,6 +229,138 @@ export class PostgresCustomerPaymentRepository implements CustomerPaymentReposit
       this.replaceAllocationsInTransaction(transaction, context, id, allocations))
   }
 
+  post(context: RequestContext, id: string, idempotencyKey: string) {
+    return this.db.transaction(async (transaction) => {
+      const payment = await this.requirePayment(transaction, context, id)
+      if (payment.status === "posted") {
+        const existing = await this.findPosting(transaction, context.companyId, id)
+        if (existing?.idempotencyKey === idempotencyKey) {
+          const record = await this.read(transaction, context, id)
+          if (record) return record
+        }
+        throw conflict("Customer payment is already posted with a different request")
+      }
+      if (payment.status !== "draft")
+        throw conflict("Only a draft customer payment can be posted")
+      if (!payment.depositAccountId)
+        throw validation("A valid deposit account is required before this payment can be posted")
+      if (compareMoney(asMoney(payment.amount, "Payment amount"), parseMoney("0")) <= 0)
+        throw validation("Payment amount must be greater than zero")
+
+      const customer = await this.validateContext(
+        transaction,
+        context,
+        payment.customerId,
+        payment.depositAccountId,
+      )
+      const allocations = await transaction.select({
+        invoiceId: customerPaymentAllocations.invoiceId,
+        amount: customerPaymentAllocations.amount,
+      }).from(customerPaymentAllocations)
+        .where(eq(customerPaymentAllocations.paymentId, id))
+        .orderBy(asc(customerPaymentAllocations.createdAt))
+      await this.validateAllocations(transaction, context, payment, allocations, false)
+
+      const allocationTotal = allocations.reduce(
+        (total, allocation) => addMoney(total, asMoney(allocation.amount, "Allocation amount")),
+        parseMoney("0"),
+      )
+      const unappliedAmount = formatMoney(
+        subtractMoney(parseMoney(payment.amount), allocationTotal),
+      )
+      for (const allocation of allocations) {
+        const [invoice] = await transaction.select().from(invoices).where(and(
+          eq(invoices.id, allocation.invoiceId),
+          eq(invoices.companyId, context.companyId),
+        )).for("update").limit(1)
+        if (!invoice) throw validation("Allocation invoice was not found for this company")
+        const [postedAllocation] = await transaction.select({
+          total: sql<string>`coalesce(sum(${customerPaymentAllocations.amount}), 0)::text`,
+        }).from(customerPaymentAllocations)
+          .innerJoin(customerPayments, eq(customerPaymentAllocations.paymentId, customerPayments.id))
+          .where(and(
+            eq(customerPaymentAllocations.invoiceId, invoice.id),
+            eq(customerPayments.companyId, context.companyId),
+            eq(customerPayments.status, "posted"),
+            eq(customerPayments.isDeleted, false),
+          ))
+        const amountPaidMoney = addMoney(
+          asMoney(postedAllocation?.total ?? "0", "Posted allocation total"),
+          asMoney(allocation.amount, "Allocation amount"),
+        )
+        const amountPaid = formatMoney(amountPaidMoney)
+        const balanceDueMoney = subtractMoney(
+          parseMoney(invoice.total),
+          amountPaidMoney,
+        )
+        if (compareMoney(balanceDueMoney, parseMoney("0")) < 0)
+          throw validation(`Payment exceeds invoice ${invoice.invoiceNumber}'s open amount`)
+        const balanceDue = formatMoney(balanceDueMoney)
+        const status = compareMoney(balanceDueMoney, parseMoney("0")) === 0
+          ? "paid"
+          : "partially_paid"
+        const [settled] = await transaction.update(invoices).set({
+          amountPaid,
+          balanceDue,
+          status,
+          version: invoice.version + 1,
+          updatedBy: context.principal.userId,
+          updatedAt: new Date(),
+        }).where(and(
+          eq(invoices.id, invoice.id),
+          eq(invoices.companyId, context.companyId),
+          eq(invoices.version, invoice.version),
+        )).returning({ id: invoices.id })
+        if (!settled) throw conflict("Invoice settlement changed concurrently")
+      }
+
+      await this.ledger.postInTransaction(
+        transaction,
+        context,
+        buildCustomerPaymentPosting({
+          paymentId: payment.id,
+          paymentNumber: payment.paymentNumber,
+          paymentDate: dateText(payment.paymentDate),
+          sourceVersion: payment.version,
+          currency: payment.currency,
+          exchangeRate: payment.exchangeRate,
+          amount: payment.amount,
+          depositAccountId: payment.depositAccountId,
+          customerName: customer.displayName,
+          receivableAccountId: customer.receivableAccountId ?? undefined,
+          idempotencyKey,
+        }),
+      )
+
+      const [posted] = await transaction.update(customerPayments).set({
+        status: "posted",
+        unappliedAmount,
+        version: payment.version + 1,
+        updatedBy: context.principal.userId,
+        updatedAt: new Date(),
+      }).where(and(
+        eq(customerPayments.id, id),
+        eq(customerPayments.companyId, context.companyId),
+        eq(customerPayments.branchId, context.branchId),
+        eq(customerPayments.status, "draft"),
+        eq(customerPayments.version, payment.version),
+      )).returning({ id: customerPayments.id })
+      if (!posted) throw conflict("Payment changed before it could be posted")
+      await this.audit(transaction, context, "post", id, {
+        before: { status: "draft" },
+        after: {
+          status: "posted",
+          amount: payment.amount,
+          allocatedAmount: formatMoney(allocationTotal),
+          unappliedAmount,
+        },
+      })
+      const result = await this.read(transaction, context, id)
+      if (!result) throw notFound("Posted customer payment was not found")
+      return result
+    })
+  }
+
   async remove(context: RequestContext, id: string) {
     await this.db.transaction(async (transaction) => {
       const current = await this.requireDraft(transaction, context, id)
@@ -291,6 +429,7 @@ export class PostgresCustomerPaymentRepository implements CustomerPaymentReposit
     context: RequestContext,
     payment: PaymentRow,
     allocations: PaymentAllocationInput[],
+    includeDraftReservations = true,
   ) {
     const total = allocations.reduce((sum, allocation) => {
       const amount = asMoney(allocation.amount, "Allocation amount")
@@ -315,17 +454,19 @@ export class PostgresCustomerPaymentRepository implements CustomerPaymentReposit
         throw validation("Payment and invoice must belong to the same customer")
       if (!["open", "partially_paid", "overdue"].includes(invoice.status))
         throw validation("Only an open posted invoice can receive an allocation")
-      const [reserved] = await transaction.select({
-        total: sql<string>`coalesce(sum(${customerPaymentAllocations.amount}), 0)::text`,
-      }).from(customerPaymentAllocations)
-        .innerJoin(customerPayments, eq(customerPaymentAllocations.paymentId, customerPayments.id))
-        .where(and(
-          eq(customerPaymentAllocations.invoiceId, invoice.id),
-          ne(customerPaymentAllocations.paymentId, payment.id),
-          eq(customerPayments.companyId, context.companyId),
-          eq(customerPayments.status, "draft"),
-          eq(customerPayments.isDeleted, false),
-        ))
+      const [reserved] = includeDraftReservations
+        ? await transaction.select({
+            total: sql<string>`coalesce(sum(${customerPaymentAllocations.amount}), 0)::text`,
+          }).from(customerPaymentAllocations)
+          .innerJoin(customerPayments, eq(customerPaymentAllocations.paymentId, customerPayments.id))
+          .where(and(
+            eq(customerPaymentAllocations.invoiceId, invoice.id),
+            ne(customerPaymentAllocations.paymentId, payment.id),
+            eq(customerPayments.companyId, context.companyId),
+            eq(customerPayments.status, "draft"),
+            eq(customerPayments.isDeleted, false),
+          ))
+        : [{ total: "0" }]
       const requested = asMoney(allocation.amount, "Allocation amount")
       const projected = addMoney(asMoney(reserved?.total ?? "0", "Reserved allocation"), requested)
       if (compareMoney(projected, parseMoney(invoice.balanceDue)) > 0)
@@ -345,7 +486,11 @@ export class PostgresCustomerPaymentRepository implements CustomerPaymentReposit
       transaction.select({ id: branches.id }).from(branches).where(and(
         eq(branches.id, context.branchId), eq(branches.companyId, context.companyId), eq(branches.active, true),
       )).limit(1),
-      transaction.select({ id: customers.id }).from(customers).where(and(
+      transaction.select({
+        id: customers.id,
+        displayName: customers.displayName,
+        receivableAccountId: customers.receivableAccountId,
+      }).from(customers).where(and(
         eq(customers.id, customerId), eq(customers.companyId, context.companyId),
         eq(customers.active, true), eq(customers.isDeleted, false),
       )).limit(1),
@@ -357,9 +502,21 @@ export class PostgresCustomerPaymentRepository implements CustomerPaymentReposit
     if (!branch) throw validation("The selected branch is not active for this company")
     if (!customer) throw validation("The selected customer is not active for this company")
     if (!account) throw validation("The deposit account is not active for this company")
+    return customer
   }
 
   private async requireDraft(
+    transaction: DatabaseTransaction,
+    context: RequestContext,
+    id: string,
+  ) {
+    const payment = await this.requirePayment(transaction, context, id)
+    if (payment.status !== "draft")
+      throw conflict("Posted or reversed payments are immutable")
+    return payment
+  }
+
+  private async requirePayment(
     transaction: DatabaseTransaction,
     context: RequestContext,
     id: string,
@@ -372,9 +529,25 @@ export class PostgresCustomerPaymentRepository implements CustomerPaymentReposit
       isNull(customerPayments.deletedAt),
     )).for("update").limit(1)
     if (!payment) throw notFound("Customer payment was not found")
-    if (payment.status !== "draft")
-      throw conflict("Posted or reversed payments are immutable")
     return payment
+  }
+
+  private async findPosting(
+    executor: Executor,
+    companyId: string,
+    paymentId: string,
+  ) {
+    const [posting] = await executor.select({
+      id: accountingTransactions.id,
+      idempotencyKey: accountingTransactions.idempotencyKey,
+    }).from(accountingTransactions).where(and(
+      eq(accountingTransactions.companyId, companyId),
+      eq(accountingTransactions.sourceModule, "sales"),
+      eq(accountingTransactions.sourceType, "customer_payment"),
+      eq(accountingTransactions.sourceId, paymentId),
+      eq(accountingTransactions.postingKind, "primary"),
+    )).limit(1)
+    return posting
   }
 
   private async read(executor: Executor, context: RequestContext, id: string) {

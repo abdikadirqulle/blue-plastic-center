@@ -7,12 +7,14 @@ import { addMoney, compareMoney, formatMoney, parseMoney, subtractMoney } from "
 import { conflict, notFound, validation } from "../../platform/errors.js"
 import type { ListQuery, RequestContext, ResourceRecord } from "../../platform/types.js"
 import type { ResourceRepository } from "../../repositories/resource-repository.js"
-import type { InvoiceRepository } from "./invoice-repository.js"
+import type { MemoryLedgerRepository } from "../accounting/memory-ledger-repository.js"
+import type { MemoryInvoiceRepository } from "./memory-invoice-repository.js"
 import type {
   CustomerPaymentCreateOptions,
   CustomerPaymentRepository,
   PaymentAllocationInput,
 } from "./customer-payment-repository.js"
+import { buildCustomerPaymentPosting } from "./customer-payment-posting.js"
 
 const money = (value: string) => {
   try { return parseMoney(value) }
@@ -26,7 +28,8 @@ export class MemoryCustomerPaymentRepository implements CustomerPaymentRepositor
 
   constructor(
     private readonly resources: ResourceRepository,
-    private readonly invoices: InvoiceRepository,
+    private readonly invoices: MemoryInvoiceRepository,
+    private readonly ledger: MemoryLedgerRepository,
   ) {}
 
   async list(context: RequestContext, query: ListQuery) {
@@ -154,6 +157,70 @@ export class MemoryCustomerPaymentRepository implements CustomerPaymentRepositor
     payment.updatedAt = new Date().toISOString()
     payment.updatedBy = context.principal.userId
     return payment
+  }
+
+  async post(context: RequestContext, id: string, idempotencyKey: string) {
+    const payment = await this.findById(context, id)
+    if (!payment) throw notFound("Customer payment was not found")
+    if (payment.status === "posted") {
+      if (payment.data.postingIdempotencyKey === idempotencyKey) return payment
+      throw conflict("Customer payment is already posted with a different request")
+    }
+    if (payment.status !== "draft")
+      throw conflict("Only a draft customer payment can be posted")
+    const depositAccountId = String(payment.data.depositToAccountId ?? "")
+    if (!depositAccountId)
+      throw validation("A valid deposit account is required before this payment can be posted")
+    await this.validateReferences(context, String(payment.data.customerId), depositAccountId)
+    const allocations = payment.data.allocations as PaymentAllocationInput[]
+    await this.validateAllocations(
+      context,
+      payment.id,
+      String(payment.data.customerId),
+      String(payment.data.amount),
+      allocations,
+    )
+    const customer = await this.resources.findById(
+      { companyId: context.companyId, module: "sales", resource: "customers" },
+      String(payment.data.customerId),
+    )
+    if (!customer) throw validation("The selected customer is not active for this company")
+    const restoreLedger = this.ledger.snapshot()
+    const restoreInvoices = this.invoices.snapshotPaymentSettlement(
+      allocations.map((allocation) => allocation.invoiceId),
+    )
+    const snapshot = { ...payment, data: { ...payment.data } }
+    try {
+      for (const allocation of allocations)
+        this.invoices.applyPaymentSettlement(context, allocation.invoiceId, allocation.amount)
+      await this.ledger.post(context, buildCustomerPaymentPosting({
+        paymentId: payment.id,
+        paymentNumber: String(payment.data.documentNumber),
+        paymentDate: String(payment.data.paymentDate),
+        sourceVersion: payment.version,
+        currency: String(payment.data.currency),
+        exchangeRate: String(payment.data.exchangeRate ?? "1"),
+        amount: String(payment.data.amount),
+        depositAccountId,
+        customerName: String(customer.data.displayName ?? "Customer"),
+        receivableAccountId:
+          typeof customer.data.receivableAccountId === "string"
+            ? customer.data.receivableAccountId
+            : undefined,
+        idempotencyKey,
+      }))
+      payment.status = "posted"
+      payment.version += 1
+      payment.updatedAt = new Date().toISOString()
+      payment.updatedBy = context.principal.userId
+      payment.data = { ...payment.data, postingIdempotencyKey: idempotencyKey }
+      return payment
+    } catch (error) {
+      restoreLedger()
+      restoreInvoices()
+      Object.assign(payment, snapshot, { data: snapshot.data })
+      throw error
+    }
   }
 
   async remove(context: RequestContext, id: string) {

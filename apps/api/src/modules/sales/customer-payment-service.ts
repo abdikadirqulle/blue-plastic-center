@@ -56,6 +56,12 @@ export class CustomerPaymentService {
     return this.payments.replaceAllocations(context, id, parsed.data.allocations)
   }
 
+  post(context: RequestContext, id: string, idempotencyKey: string) {
+    if (!idempotencyKey.trim())
+      throw validation("Idempotency-Key header is required when posting a customer payment")
+    return this.payments.post(context, id, idempotencyKey)
+  }
+
   remove(context: RequestContext, id: string) {
     return this.payments.remove(context, id)
   }

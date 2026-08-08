@@ -79,7 +79,11 @@ export function createApp(
       stock,
     )
   const inventoryForReads = inventoryReadPort ?? stock
-  const paymentStore = paymentRepository ?? new MemoryCustomerPaymentRepository(repository, invoiceStore)
+  const paymentStore = paymentRepository ?? new MemoryCustomerPaymentRepository(
+    repository,
+    invoiceStore as MemoryInvoiceRepository,
+    ledger instanceof MemoryLedgerRepository ? ledger : new MemoryLedgerRepository(repository),
+  )
   const payments = new CustomerPaymentService(paymentStore)
   // Balances are read from the ledger, the invoice tables and the stock ledger
   // on every request, so no screen can show a figure the books disagree with.

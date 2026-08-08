@@ -36,5 +36,10 @@ export interface CustomerPaymentRepository {
     id: string,
     allocations: PaymentAllocationInput[],
   ): Promise<ResourceRecord>
+  post(
+    context: RequestContext,
+    id: string,
+    idempotencyKey: string,
+  ): Promise<ResourceRecord>
   remove(context: RequestContext, id: string): Promise<void>
 }

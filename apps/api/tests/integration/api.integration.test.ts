@@ -603,6 +603,15 @@ test("MVP secured workflows cover invoices, customer payments, and documents", a
   assert.equal(applied.status, 200);
   assert.equal(applied.json().data.status, "draft");
   assert.equal(applied.json().data.data.unappliedAmount, "0.0000");
+  const postedPayment = await request(app, `/v1/sales/payments/${payment.id}/post`, {
+    method: "POST",
+    headers: { "Idempotency-Key": `payment-post-${payment.id}` },
+  });
+  assert.equal(postedPayment.status, 200);
+  assert.equal(postedPayment.json().data.status, "posted");
+  const settledInvoice = await request(app, `/v1/sales/invoices/${invoice.id}`);
+  assert.equal(settledInvoice.json().data.status, "paid");
+  assert.equal(settledInvoice.json().data.data.balanceDue, "0.0000");
 
   const attachment = await request(app, `/v1/documents/sales/invoices/${invoice.id}/attachments`, {
     method: "POST",
