@@ -20,7 +20,7 @@ export interface PostingProfileLookup {
   find(companyId: string, event: PostingEvent): Promise<PostingProfileDefinition | undefined>
 }
 
-export interface ResolvedPostingProfileLine {
+interface ResolvedPostingProfileLine {
   role: PostingRole
   side: PostingSide
   accountId: string

@@ -87,6 +87,12 @@ apps/api/
 
 ## Accounting invariants
 
+Accounting Core stabilization is complete: exact Money, mandatory OPEN periods,
+central account resolution, dual transaction/functional amounts, idempotency,
+reversal protection, and caller-owned transaction composition are verified
+against PostgreSQL. AR, AP, inventory, banking, reporting, and frontend workflow
+stabilization remain separate future phases.
+
 - Every request is scoped by company and branch.
 - Monetary values cross API boundaries as strings, never floating-point domain values.
 - Journal entries require at least two lines and equal debit and credit totals.

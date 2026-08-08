@@ -18,15 +18,10 @@ export const systemAccountKeys = {
   OWNER_EQUITY: "owner_capital",
 } as const
 
-export type SystemAccountName = keyof typeof systemAccountKeys
-export type SystemAccountKey = (typeof systemAccountKeys)[SystemAccountName]
+export type SystemAccountKey = (typeof systemAccountKeys)[keyof typeof systemAccountKeys]
 
 const knownKeys = new Set<string>(Object.values(systemAccountKeys))
 
 export function isSystemAccountKey(value: string): value is SystemAccountKey {
   return knownKeys.has(value)
-}
-
-export function systemAccountKey(name: SystemAccountName): SystemAccountKey {
-  return systemAccountKeys[name]
 }

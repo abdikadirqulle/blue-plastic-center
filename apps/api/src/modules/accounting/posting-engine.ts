@@ -105,7 +105,7 @@ export function validatePostingCommand(command: PostingCommand) {
  * Validates the accounting shape of a set of journal lines: at least two lines,
  * exactly one side per line, no negatives, and equal non-zero debits/credits.
  */
-export function validateJournalEntry(lines: PostingLine[]) {
+function validateJournalEntry(lines: PostingLine[]) {
   if (!Array.isArray(lines) || lines.length < 2)
     throw new Error("Journal entry must contain at least two lines")
   const totals = assertBalanced(lines as unknown as Array<Record<string, unknown>>)
@@ -116,7 +116,7 @@ export function validateJournalEntry(lines: PostingLine[]) {
   }
 }
 
-export type JournalEntryDraft = Omit<PostingCommand, "lines"> & { lines: PostingLine[] }
+type JournalEntryDraft = Omit<PostingCommand, "lines"> & { lines: PostingLine[] }
 
 /**
  * Single construction point for every automated posting. Zero-value lines are

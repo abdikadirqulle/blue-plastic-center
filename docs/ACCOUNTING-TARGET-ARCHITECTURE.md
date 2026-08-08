@@ -1,7 +1,7 @@
 # BLUE PLASTIC CENTER — Target Accounting Architecture
 
-**Status:** Architecture contract  
-**Phase:** Design only  
+**Status:** Current architecture contract
+**Phase:** Phase 1 and Accounting Core Phase 2 implemented; domain stabilization continues
 **Date:** 2026-08-08  
 **Applies to:** BLUE PLASTIC CENTER modular-monolith backend and its financial read models
 
@@ -115,7 +115,7 @@ The accounting engine owns only universal ledger concerns:
 4. enforcing system/control-account and manual-posting restrictions;
 5. validating at least two journal lines, exactly one positive side per line,
    non-negative amounts, and equal non-zero debits and credits;
-6. calculating or validating functional-currency line amounts and FX rounding;
+6. persisting and validating exact functional-currency line amounts;
 7. reserving and completing idempotency keys;
 8. rejecting duplicate source postings;
 9. assigning journal numbers and persisting journal headers and lines;
@@ -211,7 +211,7 @@ transaction currency, functional currency, exchange rate, actor, timestamp,
 idempotency fingerprint, and reversal link.
 
 Every line records account, description, transaction-currency debit/credit and
-functional-currency debit/credit. The target should retain both currency views;
+functional-currency debit/credit. The current GL retains both currency views;
 storing an exchange rate alone is insufficient for reproducible historical
 reports after rate policies change.
 
@@ -230,16 +230,19 @@ states are `open`, `soft_closed`, and `closed`:
 - `closed`: no posting is allowed until a separately authorized reopening.
 
 No matching fiscal period is an error, not permission to post with a null
-period. Period reopening records actor, reason, time, and prior state.
+period. The current core permits posting only to an exact-one `open` period;
+the privileged `soft_closed` workflow remains future domain work. Period
+reopening records actor, reason, time, and prior state.
 
 ### 3.7 Currencies and exchange rates
 
-Each company has one functional currency. Documents carry transaction currency.
-Posting records the selected rate and rate source/date. The adapter supplies
-transaction-currency amounts; the accounting engine produces/validates
-functional-currency amounts using the canonical money service. A journal must
-balance in functional currency. Any permitted rounding residual posts to a
-configured FX rounding account and is visible, never silently discarded.
+Each company has one functional currency. The current core supports only the
+proven same-currency case: transaction currency must equal company functional
+currency, and transaction amounts are copied exactly into functional amounts.
+Both amount views must balance. Foreign-currency posting fails safely because
+exchange-rate direction, conversion, and FX rounding policy are intentionally
+deferred. When FX is implemented, documents will retain rate source/date and
+any permitted rounding residual will be explicit rather than silently discarded.
 
 ### 3.8 Reversals, idempotency, and audit
 
@@ -957,7 +960,7 @@ legacy rows during expansion.
 5. Disable old writes: none yet.
 6. Remove: nothing.
 
-### Stage 1 — Harden accounting core
+### Stage 1 — Harden accounting core (complete)
 
 1. Introduce: required-period validation, functional-currency line amounts,
    account-resolution service, posting profiles, outbox.
@@ -1002,7 +1005,7 @@ Wire deposits/transfers/fees through banking command services, migrate statement
 and reconciliation evidence, and prove each mapped register equals GL. Disable
 ad-hoc cash effects in sales/payment routes after shared banking adapters own them.
 
-### Stage 6 — Payroll, projects, and fixed assets
+### Stage 6 — Payroll, projects, and fixed assets (intentionally deferred)
 
 Migrate pay runs, payroll liabilities/payments, project dimensions, asset
 capitalization/depreciation/disposal. Each slice gets lifecycle, idempotency,
@@ -1065,6 +1068,10 @@ Future Codex tasks and human changes must never violate these rules:
 
 ## 21. Recommended implementation phases
 
+Phase 1 architecture and Phase 2 Accounting Core hardening are complete. Phase
+3 AR stabilization is the current next priority. Projects and Payroll remain
+deferred unless explicitly brought into scope.
+
 | Phase | Outcome | Exit gate |
 | --- | --- | --- |
 | 1. Architecture contract | Shared target and prohibited shortcuts | Architecture approval |
@@ -1078,7 +1085,6 @@ Future Codex tasks and human changes must never violate these rules:
 | 9. Contract legacy storage | Generic financial writes disabled and approved rows archived | Backup/restore rehearsal and accountant sign-off |
 | 10. Production readiness | Observability, close procedure, security, backup, performance | Production-shaped E2E and formal release approval |
 
-The safest first implementation after approval is Phase 2 accounting-core
-hardening, immediately followed by the AR payment/allocation vertical slice.
-Those steps stop the highest-risk split-brain behavior before additional feature
-work expands the number of financial paths.
+The next implementation priority is the Phase 3 AR payment/allocation vertical
+slice, built on the verified Accounting Core rather than through a new posting
+path.

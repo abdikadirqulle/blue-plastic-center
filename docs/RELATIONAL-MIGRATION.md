@@ -60,6 +60,9 @@ Users do not own accounting data personally. The company owns every record;
 | Payroll | Pending | Pending | Pending | Pending |
 | Fixed assets and budgets | Pending | Pending | Pending | Pending |
 
+Projects and Payroll are intentionally deferred. Their pending rows are not an
+instruction to expand those modules without explicit scope.
+
 `resource_records` must remain until every pending slice completes because the
 current frontend still exposes those modules. Removing it earlier would cause
 data loss and broken routes.

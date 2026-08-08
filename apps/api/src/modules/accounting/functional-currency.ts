@@ -1,7 +1,7 @@
 import { conflict } from "../../platform/errors.js"
 import { assertBalanced } from "./ledger-math.js"
 
-export interface TransactionAmountLine {
+interface TransactionAmountLine {
   debit: string
   credit: string
 }

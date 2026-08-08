@@ -15,12 +15,11 @@ These rules are architectural invariants, not optional UI behavior.
 7. Subsidiary ledgers reconcile to their general-ledger control accounts.
 8. Inventory quantity and inventory value movements remain traceable to source
    documents.
-9. Multi-currency documents retain both transaction and functional-currency
-   values.
+9. Posted facts retain both transaction and functional-currency values. Until
+   explicit FX conversion is implemented, foreign-currency GL posting fails.
 10. Financial report totals must be reproducible from posted journal lines.
 11. Authorization, approval, posting, and payment can be separated by role.
 12. Audit history records before/after context for sensitive master-data changes.
 
 Accounting workflows require review by a qualified accountant before production
 use.
-

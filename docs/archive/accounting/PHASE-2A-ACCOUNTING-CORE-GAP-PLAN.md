@@ -1,5 +1,7 @@
 # BLUE PLASTIC CENTER — Phase 2A Accounting Core Gap Analysis & Implementation Plan
 
+> Historical document — retained for implementation history. Not authoritative for current accounting architecture.
+
 **Status:** Planning only  
 **Scope:** Shared Accounting Core  
 **Primary contract:** `docs/ACCOUNTING-TARGET-ARCHITECTURE.md`  

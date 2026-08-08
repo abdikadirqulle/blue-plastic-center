@@ -1,5 +1,7 @@
 # BLUE PLASTIC CENTER — Accounting Architecture Audit
 
+> Historical document — retained for implementation history. Not authoritative for current accounting architecture.
+
 **Audit type:** READ-ONLY  
 **Date:** 2026-08-08  
 **Scope:** Backend schema, posting engine, sales/purchasing/inventory/banking flows, read models, reports, money precision, docs vs code  

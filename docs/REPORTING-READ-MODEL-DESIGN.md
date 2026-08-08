@@ -32,8 +32,9 @@ exact numeric values or integer minor units, never JavaScript floating point.
 
 ### Trial Balance
 
-Source: posted, non-reversed accounting transactions joined to accounting
-lines and chart-of-account metadata.
+Source: all book-effective posted facts, including reversed originals beside
+their posted opposite reversals, joined to accounting lines and chart-of-account
+metadata. The pair remains visible and nets to zero.
 
 Group by company, branch scope, account id, account number, account name, and
 account type. Return debit, credit, and normal-balance-aware balance. The debit
@@ -116,4 +117,3 @@ The valuation total must reconcile to the inventory control account.
 5. Add cash-basis transformations and classified statement of cash flows.
 6. Enable each remaining report only after its contract and reconciliation tests
    pass; never enable a report by aliasing another report kind.
-
