@@ -300,4 +300,88 @@ describe("relational customer payment foundation", () => {
       amountPaid: "0.0000", balanceDue: "100.0000",
     })
   })
+
+  it("reverses a posted payment and restores invoice settlement from remaining posted allocations", async () => {
+    const invoice = await createInvoice()
+    const first = await createPayment("40")
+    const second = await createPayment("20")
+    await payments.allocate(context, first.id, { allocations: [{ invoiceId: invoice.id, amount: "40" }] })
+    await payments.allocate(context, second.id, { allocations: [{ invoiceId: invoice.id, amount: "20" }] })
+    await payments.post(context, first.id, `payment-post-${first.id}`)
+    await payments.post(context, second.id, `payment-post-${second.id}`)
+    expect((await invoices.get(context, invoice.id)).data).toMatchObject({
+      amountPaid: "60.0000", balanceDue: "40.0000",
+    })
+
+    const reversed = await payments.reverse(
+      context,
+      first.id,
+      { reason: "Wrong deposit", reversalDate: "2026-08-09" },
+      `payment-reverse-${first.id}`,
+    )
+    expect(reversed.status).toBe("reversed")
+    expect(reversed.data.allocations).toEqual([{ invoiceId: invoice.id, amount: "40.0000" }])
+    const settled = await invoices.get(context, invoice.id)
+    expect(settled.status).toBe("partially_paid")
+    expect(settled.data).toMatchObject({ amountPaid: "20.0000", balanceDue: "80.0000" })
+    expect((await payments.get(context, second.id)).status).toBe("posted")
+
+    const primary = ledger.findPosting(companyId, {
+      sourceModule: "sales", sourceType: "customer_payment", sourceId: first.id,
+    })
+    const reversal = ledger.findPosting(companyId, {
+      sourceModule: "sales", sourceType: "customer_payment", sourceId: first.id,
+    }, "reversal")
+    expect(primary?.record.status).toBe("reversed")
+    expect(reversal?.lines).toEqual(expect.arrayContaining([
+      expect.objectContaining({ accountId, debit: "0.0000", credit: "40.0000" }),
+      expect.objectContaining({
+        accountId: "accounts_receivable", debit: "40.0000", credit: "0.0000",
+      }),
+    ]))
+  })
+
+  it("rejects draft and double reversal while retries remain safe", async () => {
+    const invoice = await createInvoice()
+    const draft = await createPayment()
+    await expect(payments.reverse(context, draft.id, {}, `payment-reverse-${draft.id}`))
+      .rejects.toMatchObject({ status: 409 })
+
+    const payment = await createPayment()
+    await payments.allocate(context, payment.id, { allocations: [{ invoiceId: invoice.id, amount: "100" }] })
+    await payments.post(context, payment.id, `payment-post-${payment.id}`)
+    const key = `payment-reverse-${payment.id}`
+    const first = await payments.reverse(context, payment.id, { reason: "Correction" }, key)
+    const replay = await payments.reverse(context, payment.id, { reason: "Correction" }, key)
+    expect(replay.id).toBe(first.id)
+    expect(replay.status).toBe("reversed")
+    await expect(payments.reverse(context, payment.id, { reason: "Again" }, `${key}-changed`))
+      .rejects.toMatchObject({ status: 409 })
+    await expect(payments.update(context, payment.id, { data: { amount: "1" } }))
+      .rejects.toMatchObject({ status: 409 })
+    expect((await invoices.get(context, invoice.id)).data).toMatchObject({
+      amountPaid: "0.0000", balanceDue: "100.0000",
+    })
+  })
+
+  it("rolls settlement and status back when payment GL reversal fails", async () => {
+    const invoice = await createInvoice()
+    const payment = await createPayment()
+    await payments.allocate(context, payment.id, { allocations: [{ invoiceId: invoice.id, amount: "100" }] })
+    await payments.post(context, payment.id, `payment-post-${payment.id}`)
+    await ledger.closePeriod(context, { name: "August", startDate: "2026-08-01", endDate: "2026-08-31" })
+    await expect(payments.reverse(
+      context,
+      payment.id,
+      { reversalDate: "2026-08-09" },
+      `payment-reverse-${payment.id}`,
+    )).rejects.toMatchObject({ status: 409 })
+    expect((await payments.get(context, payment.id)).status).toBe("posted")
+    expect((await invoices.get(context, invoice.id)).data).toMatchObject({
+      amountPaid: "100.0000", balanceDue: "0.0000",
+    })
+    expect(ledger.findPosting(companyId, {
+      sourceModule: "sales", sourceType: "customer_payment", sourceId: payment.id,
+    }, "reversal")).toBeUndefined()
+  })
 })

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import type {
   CustomerPaymentCreateData,
+  CustomerPaymentReverseInput,
   CustomerPaymentUpdateData,
 } from "@blue-plastic/types"
 import { addMoney, compareMoney, formatMoney, parseMoney, subtractMoney } from "../accounting/money.js"
@@ -214,6 +215,77 @@ export class MemoryCustomerPaymentRepository implements CustomerPaymentRepositor
       payment.updatedAt = new Date().toISOString()
       payment.updatedBy = context.principal.userId
       payment.data = { ...payment.data, postingIdempotencyKey: idempotencyKey }
+      return payment
+    } catch (error) {
+      restoreLedger()
+      restoreInvoices()
+      Object.assign(payment, snapshot, { data: snapshot.data })
+      throw error
+    }
+  }
+
+  async reverse(
+    context: RequestContext,
+    id: string,
+    input: CustomerPaymentReverseInput,
+    idempotencyKey: string,
+  ) {
+    const payment = await this.findById(context, id)
+    if (!payment) throw notFound("Customer payment was not found")
+    if (payment.status === "reversed") {
+      if (payment.data.reversalIdempotencyKey === idempotencyKey) return payment
+      throw conflict("Customer payment is already reversed with a different request")
+    }
+    if (payment.status !== "posted")
+      throw conflict("Only a posted customer payment can be reversed")
+    const original = this.ledger.findPosting(context.companyId, {
+      sourceModule: "sales",
+      sourceType: "customer_payment",
+      sourceId: id,
+    })
+    if (!original)
+      throw notFound("A posted GL transaction for this customer payment was not found")
+
+    const allocations = payment.data.allocations as PaymentAllocationInput[]
+    const restoreLedger = this.ledger.snapshot()
+    const restoreInvoices = this.invoices.snapshotPaymentSettlement(
+      allocations.map((allocation) => allocation.invoiceId),
+    )
+    const snapshot = { ...payment, data: { ...payment.data } }
+    try {
+      const reversalDate = input.reversalDate ?? new Date().toISOString().slice(0, 10)
+      await this.ledger.reverseTransaction(context, {
+        sourceModule: "sales",
+        sourceType: "customer_payment",
+        sourceId: id,
+        reversalDate,
+        idempotencyKey,
+        memo: input.reason ?? `Reversal of customer payment ${String(payment.data.documentNumber)}`,
+      })
+      payment.status = "reversed"
+      payment.version += 1
+      payment.updatedAt = new Date().toISOString()
+      payment.updatedBy = context.principal.userId
+      payment.data = {
+        ...payment.data,
+        reversalIdempotencyKey: idempotencyKey,
+      }
+
+      const invoiceIds = [...new Set(allocations.map((allocation) => allocation.invoiceId))]
+      for (const invoiceId of invoiceIds) {
+        const remaining = this.records
+          .filter((record) =>
+            record.companyId === context.companyId &&
+            record.status === "posted" &&
+            !record.isDeleted)
+          .flatMap((record) => record.data.allocations as PaymentAllocationInput[])
+          .filter((allocation) => allocation.invoiceId === invoiceId)
+          .reduce(
+            (total, allocation) => addMoney(total, money(allocation.amount)),
+            parseMoney("0"),
+          )
+        this.invoices.applyCanonicalSettlement(context, invoiceId, formatMoney(remaining))
+      }
       return payment
     } catch (error) {
       restoreLedger()

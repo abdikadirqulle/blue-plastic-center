@@ -203,4 +203,76 @@ postgresDescribe("customer payment PostgreSQL atomic posting", () => {
     expect(detail).toMatchObject({ status: "paid", data: { amountPaid: "100.0000", balanceDue: "0.0000" } })
     expect(listInvoice).toMatchObject({ status: "paid", data: { amountPaid: "100.0000", balanceDue: "0.0000" } })
   }, 60_000)
+
+  it("reverses concurrently into one GL reversal and restored settlement", async () => {
+    const invoiceId = await invoice(7, "1000.0000")
+    const firstId = await payment(7, "400.0000", invoiceId)
+    const secondId = await payment(8, "200.0000", invoiceId)
+    await repository.post(context, firstId, "phase-3e-post-first")
+    await repository.post(context, secondId, "phase-3e-post-second")
+    const [before] = await db.select().from(invoices).where(eq(invoices.id, invoiceId))
+    expect(before).toMatchObject({ amountPaid: "600.0000", balanceDue: "400.0000" })
+
+    const results = await Promise.all([
+      repository.reverse(
+        context,
+        firstId,
+        { reason: "Wrong amount", reversalDate: "2027-08-20" },
+        "phase-3e-reverse-first",
+      ),
+      repository.reverse(
+        context,
+        firstId,
+        { reason: "Wrong amount", reversalDate: "2027-08-20" },
+        "phase-3e-reverse-first",
+      ),
+    ])
+    expect(results.map((result) => result.status)).toEqual(["reversed", "reversed"])
+    const [settled] = await db.select().from(invoices).where(eq(invoices.id, invoiceId))
+    expect(settled).toMatchObject({
+      status: "partially_paid",
+      amountPaid: "200.0000",
+      balanceDue: "800.0000",
+    })
+    const [paymentRow] = await db.select().from(customerPayments).where(eq(customerPayments.id, firstId))
+    expect(paymentRow.status).toBe("reversed")
+    const allocations = await db.select().from(customerPaymentAllocations)
+      .where(eq(customerPaymentAllocations.paymentId, firstId))
+    expect(allocations).toHaveLength(1)
+    const journals = await db.select().from(accountingTransactions).where(and(
+      eq(accountingTransactions.companyId, companyId),
+      eq(accountingTransactions.sourceType, "customer_payment"),
+      eq(accountingTransactions.sourceId, firstId),
+    ))
+    expect(journals).toHaveLength(2)
+    expect(journals.map((journal) => journal.postingKind).sort()).toEqual(["primary", "reversal"])
+    const reversal = journals.find((journal) => journal.postingKind === "reversal")!
+    const lines = await db.select().from(accountingLines)
+      .where(eq(accountingLines.transactionId, reversal.id))
+    expect(lines).toEqual(expect.arrayContaining([
+      expect.objectContaining({ accountId: bankId, debit: "0.0000", credit: "400.0000" }),
+      expect.objectContaining({ accountId: arId, debit: "400.0000", credit: "0.0000" }),
+    ]))
+  }, 60_000)
+
+  it("rolls payment reverse effects back when fiscal period is missing", async () => {
+    const invoiceId = await invoice(9)
+    const paymentId = await payment(9, "100.0000", invoiceId)
+    await repository.post(context, paymentId, "phase-3e-post-before-fail")
+    await expect(repository.reverse(
+      context,
+      paymentId,
+      { reversalDate: "2027-09-15" },
+      "phase-3e-reverse-fail",
+    )).rejects.toThrow("No fiscal period")
+    const [[unchangedInvoice], [postedPayment], journals] = await Promise.all([
+      db.select().from(invoices).where(eq(invoices.id, invoiceId)),
+      db.select().from(customerPayments).where(eq(customerPayments.id, paymentId)),
+      db.select().from(accountingTransactions).where(eq(accountingTransactions.sourceId, paymentId)),
+    ])
+    expect(unchangedInvoice).toMatchObject({ status: "paid", amountPaid: "100.0000", balanceDue: "0.0000" })
+    expect(postedPayment.status).toBe("posted")
+    expect(journals).toHaveLength(1)
+    expect(journals[0]?.postingKind).toBe("primary")
+  }, 60_000)
 })

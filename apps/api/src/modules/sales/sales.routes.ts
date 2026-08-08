@@ -143,6 +143,22 @@ export async function salesRoutes(
     },
   )
 
+  app.post<{ Params: { id: string } }>(
+    "/payments/:id/reverse",
+    async (request) => {
+      authorizeResource(request.requestContext.principal, "post", "sales")
+      const idempotencyKey = request.headers["idempotency-key"]
+      return {
+        data: await payments.reverse(
+          request.requestContext,
+          request.params.id,
+          request.body,
+          typeof idempotencyKey === "string" ? idempotencyKey : "",
+        ),
+      }
+    },
+  )
+
   app.post<{ Params: { resource: string; id: string } }>(
     "/:resource/:id/email",
     async (request, reply) => {

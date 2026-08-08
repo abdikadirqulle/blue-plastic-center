@@ -126,6 +126,12 @@ export const customerPaymentUpdateDataSchema = z.object(customerPaymentDataShape
 export type CustomerPaymentCreateData = z.infer<typeof customerPaymentCreateDataSchema>
 export type CustomerPaymentUpdateData = z.infer<typeof customerPaymentUpdateDataSchema>
 
+export const customerPaymentReverseSchema = z.object({
+  reversalDate: isoDate.optional(),
+  reason: z.string().trim().min(1).max(500).optional(),
+})
+export type CustomerPaymentReverseInput = z.infer<typeof customerPaymentReverseSchema>
+
 export const salesSchemas: Record<string, OperationalSchema> = {
   customers: partySchema,
   estimates: customerDocument.extend({

@@ -77,4 +77,9 @@ export interface TransactionalLedgerRepository extends LedgerRepository {
     context: RequestContext,
     command: PostingCommand,
   ): Promise<PostingResult>
+  reverseTransactionInTransaction(
+    transaction: DatabaseTransaction,
+    context: RequestContext,
+    input: SourceReversalInput,
+  ): Promise<PostingResult>
 }

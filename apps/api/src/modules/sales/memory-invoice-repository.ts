@@ -19,6 +19,7 @@ import {
   type InvoiceLineSource,
 } from "./invoice-domain.js"
 import { buildInvoicePosting, type InvoicePostingLine } from "./invoice-posting.js"
+import { calculateInvoiceSettlement } from "./invoice-settlement.js"
 import {
   toInvoiceRecord,
   type InvoiceLineView,
@@ -156,6 +157,23 @@ export class MemoryInvoiceRepository implements InvoiceRepository {
     invoice.amountPaid = minorToDecimal(paid)
     invoice.balanceDue = minorToDecimal(balance)
     invoice.status = balance === 0n ? "paid" : "partially_paid"
+    invoice.version += 1
+    invoice.updatedAt = new Date().toISOString()
+    invoice.updatedBy = context.principal.userId
+  }
+
+  /** Rebuild settlement from remaining posted allocation totals using the canonical helper. */
+  applyCanonicalSettlement(context: RequestContext, id: string, postedAllocationTotal: string) {
+    const invoice = this.find(context, id)
+    if (!invoice) throw validation("Allocation invoice was not found for this company")
+    const settlement = calculateInvoiceSettlement({
+      invoiceStatus: invoice.status,
+      total: invoice.total,
+      postedAllocationTotal,
+    })
+    invoice.amountPaid = settlement.amountPaid
+    invoice.balanceDue = settlement.balanceDue
+    invoice.status = settlement.status
     invoice.version += 1
     invoice.updatedAt = new Date().toISOString()
     invoice.updatedBy = context.principal.userId

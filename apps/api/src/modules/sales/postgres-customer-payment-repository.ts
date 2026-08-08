@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm"
 import type {
   CustomerPaymentCreateData,
+  CustomerPaymentReverseInput,
   CustomerPaymentUpdateData,
 } from "@blue-plastic/types"
 import type { Database, DatabaseTransaction } from "../../db/client.js"
@@ -356,6 +357,113 @@ export class PostgresCustomerPaymentRepository implements CustomerPaymentReposit
     })
   }
 
+  reverse(
+    context: RequestContext,
+    id: string,
+    input: CustomerPaymentReverseInput,
+    idempotencyKey: string,
+  ) {
+    return this.db.transaction(async (transaction) => {
+      const payment = await this.requirePayment(transaction, context, id)
+      if (payment.status === "reversed") {
+        const existing = await this.findReversalPosting(transaction, context.companyId, id)
+        if (existing?.idempotencyKey === idempotencyKey) {
+          const record = await this.read(transaction, context, id)
+          if (record) return record
+        }
+        throw conflict("Customer payment is already reversed with a different request")
+      }
+      if (payment.status !== "posted")
+        throw conflict("Only a posted customer payment can be reversed")
+
+      const original = await this.findPosting(transaction, context.companyId, id)
+      if (!original)
+        throw notFound("A posted GL transaction for this customer payment was not found")
+
+      const allocations = await transaction.select({
+        invoiceId: customerPaymentAllocations.invoiceId,
+        amount: customerPaymentAllocations.amount,
+      }).from(customerPaymentAllocations)
+        .where(eq(customerPaymentAllocations.paymentId, id))
+        .orderBy(asc(customerPaymentAllocations.createdAt))
+
+      const reversalDate = input.reversalDate ?? dateText(new Date())
+      await this.ledger.reverseTransactionInTransaction(transaction, context, {
+        sourceModule: "sales",
+        sourceType: "customer_payment",
+        sourceId: id,
+        reversalDate,
+        idempotencyKey,
+        memo: input.reason ?? `Reversal of customer payment ${payment.paymentNumber}`,
+      })
+
+      const [reversed] = await transaction.update(customerPayments).set({
+        status: "reversed",
+        version: payment.version + 1,
+        updatedBy: context.principal.userId,
+        updatedAt: new Date(),
+      }).where(and(
+        eq(customerPayments.id, id),
+        eq(customerPayments.companyId, context.companyId),
+        eq(customerPayments.branchId, context.branchId),
+        eq(customerPayments.status, "posted"),
+        eq(customerPayments.version, payment.version),
+      )).returning({ id: customerPayments.id })
+      if (!reversed) throw conflict("Payment changed before it could be reversed")
+
+      for (const allocation of allocations) {
+        const [invoice] = await transaction.select().from(invoices).where(and(
+          eq(invoices.id, allocation.invoiceId),
+          eq(invoices.companyId, context.companyId),
+        )).for("update").limit(1)
+        if (!invoice) throw validation("Allocation invoice was not found for this company")
+        const [postedAllocation] = await transaction.select({
+          total: sql<string>`coalesce(sum(${customerPaymentAllocations.amount}), 0)::text`,
+        }).from(customerPaymentAllocations)
+          .innerJoin(customerPayments, eq(customerPaymentAllocations.paymentId, customerPayments.id))
+          .where(and(
+            eq(customerPaymentAllocations.invoiceId, invoice.id),
+            eq(customerPayments.companyId, context.companyId),
+            eq(customerPayments.status, "posted"),
+            eq(customerPayments.isDeleted, false),
+          ))
+        const settlement = calculateInvoiceSettlement({
+          invoiceStatus: invoice.status,
+          total: invoice.total,
+          postedAllocationTotal: formatMoney(
+            asMoney(postedAllocation?.total ?? "0", "Posted allocation total"),
+          ),
+        })
+        const [settled] = await transaction.update(invoices).set({
+          amountPaid: settlement.amountPaid,
+          balanceDue: settlement.balanceDue,
+          status: settlement.status,
+          version: invoice.version + 1,
+          updatedBy: context.principal.userId,
+          updatedAt: new Date(),
+        }).where(and(
+          eq(invoices.id, invoice.id),
+          eq(invoices.companyId, context.companyId),
+          eq(invoices.version, invoice.version),
+        )).returning({ id: invoices.id })
+        if (!settled) throw conflict("Invoice settlement changed concurrently")
+      }
+
+      await this.audit(transaction, context, "reverse", id, {
+        before: { status: "posted" },
+        after: {
+          status: "reversed",
+          amount: payment.amount,
+          reason: input.reason,
+          reversalDate,
+        },
+      })
+      const result = await this.read(transaction, context, id)
+      if (!result) throw notFound("Reversed customer payment was not found")
+      return result
+    })
+  }
+
   async remove(context: RequestContext, id: string) {
     await this.db.transaction(async (transaction) => {
       const current = await this.requireDraft(transaction, context, id)
@@ -541,6 +649,24 @@ export class PostgresCustomerPaymentRepository implements CustomerPaymentReposit
       eq(accountingTransactions.sourceType, "customer_payment"),
       eq(accountingTransactions.sourceId, paymentId),
       eq(accountingTransactions.postingKind, "primary"),
+    )).limit(1)
+    return posting
+  }
+
+  private async findReversalPosting(
+    executor: Executor,
+    companyId: string,
+    paymentId: string,
+  ) {
+    const [posting] = await executor.select({
+      id: accountingTransactions.id,
+      idempotencyKey: accountingTransactions.idempotencyKey,
+    }).from(accountingTransactions).where(and(
+      eq(accountingTransactions.companyId, companyId),
+      eq(accountingTransactions.sourceModule, "sales"),
+      eq(accountingTransactions.sourceType, "customer_payment"),
+      eq(accountingTransactions.sourceId, paymentId),
+      eq(accountingTransactions.postingKind, "reversal"),
     )).limit(1)
     return posting
   }

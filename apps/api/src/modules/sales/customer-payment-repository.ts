@@ -1,5 +1,6 @@
 import type {
   CustomerPaymentCreateData,
+  CustomerPaymentReverseInput,
   CustomerPaymentUpdateData,
 } from "@blue-plastic/types"
 import type { ListQuery, RequestContext, ResourceRecord } from "../../platform/types.js"
@@ -39,6 +40,12 @@ export interface CustomerPaymentRepository {
   post(
     context: RequestContext,
     id: string,
+    idempotencyKey: string,
+  ): Promise<ResourceRecord>
+  reverse(
+    context: RequestContext,
+    id: string,
+    input: CustomerPaymentReverseInput,
     idempotencyKey: string,
   ): Promise<ResourceRecord>
   remove(context: RequestContext, id: string): Promise<void>

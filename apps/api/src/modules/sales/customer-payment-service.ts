@@ -1,6 +1,7 @@
 import {
   allocationSchema,
   customerPaymentCreateDataSchema,
+  customerPaymentReverseSchema,
   customerPaymentUpdateDataSchema,
 } from "@blue-plastic/types"
 import { conflict, notFound, validation } from "../../platform/errors.js"
@@ -60,6 +61,20 @@ export class CustomerPaymentService {
     if (!idempotencyKey.trim())
       throw validation("Idempotency-Key header is required when posting a customer payment")
     return this.payments.post(context, id, idempotencyKey)
+  }
+
+  reverse(
+    context: RequestContext,
+    id: string,
+    input: unknown,
+    idempotencyKey: string,
+  ) {
+    if (!idempotencyKey.trim())
+      throw validation("Idempotency-Key header is required when reversing a customer payment")
+    const parsed = customerPaymentReverseSchema.safeParse(input ?? {})
+    if (!parsed.success)
+      throw validation("Customer payment reversal validation failed", parsed.error.flatten())
+    return this.payments.reverse(context, id, parsed.data, idempotencyKey)
   }
 
   remove(context: RequestContext, id: string) {
