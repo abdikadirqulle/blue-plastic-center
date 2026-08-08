@@ -914,22 +914,6 @@ export function ResourceDetailsPage({
                 ) : null}
                 {isInvoice ? (
                   <>
-                    {row.status.toLowerCase() === "draft" ? (
-                      <button
-                        onClick={() =>
-                          void runAction(
-                            `/v1/sales/invoices/${encodeURIComponent(row.id)}/post`,
-                            undefined,
-                            "Invoice posted",
-                            `${displayId} was posted to the ledger.`,
-                            `invoice:${row.id}:post`,
-                          )
-                        }
-                        className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700"
-                      >
-                        <CheckCircle2 size={15} /> Post invoice
-                      </button>
-                    ) : null}
                     {["open", "partially_paid", "paid", "overdue"].includes(
                       row.status.toLowerCase(),
                     ) ? (
@@ -961,22 +945,6 @@ export function ResourceDetailsPage({
                       <FileText size={15} /> Preview / download PDF
                     </button>
                   </>
-                ) : null}
-                {isCustomerPayment && row.status.toLowerCase() === "draft" ? (
-                  <button
-                    disabled={actionPending}
-                    onClick={() => void runAction(
-                      `/v1/sales/payments/${encodeURIComponent(row.id)}/post`,
-                      undefined,
-                      "Payment posted",
-                      `${displayId} updated invoice and customer balances.`,
-                      `payment:${row.id}:post`,
-                    )}
-                    className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-700 disabled:cursor-wait disabled:opacity-60"
-                  >
-                    {actionPending ? <LoaderCircle size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-                    {actionPending ? "Posting payment…" : "Post payment"}
-                  </button>
                 ) : null}
                 {isCustomerPayment && row.status.toLowerCase() === "posted" ? (
                   <button

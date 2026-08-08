@@ -1,6 +1,7 @@
 import { Link, useRouter } from "@/components/routing";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, LoaderCircle, Save } from "lucide-react";
 import { AppShell } from "../../../components/layout/app-shell";
 import { Card } from "../../../components/ui/card";
@@ -8,6 +9,7 @@ import { DatePicker } from "../../../components/ui/date-picker";
 import { Select } from "../../../components/ui/select";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
 import { apiClient } from "../../../lib/api-client";
+import { queryKeys } from "../../../lib/query-client";
 import {
   cn,
   compareDecimals,
@@ -54,6 +56,7 @@ const PAYMENT_METHODS = [
  */
 export function ReceivePaymentFormPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit") ?? "";
   const sourceInvoiceId = searchParams.get("invoice") ?? "";
@@ -289,6 +292,18 @@ export function ReceivePaymentFormPage() {
         savedId = created.data.id;
       }
 
+      await apiClient.action(
+        `/v1/sales/payments/${encodeURIComponent(savedId)}/post`,
+        undefined,
+        "POST",
+        `${idempotencyKey.current}:post`,
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.resource("sales", "payments") }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.resource("sales", "invoices") }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.resource("sales", "customers") }),
+      ]);
+
       setMessage({
         title: "Payment saved",
         description: closeAfter
@@ -361,7 +376,7 @@ export function ReceivePaymentFormPage() {
               ) : (
                 <Save size={14} />
               )}
-              Save draft & new
+              Save & new
             </button>
             <button
               type="button"
@@ -372,7 +387,7 @@ export function ReceivePaymentFormPage() {
               {saving && saveAndClose ? (
                 <LoaderCircle size={14} className="animate-spin" />
               ) : null}
-              Save draft & close
+              Save & close
             </button>
               </>
             ) : null}

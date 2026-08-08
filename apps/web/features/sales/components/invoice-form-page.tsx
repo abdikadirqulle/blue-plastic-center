@@ -1,12 +1,15 @@
 import { Link, useRouter } from "@/components/routing";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, LoaderCircle, Plus, Save, Trash2 } from "lucide-react";
 import { AppShell } from "../../../components/layout/app-shell";
 import { Card } from "../../../components/ui/card";
 import { DatePicker } from "../../../components/ui/date-picker";
 import { Select } from "../../../components/ui/select";
 import { Toast, type ToastMessage } from "../../../components/ui/toast";
+import { apiClient } from "../../../lib/api-client";
+import { queryKeys } from "../../../lib/query-client";
 import {
   cn,
   formatDecimal,
@@ -79,6 +82,7 @@ function lineAmount(line: InvoiceLine) {
  */
 export function InvoiceFormPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit") ?? "";
   const detail = useResourceDetail("sales", "invoices", editId);
@@ -279,6 +283,17 @@ export function InvoiceFormPage() {
         id = created.data.id;
       }
 
+      await apiClient.action(
+        `/v1/sales/invoices/${encodeURIComponent(id)}/post`,
+        undefined,
+        "POST",
+        `${idempotencyKey.current}:post`,
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.resource("sales", "invoices") }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.resource("sales", "customers") }),
+      ]);
+
       setMessage({
         title: "Invoice saved",
         description:
@@ -286,7 +301,7 @@ export function InvoiceFormPage() {
             ? "Returning to the invoices list."
             : mode === "new"
               ? "Saved. Ready for another invoice."
-              : "Draft saved.",
+              : "Invoice recorded.",
         variant: "success",
       });
 
@@ -300,8 +315,8 @@ export function InvoiceFormPage() {
         }, 500);
       } else if (mode === "new") {
         resetForm();
-      } else if (!editId && id) {
-        router.replace(`/sales/invoices/new?edit=${encodeURIComponent(id)}`);
+      } else if (id) {
+        router.push(`/sales/invoices/${encodeURIComponent(id)}`);
       }
     } catch (caught) {
       setMessage({

@@ -56,10 +56,12 @@ test("uses the live REST API and React Query integration", async () => {
 });
 
 test("details never fabricate missing database values and line items use searchable selects", async () => {
-  const [details, form, select] = await Promise.all([
+  const [details, form, select, invoiceForm, paymentForm] = await Promise.all([
     read("../features/resources/resource-details-page.tsx"),
     read("../features/resources/resource-form-page.tsx"),
     read("../components/ui/select.tsx"),
+    read("../features/sales/components/invoice-form-page.tsx"),
+    read("../features/sales/components/receive-payment-form-page.tsx"),
   ])
 
   expect(details).not.toMatch(/accounts@blueplastic\.example/)
@@ -67,9 +69,14 @@ test("details never fabricate missing database values and line items use searcha
   expect(details).not.toMatch(/Verified against the original transaction/)
   expect(details).toMatch(/recordIdentifier/)
   expect(details).toMatch(/references\.resolve/)
-  expect(details).toMatch(/payments\/\$\{encodeURIComponent\(row\.id\)\}\/post/)
+  expect(details).not.toMatch(/Post invoice/)
+  expect(details).not.toMatch(/Post payment/)
   expect(details).toMatch(/payments\/\$\{encodeURIComponent\(row\.id\)\}\/reverse/)
   expect(details).toMatch(/Reverse Payment/)
+  expect(invoiceForm).toMatch(/invoices\/\$\{encodeURIComponent\(id\)\}\/post/)
+  expect(invoiceForm).not.toMatch(/Draft saved/)
+  expect(paymentForm).toMatch(/payments\/\$\{encodeURIComponent\(savedId\)\}\/post/)
+  expect(paymentForm).not.toMatch(/Save draft/)
   expect(form).toMatch(/options=\{lineReferenceOptions\}/)
   expect(form).toMatch(/\{ itemId: line\.item \}/)
   expect(form).toMatch(/item\?\.data\.salesPrice/)
